@@ -55,10 +55,12 @@ Consequences to keep in mind:
 - **The redirect is a `302`, not a `301`.** A permanent redirect gets cached in her browser
   and would be genuinely annoying to undo if we later embed the Studio. Keep it temporary
   while the arrangement is temporary.
-- **The deployed Studio's dataset is baked into the bundle at build time** from
-  `SANITY_STUDIO_DATASET`, which defaults to `production` when unset. So a plain
-  `npm run deploy` ships the real dataset, and pointing local work at `development` is an
-  opt-in via `studio/.env`. The safe thing is the default; the dev thing is explicit.
+- **The Studio's dataset is required, never defaulted.** `studio/dataset.ts` throws if
+  `SANITY_STUDIO_DATASET` is unset. There is no safe default: `production` means a machine
+  without `studio/.env` silently edits her real photos, and `development` means a deploy
+  silently ships a Studio full of stock content. Both are wrong, so neither is the default.
+  `npm run deploy` pins `production` itself, so the deployed Studio cannot inherit a local
+  `.env`. Local work sets `development` in `studio/.env`.
 - **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
   opaque error. That means both the deployed host and `http://localhost:3333` for
   `sanity dev`: `npx sanity cors add <origin> --credentials`.
@@ -77,8 +79,8 @@ Two datasets on project `c3808h1v`, both created:
 - `development` (private) — stock photos, for building and experimenting. What local dev
   points at, via `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET`
   in `web/.env`.
-- `production` — her real content. Never seeded, never scripted against casually. This is
-  the default when `SANITY_STUDIO_DATASET` is unset, so a deploy ships the real dataset.
+- `production` — her real content. Never seeded, never scripted against casually. Reached
+  only by an explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
 
 Any script that writes must take the dataset explicitly and must not default to `production`.
 
@@ -143,7 +145,7 @@ is shared between them at the dependency level — the only coupling is that the
 typegen writes a types file into the app. `✎` marks what exists today; the rest is the
 target shape.
 
-```
+```text
 CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
 .env.example                ✎ Root env, for scripts/ only
 
@@ -258,8 +260,9 @@ the Content Lake.
 
 ## Commands
 
-There is no root `package.json`. Every command runs from `web/` or from `studio/` — check
-which directory you are in before running anything.
+There is no root `package.json`. Nuxt commands run from `web/`, Studio and schema commands
+run from `studio/`, and the seed scripts run from the repo root — check which directory you
+are in before running anything.
 
 From **`web/`** — the Nuxt app:
 
@@ -305,7 +308,7 @@ on purpose — do not consolidate them into one root file.
 
 | Name | Purpose |
 | --- | --- |
-| `SANITY_STUDIO_DATASET` | Dataset the Studio points at. Unset defaults to `production`, so a deploy ships the real dataset. Set to `development` locally. |
+| `SANITY_STUDIO_DATASET` | Dataset the Studio points at. **Required** — unset throws, via `studio/dataset.ts`. Set `development` here for local work; `npm run deploy` supplies `production` itself and overrides this file. |
 
 There is no `SANITY_STUDIO_PROJECT_ID` — the project ID is hardcoded in the Studio config,
 which is standard for Sanity and avoids a variable that can only ever have one value.

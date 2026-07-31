@@ -25,7 +25,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Redirect target for /admin, resolved at runtime by server/routes/admin.ts.
-      // Empty until `npm run studio:deploy` claims a Studio hostname.
+      // Empty until `npm run deploy` in studio/ claims a Studio hostname.
       sanityStudioUrl: '',
     },
   },

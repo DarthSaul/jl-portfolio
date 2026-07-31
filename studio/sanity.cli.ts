@@ -1,9 +1,11 @@
 import {defineCliConfig} from 'sanity/cli'
+import {requireDataset} from './dataset'
 
 export default defineCliConfig({
   api: {
     projectId: 'c3808h1v',
-    dataset: process.env.SANITY_STUDIO_DATASET || 'production',
+    // Required, never defaulted. See ./dataset.ts.
+    dataset: requireDataset(),
   },
   deployment: {
     /**

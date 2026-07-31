@@ -308,11 +308,21 @@ on purpose — do not consolidate them into one root file.
 | `NUXT_PUBLIC_SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
 | `NUXT_PUBLIC_SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
 
-**`web/.env` only applies to `npm run dev`.** Nuxt loads `.env` in development; the built
-server reads real environment variables and ignores the file. So every `NUXT_PUBLIC_*` value
-must also be set in Vercel's project settings — a correct `web/.env` proves nothing about
-production. Verified the hard way: the built server returned a 503 on `/admin` with the
-value sitting in `web/.env`, and a 302 once it was passed as an actual environment variable.
+**`web/.env` is a local file.** Nuxt loads it for `npm run dev`, `npm run build`, and
+`npm run preview` — `preview` even prints *"Loading .env. This will not be loaded when
+running the server in production."* Only the deployed production server ignores it and reads
+real environment variables instead. So every `NUXT_PUBLIC_*` value must also be set in
+Vercel's project settings; a correct `web/.env` proves nothing about production.
+
+Two consequences, both verified:
+
+- Running `node .output/server/index.mjs` directly skips `.env` and returned a 503 on
+  `/admin`, while `npm run preview` returned a 302 from that same build. If you're smoke-testing
+  what production will do, the raw node invocation is the honest one.
+- `npm run build` bakes `.env` values into the output as build-time defaults — a probe value
+  in `.env` turned up inside `.output/server/chunks/nitro/nitro.mjs`. So a locally built
+  artifact carries your `development` dataset. Vercel is unaffected, because `.env` is
+  gitignored and never gets there.
 
 **`studio/.env`** — read by the Sanity CLI and baked into the Studio bundle at build time.
 

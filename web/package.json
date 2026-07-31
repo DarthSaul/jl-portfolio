@@ -1,5 +1,5 @@
 {
-  "name": "jl-portfolio",
+  "name": "jl-portfolio-web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,10 +7,7 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
-    "studio": "sanity dev",
-    "studio:deploy": "sanity deploy",
-    "typegen": "sanity schema extract && sanity typegen generate"
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@nuxtjs/sanity": "^2.5.0",
@@ -20,10 +17,6 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "sanity": "^6.8.0",
-    "styled-components": "^6.4.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
   }

@@ -25,7 +25,7 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 | **TypeScript** | Content shapes come from generated types — the compiler catches schema drift. |
 | **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. |
 | **Sanity** (hosted Content Lake) | The CMS. Structured content, real references between documents, and an editing UI we control the shape of. |
-| **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `<host>.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
+| **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `joanatstake.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
 | **`@nuxtjs/sanity`** | Client + `useSanityQuery` wiring for the Nuxt app. |
 | **GROQ** | Sanity's query language. Lets a route fetch exactly its shape in one request, following references. |
 | **Sanity image CDN** | Transform params in the URL — resizing, format negotiation, and LQIP come free, no build-time image pipeline. |
@@ -35,10 +35,14 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 
 The Studio is **not embedded in the Nuxt app**. Sanity Studio is React and Nuxt is Vue;
 rather than bridge that, the Studio is its own npm package in `studio/` with its own
-`package.json`, deployed to `<host>.sanity.studio`. `/admin` on the site redirects to it.
+`package.json`, deployed to `joanatstake.sanity.studio`. `/admin` on the site redirects to it.
 
 Sanity project: **`c3808h1v`** ("Portfolio: Joan Lebow"). Hardcoded in `studio/sanity.config.ts`
 and `studio/sanity.cli.ts` — it's public, and the Studio only ever talks to one project.
+
+Studio hostname: **`https://joanatstake.sanity.studio`**, claimed and live. Pinned as
+`studioHost` in `studio/sanity.cli.ts`, so deploys no longer prompt and can't land on a
+different host by typo. CORS is registered for it and for `http://localhost:3333`.
 
 Consequences to keep in mind:
 
@@ -278,7 +282,7 @@ From **`studio/`** — the Sanity Studio:
 | --- | --- | --- |
 | `npm run dev` | Studio on :3333, against `SANITY_STUDIO_DATASET` | ✎ works |
 | `npm run build` | Build the Studio bundle | ✎ works |
-| `npm run deploy` | Ship the Studio to `<host>.sanity.studio` | ✎ untested — needs a hostname |
+| `npm run deploy` | Ship the Studio to `joanatstake.sanity.studio`, pinned to `production` | ✎ host claimed and live |
 | `npm run typegen` | `sanity schemas extract` then `sanity typegen generate` | ✎ wired, no schemas yet |
 
 Note it is `sanity schemas extract` — plural. The singular form is not the command.
@@ -302,7 +306,13 @@ on purpose — do not consolidate them into one root file.
 | `NUXT_PUBLIC_SANITY_PROJECT_ID` | `c3808h1v`. Public by design. |
 | `NUXT_PUBLIC_SANITY_DATASET` | `development` locally, `production` on Vercel. |
 | `NUXT_PUBLIC_SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
-| `NUXT_PUBLIC_SANITY_STUDIO_URL` | Full origin of the deployed Studio. `/admin` redirects here. Empty until a hostname is claimed — `/admin` returns a 503 with a legible message until then. |
+| `NUXT_PUBLIC_SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
+
+**`web/.env` only applies to `npm run dev`.** Nuxt loads `.env` in development; the built
+server reads real environment variables and ignores the file. So every `NUXT_PUBLIC_*` value
+must also be set in Vercel's project settings — a correct `web/.env` proves nothing about
+production. Verified the hard way: the built server returned a 503 on `/admin` with the
+value sitting in `web/.env`, and a 302 once it was passed as an actual environment variable.
 
 **`studio/.env`** — read by the Sanity CLI and baked into the Studio bundle at build time.
 
@@ -356,8 +366,6 @@ or a positioning control, say so and propose the preset-shaped version instead.
 
 Unresolved. Don't paper over these — raise them when the relevant work comes up.
 
-- **The Studio hostname.** Unclaimed. `npm run deploy` in `studio/` prompts for it on first
-  run; once chosen it becomes `NUXT_PUBLIC_SANITY_STUDIO_URL` in `web/.env` and in Vercel.
 - **Vision plugin in the Studio.** `@sanity/vision` (a GROQ playground) ships in
   `studio/sanity.config.ts` from the generator. It's useful while building and clutter for
   her — a visible tab that does nothing she needs. Decide before handing the Studio over;

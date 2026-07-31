@@ -2,6 +2,10 @@ import {defineCliConfig} from 'sanity/cli'
 import {requireDataset} from './dataset'
 
 export default defineCliConfig({
+  // The claimed hostname → https://joanatstake.sanity.studio
+  // Pinned here so deploys stop prompting and can't land on a different host by typo.
+  studioHost: 'joanatstake',
+
   api: {
     projectId: 'c3808h1v',
     // Required, never defaulted. See ./dataset.ts.

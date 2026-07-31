@@ -48,6 +48,13 @@ Consequences to keep in mind:
   while the arrangement is temporary.
 - **The deployed Studio's dataset is baked in at deploy time** from `SANITY_STUDIO_DATASET`.
   Deploy it pointed at `production`. For work against `development`, run the Studio locally.
+- **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
+  opaque error. That means both the deployed host and `http://localhost:3333` for
+  `sanity dev`: `npx sanity cors add <origin> --credentials`.
+
+Sanity's own guidance now treats a standalone, separately-deployed Studio as the recommended
+shape and embedding as legacy — it slows builds, couples Studio updates to app deploys, and
+rules out Studio auto-updates. So this is the mainline path, not a workaround.
 
 This is Phase 1. Revisit only if the hop to a second domain actually confuses her, or if
 embedded preview / visual editing becomes worth the bridge — not on general principle.
@@ -121,7 +128,7 @@ Nothing below exists yet. This is the target shape — follow it when scaffoldin
 
 ```
 CLAUDE.md
-nuxt.config.ts              Nuxt config: sanity module, routeRules (ISR + /admin redirect), Tailwind
+nuxt.config.ts              Nuxt config: sanity module, Tailwind, routeRules (ISR — TBD)
 sanity.config.ts            Studio config: schema registry. basePath stays '/' —
                             the deployed Studio is served at the root of its own host.
 sanity.cli.ts               Project/dataset for the sanity CLI (schema extract, typegen)
@@ -150,6 +157,10 @@ app/
     contact.ts
   composables/
   assets/css/
+
+server/
+  routes/
+    admin.ts                302 redirect to NUXT_PUBLIC_SANITY_STUDIO_URL
 
 sanity/
   schemas/
@@ -187,6 +198,11 @@ export const TRIP_QUERY = defineQuery(`
 
 Note the `->` dereference. Galleries store references; queries resolve them. That is Rule 1
 showing up at the query layer.
+
+`@nuxtjs/sanity` bundles `groq` and auto-imports both `groq` and `defineQuery`, so there is
+no separate package to install and `.vue` files need no import. Keep the explicit import in
+`app/queries/*.ts` anyway — those files are read by the typegen parser, and being explicit
+costs nothing.
 
 **Types are generated, never hand-written.** `sanity.types.ts` is output from
 `sanity schema extract` + `sanity typegen generate`. Do not hand-edit it, do not write a
@@ -238,6 +254,7 @@ into `dev` and `build` once the shape settles.
 | `NUXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project ID. Public — it's in the client bundle by design. |
 | `NUXT_PUBLIC_SANITY_DATASET` | `development` locally, `production` on Vercel. |
 | `NUXT_PUBLIC_SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
+| `NUXT_PUBLIC_SANITY_STUDIO_URL` | Full origin of the deployed Studio. `/admin` redirects here. Empty until `sanity deploy` claims a hostname — `/admin` returns a 503 with a legible message until then. |
 | `SANITY_STUDIO_PROJECT_ID` | Same project ID, under the name the Sanity CLI and Studio bundle expect. |
 | `SANITY_STUDIO_DATASET` | Dataset the Studio points at. Baked into the bundle at `sanity deploy` time — set it to `production` when deploying, `development` when running `sanity dev`. |
 | `SANITY_WRITE_TOKEN` | Write access for `scripts/` only. |
@@ -248,9 +265,10 @@ the browser and never reaches the Vercel runtime — it lives in `.env.local` an
 runs the seed. If a task seems to need it in the app, re-read "The app never writes to
 Sanity" above.
 
-The `NUXT_PUBLIC_*` names assume `@nuxtjs/sanity` config surfaces at
-`runtimeConfig.public.sanity`. Confirm against the module when `nuxt.config.ts` lands and
-correct this table if it differs.
+Confirmed against `@nuxtjs/sanity` v2: the module merges its options onto
+`runtimeConfig.public.sanity`, so `NUXT_PUBLIC_SANITY_PROJECT_ID` / `_DATASET` /
+`_API_VERSION` override `projectId` / `dataset` / `apiVersion` at runtime. Verified end to
+end — the values in `nuxt.config.ts` are build-time defaults, not the source of truth.
 
 ## Non-goals
 

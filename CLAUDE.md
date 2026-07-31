@@ -25,7 +25,7 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 | **TypeScript** | Content shapes come from generated types — the compiler catches schema drift. |
 | **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. |
 | **Sanity** (hosted Content Lake) | The CMS. Structured content, real references between documents, and an editing UI we control the shape of. |
-| **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `<host>.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
+| **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `joanatstake.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
 | **`@nuxtjs/sanity`** | Client + `useSanityQuery` wiring for the Nuxt app. |
 | **GROQ** | Sanity's query language. Lets a route fetch exactly its shape in one request, following references. |
 | **Sanity image CDN** | Transform params in the URL — resizing, format negotiation, and LQIP come free, no build-time image pipeline. |
@@ -34,30 +34,57 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 ### The Studio (Phase 1 approach)
 
 The Studio is **not embedded in the Nuxt app**. Sanity Studio is React and Nuxt is Vue;
-rather than bridge that, we run `sanity deploy` and let Sanity host the Studio at
-`<host>.sanity.studio`. `/admin` on this site is a redirect to it.
+rather than bridge that, the Studio is its own npm package in `studio/` with its own
+`package.json`, deployed to `joanatstake.sanity.studio`. `/admin` on the site redirects to it.
+
+Sanity project: **`c3808h1v`** ("Portfolio: Joan Lebow"). Hardcoded in `studio/sanity.config.ts`
+and `studio/sanity.cli.ts` — it's public, and the Studio only ever talks to one project.
+
+Studio hostname: **`https://joanatstake.sanity.studio`**, claimed and live. Pinned as
+`studioHost` in `studio/sanity.cli.ts`, so deploys no longer prompt and can't land on a
+different host by typo. CORS is registered for it and for `http://localhost:3333`.
 
 Consequences to keep in mind:
 
 - **The Studio is a separate deployment artifact.** Pushing the Nuxt app to Vercel does not
   ship Studio changes, and `sanity deploy` does not ship app changes. A schema change only
-  reaches her after `sanity deploy` runs. This is the main cost of the approach — when a task
-  touches `sanity/schemas/`, deploying the Studio is part of finishing it.
+  reaches her after a Studio deploy. This is the main cost of the approach — when a task
+  touches `studio/schemaTypes/`, deploying the Studio is part of finishing it.
+- **Studio auto-updates are on** (`autoUpdates: true` in `studio/sanity.cli.ts`). Sanity ships
+  Studio improvements to her without a redeploy from us. Schema changes still need a deploy;
+  only the Studio shell auto-updates.
+- **Studio dependencies stay out of the app's install.** React, `styled-components`, and
+  `sanity` live in `studio/package.json`, so a Vercel build of the Vue site never installs
+  them. This is the main reason the two halves have separate `package.json` files.
 - **The redirect is a `302`, not a `301`.** A permanent redirect gets cached in her browser
   and would be genuinely annoying to undo if we later embed the Studio. Keep it temporary
   while the arrangement is temporary.
-- **The deployed Studio's dataset is baked in at deploy time** from `SANITY_STUDIO_DATASET`.
-  Deploy it pointed at `production`. For work against `development`, run the Studio locally.
+- **The Studio's dataset is required, never defaulted.** `studio/dataset.ts` throws if
+  `SANITY_STUDIO_DATASET` is unset. There is no safe default: `production` means a machine
+  without `studio/.env` silently edits her real photos, and `development` means a deploy
+  silently ships a Studio full of stock content. Both are wrong, so neither is the default.
+  `npm run deploy` pins `production` itself, so the deployed Studio cannot inherit a local
+  `.env`. Local work sets `development` in `studio/.env`.
+- **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
+  opaque error. That means both the deployed host and `http://localhost:3333` for
+  `sanity dev`: `npx sanity cors add <origin> --credentials`.
+
+Sanity's own guidance now treats a standalone, separately-deployed Studio as the recommended
+shape and embedding as legacy — it slows builds, couples Studio updates to app deploys, and
+rules out Studio auto-updates. So this is the mainline path, not a workaround.
 
 This is Phase 1. Revisit only if the hop to a second domain actually confuses her, or if
 embedded preview / visual editing becomes worth the bridge — not on general principle.
 
 ### Datasets
 
-Two datasets on one Sanity project:
+Two datasets on project `c3808h1v`, both created:
 
-- `development` — stock photos, for building and experimenting. Default for local dev.
-- `production` — her real content. Never seeded, never scripted against casually.
+- `development` (private) — stock photos, for building and experimenting. What local dev
+  points at, via `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET`
+  in `web/.env`.
+- `production` — her real content. Never seeded, never scripted against casually. Reached
+  only by an explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
 
 Any script that writes must take the dataset explicitly and must not default to `production`.
 
@@ -95,7 +122,7 @@ page builder — that is the exact thing this project exists to replace.
 
 Adding a preset means two changes, always together:
 
-1. A new component in `app/components/presets/`.
+1. A new component in `web/app/components/presets/`.
 2. A new option in the hard-coded preset list in the gallery schema.
 
 The schema field is a `string` with a fixed `options.list`. It is never a free-text field.
@@ -115,57 +142,72 @@ A preset value that has no matching component must be impossible.
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
 
-## Planned directory structure
+## Directory structure
 
-Nothing below exists yet. This is the target shape — follow it when scaffolding.
+Two sibling packages, each with its own `package.json` and its own `node_modules`. Nothing
+is shared between them at the dependency level — the only coupling is that the Studio's
+typegen writes a types file into the app. `✎` marks what exists today; the rest is the
+target shape.
 
-```
-CLAUDE.md
-nuxt.config.ts              Nuxt config: sanity module, routeRules (ISR + /admin redirect), Tailwind
-sanity.config.ts            Studio config: schema registry. basePath stays '/' —
-                            the deployed Studio is served at the root of its own host.
-sanity.cli.ts               Project/dataset for the sanity CLI (schema extract, typegen)
-sanity.types.ts             GENERATED — do not edit by hand
-schema.json                 GENERATED — typegen intermediate
+```text
+CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
+.env.example                ✎ Root env, for scripts/ only
 
-app/
-  app.vue
-  layouts/
-  pages/
-    index.vue
-    shots/index.vue
-    shots/[slug].vue
-    writing.vue
-    about.vue
-    contact.vue
-  components/
-    SanityPhoto.vue         The only place an <img> is emitted (see conventions)
-    presets/                One component per layout preset
-  queries/                  GROQ, one file per route
-    home.ts
-    shots.ts
-    trip.ts
-    writing.ts
-    about.ts
-    contact.ts
-  composables/
-  assets/css/
+web/                        ✎ The Nuxt app. Vercel's root directory.
+  package.json              ✎ nuxt, vue, @nuxtjs/sanity, tailwind. No React.
+  nuxt.config.ts            ✎ sanity module, Tailwind, routeRules (ISR — TBD)
+  tsconfig.json             ✎
+  .env.example              ✎ NUXT_PUBLIC_* only
+  sanity.types.ts             GENERATED by studio typegen — do not edit by hand
+  app/
+    app.vue                 ✎
+    layouts/
+    pages/
+      index.vue             ✎ placeholder
+      shots/index.vue
+      shots/[slug].vue
+      writing.vue
+      about.vue
+      contact.vue
+    components/
+      SanityPhoto.vue         The only place an <img> is emitted (see conventions)
+      presets/                One component per layout preset
+    queries/                  GROQ, one file per route
+      home.ts
+      shots.ts
+      trip.ts
+      writing.ts
+      about.ts
+      contact.ts
+    composables/
+    assets/css/             ✎ tailwind.css
+  server/
+    routes/
+      admin.ts              ✎ 302 redirect to NUXT_PUBLIC_SANITY_STUDIO_URL
+  public/
 
-sanity/
-  schemas/
-    index.ts                Schema registry
-    documents/              photo, gallery, article, page
+studio/                     ✎ Sanity Studio. Standalone, deployed separately.
+  package.json              ✎ sanity, react, styled-components, @sanity/vision
+  sanity.config.ts          ✎ Schema registry. No basePath — the deployed Studio is
+                              served at the root of its own host.
+  sanity.cli.ts             ✎ projectId, autoUpdates, typegen paths
+  .env.example              ✎ SANITY_STUDIO_DATASET only
+  schema.json                 GENERATED — typegen intermediate, gitignored
+  schemaTypes/
+    index.ts                ✎ Schema registry — currently exports []
+    documents/                photo, gallery, article, page
     objects/
 
 scripts/
-  seed.ts                   Writes stock content to `development`
-
-public/
+  seed.ts                     Writes stock content to `development`
 ```
+
+**`web/` is Vercel's root directory** — set it in project settings, or Vercel will try to
+build the repo root and find no app.
 
 ## Conventions
 
-**GROQ lives in `app/queries/`, one file per route. Never inline in a component.**
+**GROQ lives in `web/app/queries/`, one file per route. Never inline in a component.**
 A query is the contract between a route and the content model. Keeping them in one directory
 means a schema change has one obvious place to look for breakage, and typegen can find them.
 
@@ -174,7 +216,7 @@ types queries wrapped in `defineQuery()`. A raw template literal produces no typ
 silently opts that route out of type checking.
 
 ```ts
-// app/queries/trip.ts
+// web/app/queries/trip.ts
 import { defineQuery } from 'groq'
 
 export const TRIP_QUERY = defineQuery(`
@@ -188,8 +230,13 @@ export const TRIP_QUERY = defineQuery(`
 Note the `->` dereference. Galleries store references; queries resolve them. That is Rule 1
 showing up at the query layer.
 
-**Types are generated, never hand-written.** `sanity.types.ts` is output from
-`sanity schema extract` + `sanity typegen generate`. Do not hand-edit it, do not write a
+`@nuxtjs/sanity` bundles `groq` and auto-imports both `groq` and `defineQuery`, so there is
+no separate package to install and `.vue` files need no import. Keep the explicit import in
+`web/app/queries/*.ts` anyway — those files are read by the typegen parser, and being explicit
+costs nothing.
+
+**Types are generated, never hand-written.** `web/sanity.types.ts` is output from
+`sanity schemas extract` + `sanity typegen generate`, run from `studio/`. Do not hand-edit it, do not write a
 parallel `interface Photo` somewhere, and do not `as any` past a type error — a type error
 here means the query and the schema disagree, which is information, not an obstacle. If a
 type looks wrong, fix the schema or the query and re-run typegen.
@@ -217,40 +264,90 @@ the Content Lake.
 
 ## Commands
 
-Every one of these is **TBD** — no `package.json` exists yet. Intended shape:
+There is no root `package.json`. Nuxt commands run from `web/`, Studio and schema commands
+run from `studio/`, and the seed scripts run from the repo root — check which directory you
+are in before running anything.
+
+From **`web/`** — the Nuxt app:
 
 | Command | Purpose | Status |
 | --- | --- | --- |
-| `npm run dev` | Nuxt dev server, `development` dataset | TBD |
-| `npm run build` | Production build for Vercel — app only, not the Studio | TBD |
-| `npm run studio` | `sanity dev` — local Studio against `development` | TBD |
-| `npm run studio:deploy` | `sanity deploy` — ship the Studio to `<host>.sanity.studio` | TBD |
-| `npm run seed` | Populate `development` with stock photos and sample galleries | TBD |
-| `npm run typegen` | `sanity schema extract` then `sanity typegen generate` | TBD |
+| `npm run dev` | Nuxt dev server on :3000 | ✎ works |
+| `npm run build` | Production build for Vercel — app only, never the Studio | ✎ works |
+| `npm run preview` | Serve the built output locally | ✎ works |
 
-`typegen` must be re-run after any schema change or any new/edited query. Consider wiring it
-into `dev` and `build` once the shape settles.
+From **`studio/`** — the Sanity Studio:
+
+| Command | Purpose | Status |
+| --- | --- | --- |
+| `npm run dev` | Studio on :3333, against `SANITY_STUDIO_DATASET` | ✎ works |
+| `npm run build` | Build the Studio bundle | ✎ works |
+| `npm run deploy` | Ship the Studio to `joanatstake.sanity.studio`, pinned to `production` | ✎ host claimed and live |
+| `npm run typegen` | `sanity schemas extract` then `sanity typegen generate` | ✎ wired, no schemas yet |
+
+Note it is `sanity schemas extract` — plural. The singular form is not the command.
+
+`typegen` lives in `studio/` because the Studio owns the schema, but it writes
+`web/sanity.types.ts`. Paths are configured under `typegen` in `studio/sanity.cli.ts`. Re-run
+it after any schema change or any new/edited query.
+
+Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
+the repo root.
 
 ## Environment variables
 
+Three `.env` files, because each tool loads `.env` from its own directory. They are separate
+on purpose — do not consolidate them into one root file.
+
+**`web/.env`** — read by Nuxt. All public: these ship in the browser bundle.
+
 | Name | Purpose |
 | --- | --- |
-| `NUXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project ID. Public — it's in the client bundle by design. |
+| `NUXT_PUBLIC_SANITY_PROJECT_ID` | `c3808h1v`. Public by design. |
 | `NUXT_PUBLIC_SANITY_DATASET` | `development` locally, `production` on Vercel. |
 | `NUXT_PUBLIC_SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
-| `SANITY_STUDIO_PROJECT_ID` | Same project ID, under the name the Sanity CLI and Studio bundle expect. |
-| `SANITY_STUDIO_DATASET` | Dataset the Studio points at. Baked into the bundle at `sanity deploy` time — set it to `production` when deploying, `development` when running `sanity dev`. |
-| `SANITY_WRITE_TOKEN` | Write access for `scripts/` only. |
+| `NUXT_PUBLIC_SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
+
+**`web/.env` is a local file.** Nuxt loads it for `npm run dev`, `npm run build`, and
+`npm run preview` — `preview` even prints *"Loading .env. This will not be loaded when
+running the server in production."* Only the deployed production server ignores it and reads
+real environment variables instead. So every `NUXT_PUBLIC_*` value must also be set in
+Vercel's project settings; a correct `web/.env` proves nothing about production.
+
+Two consequences, both verified:
+
+- Running `node .output/server/index.mjs` directly skips `.env` and returned a 503 on
+  `/admin`, while `npm run preview` returned a 302 from that same build. If you're smoke-testing
+  what production will do, the raw node invocation is the honest one.
+- `npm run build` bakes `.env` values into the output as build-time defaults — a probe value
+  in `.env` turned up inside `.output/server/chunks/nitro/nitro.mjs`. So a locally built
+  artifact carries your `development` dataset. Vercel is unaffected, because `.env` is
+  gitignored and never gets there.
+
+**`studio/.env`** — read by the Sanity CLI and baked into the Studio bundle at build time.
+
+| Name | Purpose |
+| --- | --- |
+| `SANITY_STUDIO_DATASET` | Dataset the Studio points at. **Required** — unset throws, via `studio/dataset.ts`. Set `development` here for local work; `npm run deploy` supplies `production` itself and overrides this file. |
+
+There is no `SANITY_STUDIO_PROJECT_ID` — the project ID is hardcoded in the Studio config,
+which is standard for Sanity and avoids a variable that can only ever have one value.
+
+**`.env`** at the repo root — for `scripts/` only.
+
+| Name | Purpose |
+| --- | --- |
+| `SANITY_WRITE_TOKEN` | Write access for seeding. |
 
 **`SANITY_WRITE_TOKEN` is used by scripts only and is never referenced in app code.** Not in
-`app/`, not in `server/`, not in `nuxt.config.ts`, not in runtime config. It never reaches
-the browser and never reaches the Vercel runtime — it lives in `.env.local` and in whatever
-runs the seed. If a task seems to need it in the app, re-read "The app never writes to
-Sanity" above.
+`web/app/`, not in `web/server/`, not in `nuxt.config.ts`, not in runtime config. It never
+reaches the browser and never reaches the Vercel runtime. If a task seems to need it in the
+app, re-read "The app never writes to Sanity" above.
 
-The `NUXT_PUBLIC_*` names assume `@nuxtjs/sanity` config surfaces at
-`runtimeConfig.public.sanity`. Confirm against the module when `nuxt.config.ts` lands and
-correct this table if it differs.
+Confirmed against `@nuxtjs/sanity` v2: the module merges its options onto
+`runtimeConfig.public.sanity`, so `NUXT_PUBLIC_SANITY_PROJECT_ID` / `_DATASET` /
+`_API_VERSION` override `projectId` / `dataset` / `apiVersion` at runtime. Verified end to
+end — the values in `nuxt.config.ts` are build-time defaults, not the source of truth.
 
 ## Non-goals
 
@@ -279,8 +376,10 @@ or a positioning control, say so and propose the preset-shaped version instead.
 
 Unresolved. Don't paper over these — raise them when the relevant work comes up.
 
-- **The Studio hostname.** Unclaimed. `sanity deploy` prompts for it on first run; once
-  chosen it's the redirect target in `nuxt.config.ts`.
+- **Vision plugin in the Studio.** `@sanity/vision` (a GROQ playground) ships in
+  `studio/sanity.config.ts` from the generator. It's useful while building and clutter for
+  her — a visible tab that does nothing she needs. Decide before handing the Studio over;
+  removing it is deleting one line from `plugins`.
 - **ISR revalidation.** Time-based `routeRules` will make edits appear on a delay. If that
   delay feels wrong to her, it becomes a Sanity webhook doing on-demand revalidation. Start
   with the simple version.

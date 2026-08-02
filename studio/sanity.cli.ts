@@ -18,6 +18,20 @@ export default defineCliConfig({
      */
     autoUpdates: true,
   },
+  schemaExtraction: {
+    // Re-extract schema.json during `sanity dev` and `sanity build`, so a schema edit
+    // can't drift from web/sanity.types.ts unnoticed while the dev server is running.
+    enabled: true,
+    // Turns `validation: (rule) => rule.required()` into a non-optional field in the
+    // extracted schema, so photo.alt types as `string` rather than `string | undefined`
+    // and SanityPhoto has no fallback branch to write.
+    //
+    // The documented caveat is that a draft can be invalid, so a required field can
+    // still be missing under a preview perspective. That does not apply here: the app
+    // reads published content over the CDN, there is no preview token, and visual
+    // editing is deferred. REVISIT THIS FLAG the day Presentation lands.
+    enforceRequiredFields: true,
+  },
   typegen: {
     // The Studio owns the schema, so it owns typegen — but the types are consumed
     // by the Nuxt app next door. Reads GROQ from app/queries/*.ts (and any .vue that

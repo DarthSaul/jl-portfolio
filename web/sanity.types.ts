@@ -15,6 +15,19 @@
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
 // Source: schema.json
+export type Article = {
+  _id: string;
+  _type: "article";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  publication: string;
+  url: string;
+  publishedAt: string;
+  summary?: string;
+};
+
 export type PhotoReference = {
   _ref: string;
   _type: "reference";
@@ -188,6 +201,7 @@ export type Geopoint = {
 };
 
 export type AllSanitySchemaTypes =
+  | Article
   | PhotoReference
   | Gallery
   | Slug

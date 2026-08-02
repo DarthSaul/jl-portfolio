@@ -15,6 +15,108 @@
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
 // Source: schema.json
+export type Link = {
+  _type: "link";
+  label: string;
+  url: string;
+};
+
+export type PhotoReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "photo";
+};
+
+export type SiteSettings = {
+  _id: string;
+  _type: "siteSettings";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  description: string;
+  shareImage: PhotoReference;
+  links?: Array<
+    {
+      _key: string;
+    } & Link
+  >;
+};
+
+export type ContactPage = {
+  _id: string;
+  _type: "contactPage";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  intro?: string;
+};
+
+export type AboutPage = {
+  _id: string;
+  _type: "aboutPage";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  body: string;
+  portrait: PhotoReference;
+};
+
+export type WritingPage = {
+  _id: string;
+  _type: "writingPage";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  intro?: string;
+};
+
+export type GalleryReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "gallery";
+};
+
+export type ShotsPage = {
+  _id: string;
+  _type: "shotsPage";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  intro?: string;
+  photos: Array<
+    {
+      _key: string;
+    } & PhotoReference
+  >;
+  galleries?: Array<
+    {
+      _key: string;
+    } & GalleryReference
+  >;
+};
+
+export type HomePage = {
+  _id: string;
+  _type: "homePage";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  intro: string;
+  featured: Array<
+    {
+      _key: string;
+    } & PhotoReference
+  >;
+};
+
 export type Article = {
   _id: string;
   _type: "article";
@@ -26,13 +128,6 @@ export type Article = {
   url: string;
   publishedAt: string;
   summary?: string;
-};
-
-export type PhotoReference = {
-  _ref: string;
-  _type: "reference";
-  _weak?: boolean;
-  [internalGroqTypeReferenceTo]?: "photo";
 };
 
 export type Gallery = {
@@ -201,8 +296,16 @@ export type Geopoint = {
 };
 
 export type AllSanitySchemaTypes =
-  | Article
+  | Link
   | PhotoReference
+  | SiteSettings
+  | ContactPage
+  | AboutPage
+  | WritingPage
+  | GalleryReference
+  | ShotsPage
+  | HomePage
+  | Article
   | Gallery
   | Slug
   | SanityImageAssetReference

@@ -21,7 +21,7 @@ import { SITE } from '~/content/site'
           :href="link.href"
           :aria-label="link.label"
           v-bind="link.icon === 'mail' ? {} : { target: '_blank', rel: 'me noopener' }"
-          class="flex size-9 items-center justify-center rounded-full bg-neutral-400 text-white transition-colors hover:bg-ink"
+          class="flex size-9 items-center justify-center rounded-full bg-neutral-500 text-white transition-colors hover:bg-ink"
         >
           <svg
             v-if="link.icon === 'mail'"

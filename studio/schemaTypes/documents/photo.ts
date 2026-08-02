@@ -25,8 +25,10 @@ export const PHOTO_TAGS = [
  * RULE 1. A photograph is one document, with one image asset and one alt text.
  * Galleries hold references to these; they never embed an image of their own.
  *
- * `type: 'image'` appears exactly once in this whole schema — here. That grep is the
- * mechanical check on Rule 1.
+ * An image field appears exactly once in the whole schema — the one below. Grepping
+ * schemaTypes/ for an image type declaration is the mechanical check on Rule 1, and a
+ * second hit means something has grown an image of its own. The pattern is described
+ * rather than quoted here so this comment isn't itself the second hit.
  */
 export default defineType({
   name: 'photo',

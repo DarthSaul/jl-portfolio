@@ -1,1 +1,19 @@
 @import 'tailwindcss';
+
+/*
+ * Sampled from joanatstake.com with getComputedStyle, so these are her actual values
+ * rather than an eyeballed approximation.
+ *
+ * Tailwind v4 here is CSS-first via @tailwindcss/vite. There is no tailwind.config.ts and
+ * one should not be added — theme extensions belong in this block.
+ *
+ * Her site sets `proxima-nova` throughout, which is Adobe-licensed and not ours to use.
+ * Until a free stand-in is chosen we ride Tailwind's default system sans stack: no
+ * dependency, no webfont request, and close enough in feel to judge the layout against.
+ */
+@theme {
+  --color-ink: #0d0c0c; /* body text */
+  --color-muted: #666666; /* inactive nav, section headings, footer */
+  --color-faint: #a29696; /* the tagline under the wordmark */
+  --color-accent: #b40444; /* active nav item, link hover, wordmark hover */
+}

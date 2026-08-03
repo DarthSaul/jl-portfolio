@@ -439,10 +439,17 @@ and Claude Code copies them into every worktree it creates — native, and no co
 It only fires for worktrees Claude Code makes, so `git worktree add` by hand and a fresh
 `git clone` still need the files put there some other way.
 
-It copies `studio/.env` verbatim from the main checkout, which means a `production` dataset
-there propagates into every worktree with nothing announcing it. That is exactly the silence
-the rule in *Datasets* exists to prevent, so check the file when a worktree behaves in a way
-you did not expect.
+It copies `studio/.env` verbatim, which is safe only because that file has exactly one
+legitimate value. **`studio/.env` holds `development`.** Production is reached two other
+ways and neither of them writes to it: `npm run deploy` pins `SANITY_STUDIO_DATASET=production`
+itself, and a one-off look at real content is an inline override for that single command,
+`SANITY_STUDIO_DATASET=production npm run dev` — an inline value beats the file, which
+`npx sanity debug` will confirm.
+
+So `production` never needs to be in that file, and it is the one edit that propagates:
+every Claude-created worktree inherits the copy in silence, which turns a single mistake
+into the rule in *Datasets* being defeated in every checkout at once rather than in one.
+Finding it there is the bug — in the main checkout quite as much as in the worktree.
 
 Dependencies are still a manual `npm ci` in each package of a new worktree. Automating that
 sits unmerged on `chore/worktree-setup-script`, pending a decision on approach.

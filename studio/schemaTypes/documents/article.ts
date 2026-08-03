@@ -4,9 +4,10 @@ import {defineField, defineType} from 'sanity'
 /**
  * A link out to something published elsewhere.
  *
- * There is deliberately no body field. /writing is a list of links; the articles live
- * on the sites that published them. Adding a body here would make this a CMS for
- * long-form writing, which is an explicit non-goal — see CLAUDE.md.
+ * There is deliberately no body field, and that is still true now that `post` exists.
+ * The two types split her writing by where it lives: this one points at a piece on the
+ * site that published it — the New York Times, HuffPost — and copying that text here
+ * would be republishing someone else's page. `post` is for writing that lives here.
  *
  * Called "Writing link" in the Studio so it reads as what it is: a link, not an essay
  * she is expected to write here.
@@ -59,6 +60,17 @@ export default defineType({
       description: 'Optional. Shown under the headline on the Writing page.',
       validation: (rule) => rule.max(200).warning('A line or two reads best in a list.'),
     }),
+
+    defineField({
+      name: 'coverPhoto',
+      title: 'Cover photo',
+      type: 'reference',
+      to: [{type: 'photo'}],
+      description:
+        'Optional. The small photo shown beside this link where it is listed — on the ' +
+        'front page, for instance. Leave it empty if none of your photos suit it; the ' +
+        'headline and date show on their own.',
+    }),
   ],
 
   orderings: [
@@ -74,11 +86,15 @@ export default defineType({
       title: 'title',
       publication: 'publication',
       publishedAt: 'publishedAt',
+      // preview.select follows references, so this resolves the cover photo document and
+      // reads its image off it. Rule 1 holds: the article stores nothing but a reference.
+      media: 'coverPhoto.image',
     },
-    prepare({title, publication, publishedAt}) {
+    prepare({title, publication, publishedAt, media}) {
       return {
         title,
         subtitle: [publication, publishedAt].filter(Boolean).join(' · '),
+        media,
       }
     },
   },

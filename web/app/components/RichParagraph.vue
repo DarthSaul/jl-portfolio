@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import type { Paragraph } from '~/content/home'
+import type { Paragraph } from '~/content/writing'
 
 /**
  * Renders a paragraph made of text runs, so an inline link or italic survives the trip
  * from the content file to the page.
  *
- * Deliberately tiny. CLAUDE.md rules out long-form writing in the CMS, so this must never
- * grow into a portable-text renderer — links and emphasis are the whole feature set.
+ * The static half of the pair. `ProseText.vue` is the real one, rendering `proseText` from
+ * Sanity; this serves /writing only, for as long as that page is on placeholder content, and
+ * is deleted along with `~/content/writing` when its query lands.
+ *
+ * Deliberately tiny, and it must never grow into a portable-text renderer — links and
+ * emphasis are the whole feature set.
  */
 defineProps<{ runs: Paragraph }>()
 </script>

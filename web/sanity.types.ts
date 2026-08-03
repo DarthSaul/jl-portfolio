@@ -159,8 +159,8 @@ export type HomePage = {
   intro: ProseText;
   blurb: ProseText;
   featuredWriting: ArrayOf<PostReference | ArticleReference>;
-  featuredTitle: string;
-  featuredSubtitle: string;
+  featuredTitle: ProseText;
+  featuredSubtitle: ProseText;
   featuredPhotos: Array<
     {
       _key: string;
@@ -413,3 +413,86 @@ export type AllSanitySchemaTypes =
   | SanityAssetSourceData
   | SanityImageAsset
   | Geopoint;
+
+// Source: ../web/app/queries/home.ts
+// Variable: HOME_QUERY
+// Query: *[_type == "homePage"][0]{    title,    introHeading,    introPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },    intro,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
+export type HOME_QUERY_RESULT = {
+  title: string;
+  introHeading: string | null;
+  introPhoto: {
+    _id: string;
+    alt: string;
+    caption: string | null;
+    asset: {
+      url: string;
+      lqip: string | null;
+      width: number | null;
+      height: number | null;
+    };
+  };
+  intro: ProseText;
+  blurb: ProseText;
+  featuredWriting: Array<
+    | {
+        _id: string;
+        _type: "article";
+        title: string;
+        publishedAt: string;
+        summary: string | null;
+        coverPhoto: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        } | null;
+        url: string;
+        publication: string;
+      }
+    | {
+        _id: string;
+        _type: "post";
+        title: string;
+        publishedAt: string;
+        summary: string | null;
+        coverPhoto: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        } | null;
+        slug: string;
+      }
+  >;
+  featuredTitle: ProseText;
+  featuredSubtitle: ProseText;
+  featuredPhotos: Array<{
+    _id: string;
+    alt: string;
+    caption: string | null;
+    asset: {
+      url: string;
+      lqip: string | null;
+      width: number | null;
+      height: number | null;
+    };
+  }>;
+} | null;
+
+// Query TypeMap
+import "@sanity/client";
+declare module "@sanity/client" {
+  interface SanityQueries {
+    '\n  *[_type == "homePage"][0]{\n    title,\n    introHeading,\n    introPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n    intro,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': HOME_QUERY_RESULT;
+  }
+}

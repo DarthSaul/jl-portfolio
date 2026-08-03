@@ -1,21 +1,23 @@
 <script setup lang="ts">
 /**
- * The only <img> in the app.
+ * The static stand-in for `SanityPhoto`, and now the *second* <img> in the app rather than
+ * the only one.
  *
- * CLAUDE.md requires every image to render through one component, so that srcset, lazy
- * loading and aspect-ratio reservation are decided in a single place for ~250 photos on a
- * phone connection. That component is meant to be `SanityPhoto`, fed by the Sanity image
- * CDN — but there is no schema and no assets yet, so this is the static stand-in.
+ * That is a temporary and deliberate exception to CLAUDE.md's one-image-component rule. The
+ * front page renders through `SanityPhoto` off the Sanity image CDN; /writing is still on
+ * Unsplash placeholders and still renders through this. Two components emitting an <img> is
+ * the honest state of a half-migrated site — the alternative was teaching `SanityPhoto` to
+ * also accept bare URLs, which would leave a permanent hole in the rule to fix a temporary
+ * one.
  *
- * The API is deliberately Sanity-shaped so the swap is mechanical:
+ * This file is deleted with `~/content/writing`, at which point `grep -rn "<img" web/app`
+ * goes back to returning exactly one hit. Nothing new should be pointed at it.
+ *
+ * The API stayed deliberately Sanity-shaped, which is what made that migration mechanical:
  *  - `alt` is required and has no default, so a call site cannot forget it
- *  - `src` is a bare URL; this component composes the transform params, exactly as it
- *    will compose Sanity's `?w=&auto=format` params later
+ *  - `src` is a bare URL; this component composes the transform params, exactly as
+ *    `SanityPhoto` composes Sanity's
  *  - `aspect` reserves the box before any bytes arrive
- *
- * When photos land in Sanity this file either becomes SanityPhoto or delegates to it, and
- * no caller changes. What must stay true either way: `grep -rn "<img" web/app` returns
- * exactly one hit, and it is this file.
  */
 
 const props = withDefaults(

@@ -38,6 +38,18 @@ export default defineNuxtConfig({
     useCdn: true,
   },
 
+  // `web/sanity.types.ts` sits at the app root, which matches neither `../app/**/*` nor
+  // `../*.d.ts` in the tsconfig Nuxt generates — so without this it falls outside the
+  // program. That matters more than it looks: typegen runs with `overloadClientMethods`, and
+  // the `declare module '@sanity/client'` block it appends is the only thing that maps a
+  // query string to its result type. Outside the program the augmentation never applies and
+  // every `useSanityQuery` result silently types as `unknown` instead of failing loudly.
+  typescript: {
+    tsConfig: {
+      include: ['../sanity.types.ts'],
+    },
+  },
+
   runtimeConfig: {
     public: {
       // Redirect target for /admin, resolved at runtime by server/routes/admin.ts.

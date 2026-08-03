@@ -1,5 +1,6 @@
 import {HomeIcon} from '@sanity/icons/Home'
 import {defineArrayMember, defineField, defineType} from 'sanity'
+import type {PortableTextSpan, PortableTextTextBlock} from 'sanity'
 
 import {excludeAlreadyChosen} from '../photoPicker'
 
@@ -93,27 +94,55 @@ export default defineType({
       ],
     }),
 
+    // The only heading on the site she can put bold, italics or a link inside. It is a
+    // `proseText` and not a string because her own copy asks for it — “Getting a Handle on
+    // @joanatstake” wants the handle set apart. Nothing is added to `proseText` to allow
+    // this: the type already offers bold, italic and a link, and nothing else.
     defineField({
       name: 'featuredTitle',
       title: 'Photos section title',
-      type: 'string',
-      description: 'The heading over the row of photos, e.g. “Getting a Handle on @joanatstake”.',
-      validation: (rule) => rule.required(),
+      type: 'proseText',
+      description:
+        'The heading over the row of photos, e.g. “Getting a Handle on @joanatstake”. ' +
+        'One line — bold, italics and a link are available inside it.',
+      validation: (rule) => [
+        rule.required(),
+        // A heading is one line. Without this, Enter quietly makes a second paragraph, and
+        // both would render inside the same heading run together.
+        rule.max(1).error('One line — this is a heading, not a paragraph.'),
+      ],
     }),
 
     defineField({
       name: 'featuredSubtitle',
       title: 'Photos section subtitle',
-      type: 'text',
-      rows: 4,
+      type: 'proseText',
       description: 'The text under that heading. A short paragraph is fine.',
       // 500, not the 200 used for one-line summaries elsewhere. Hers already runs to 357
       // characters and reads exactly as intended, and a warning that fires on correct
       // content only teaches her to ignore warnings. This is a runaway-paste guard, not a
       // style guide.
+      //
+      // It is spelled out by hand because `rule.max(500)` counted characters while this was
+      // a `text` field and counts *blocks* now that it is an array — same line, silently
+      // guarding nothing. Text lives on the spans, so the count has to walk down to them.
       validation: (rule) => [
         rule.required(),
-        rule.max(500).warning('That is longer than this section is designed to hold.'),
+        rule
+          .custom<PortableTextTextBlock<PortableTextSpan>[]>((value) => {
+            const characters = (value ?? []).reduce(
+              (total, block) =>
+                total +
+                (block.children ?? []).reduce(
+                  (runningTotal, span) => runningTotal + (span.text?.length ?? 0),
+                  0,
+                ),
+              0,
+            )
+
+            return characters <= 500 || 'That is longer than this section is designed to hold.'
+          })
+          .warning(),
       ],
     }),
 

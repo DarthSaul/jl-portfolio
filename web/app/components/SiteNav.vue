@@ -20,7 +20,7 @@ import { SITE } from '~/content/site'
       <li v-for="item in SITE.nav" :key="item.to">
         <NuxtLink
           :to="item.to"
-          class="text-muted hover:text-ink aria-[current=page]:text-accent text-[0.8125rem] uppercase tracking-[0.2em] transition-colors sm:text-base"
+          class="text-muted hover:text-ink aria-[current=page]:text-accent text-[0.8125rem] font-medium uppercase tracking-[0.2em] transition-colors sm:text-base"
         >
           {{ item.label }}
         </NuxtLink>

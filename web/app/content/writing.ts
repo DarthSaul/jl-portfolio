@@ -1,10 +1,13 @@
 /**
  * Static stand-in for /writing — the COPY tab.
  *
- * Same deal as `~/content/home`: this exists so the layout can be built and reviewed before
- * the Sanity schema does, and it must not become `app/queries/`. When the `article` document
- * type lands, this file is replaced by a `defineQuery` in `queries/writing.ts` and
- * `WritingArticleListItem` does not change.
+ * The last of these. `~/content/home` was its twin and is gone, now that the front page reads
+ * from Sanity; this file exists so the layout can be built and reviewed before its query does,
+ * and it must not become `app/queries/`. When /writing is wired up it is replaced by a
+ * `defineQuery` in `queries/writing.ts`, and `WritingArticleListItem` does not change.
+ *
+ * The `post` and `article` types it will read from already exist in the schema, so this is
+ * waiting on a query and a route, not on content modelling.
  *
  * Layout mirrors joanatstake.com/copy/writing-list, measured rather than eyeballed: a single
  * centred 750px column, a 250px circular thumbnail, a centred title, a left-aligned teaser,
@@ -12,11 +15,34 @@
  * hides both with `display: none` — every card reads "January 1, 2030" or similar, because
  * the dates are a Squarespace ordering hack rather than publication dates. Not reproduced.
  *
- * Placeholder imagery is Unsplash, and this URL is already used (and verified 200) in
- * `~/content/home`. `grep -rn images.unsplash.com web/` finds all of them at cleanup time.
+ * Placeholder imagery is Unsplash. `grep -rn images.unsplash.com web/` finds every one of
+ * them, and after the front page moved to Sanity they are all in this file.
  */
 
-import type { Paragraph, Photo } from './home'
+/**
+ * One photo. Kept alive here for `SitePhoto`, the static stand-in this page still renders
+ * through — the Sanity-backed pages take their shape from the generated types instead.
+ */
+export type Photo = {
+  src: string
+  /** Belongs to the photo, never to the call site. See Rule 1 in CLAUDE.md. */
+  alt: string
+  /** CSS aspect-ratio. Reserves the box so nothing shifts as images load. */
+  aspect: string
+}
+
+/**
+ * A run of text inside a paragraph. A bare string is plain text; the object form carries a
+ * link or emphasis.
+ *
+ * The static counterpart to Portable Text, and the reason it exists is that two of these
+ * teasers contain an inline link and an inline italic that flattening to plain strings would
+ * lose. It is not a portable-text renderer and must not grow into one — when this page moves
+ * to Sanity these become `proseText` and `ProseText.vue` renders them for real.
+ */
+export type TextRun = string | { text: string, href?: string, em?: true }
+
+export type Paragraph = TextRun[]
 
 export type Article = {
   title: string

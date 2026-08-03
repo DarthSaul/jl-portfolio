@@ -80,13 +80,31 @@ embedded preview / visual editing becomes worth the bridge — not on general pr
 
 Two datasets on project `c3808h1v`, both created:
 
-- `development` (private) — stock photos, for building and experimenting. What local dev
+- `development` (public) — stock photos, for building and experimenting. What local dev
   points at, via `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET`
   in `web/.env`.
-- `production` — her real content. Never seeded, never scripted against casually. Reached
-  only by an explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
+- `production` (public) — her real content. Never seeded, never scripted against casually.
+  Reached only by an explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy`
+  supplies.
 
 Any script that writes must take the dataset explicitly and must not default to `production`.
+
+**Both datasets are `public`, and `development` had to be changed to match.** It started
+private, which broke the app in a genuinely nasty way: an anonymous read of a private dataset
+returns **HTTP 200 with an empty result set**, not a 401. Nothing errors, nothing logs, the
+query just resolves to `null` and the page renders as though the content had been deleted.
+
+Public here means public *reads*; writes still need a token, and the Studio still requires a
+login. The alternative was a server-only read token in `web/.env`, and it was rejected on the
+grounds that `production` is public and needs no token — so local dev would have been
+authenticating over a code path production never takes, which is the class of
+works-locally-fails-in-Vercel divergence this file keeps warning about. It also would have put
+the first non-public value into `web/.env`, whose whole invariant is that everything in it is
+public.
+
+The privacy that matters is enforced elsewhere and is unaffected: `location` (GPS) is excluded
+from image metadata in `photo.ts` precisely because a public dataset is readable by anyone with
+the project id.
 
 ---
 
@@ -161,6 +179,13 @@ against the Squarespace site this replaces.
 The byline is on `siteSettings`, not `homePage`, because it sits in the header of **every**
 page. Slot 6's own heading is hardcoded in the component; only slot 7's is editable.
 
+**Status: slots 4–7 read from Sanity. Slots 1–3 do not yet.** The site name and byline still
+come from `web/app/content/site.ts`, because no `siteSettings` document exists in either
+dataset — the type is in the schema, nothing has been created against it. Slot 3, the nav, is
+frontend-only by design and stays there. Wiring the header means creating the singleton and
+giving the layout a query, which is site chrome rather than front-page work and touches every
+route, so it did not ride along with slots 4–7.
+
 ## The content model
 
 Twelve types. The schema files in `studio/schemaTypes/` are the source of truth; this table
@@ -198,13 +223,19 @@ Things worth knowing before changing any of it:
   only stays coherent if **every preset preserves the native aspect ratio**. If a preset
   ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
   component.
-  - The front page's text-over-photo intro (slot 4) was the first real test of this, and
-    the rule held. A full-bleed hero with text on it is the classic case that wants a crop;
-    instead the photo renders at its native ratio with the text in a legible band over it,
-    which means **the photo's own proportions decide how tall that section is**. The cost
-    is real and lands on her: which photo she picks matters. That is a description in the
-    Studio, not a control. Check `grep -rn "hotspot *:" studio/schemaTypes/` returns
-    nothing — the only `hotspot` in the tree is the comment in `photo.ts` saying why.
+  - The front page's intro (slot 4) was the first real test of this, and the rule held. A
+    hero with text on it is the classic case that wants a crop; instead the photo renders at
+    its native ratio — the right two-thirds of the container, with the heading and intro on a
+    card overlapping its left edge by 100px — which means **the photo's own proportions
+    decide how tall that section is**. The cost is real and lands on her: which photo she
+    picks matters. That is a description in the Studio, not a control. Check
+    `grep -rn "hotspot *:" studio/schemaTypes/` returns nothing — the only `hotspot` in the
+    tree is the comment in `photo.ts` saying why.
+
+    The overlap is a width overrun inside a grid track, not absolute positioning, so the card
+    cannot escape the container at any width. `min-w-0` on it is load-bearing: a grid track's
+    automatic minimum is its item's min-content size, so an item deliberately wider than its
+    track will otherwise widen the track and squeeze the photo below two-thirds.
 - **Image metadata is set at upload and never backfilled.** The `metadata` array on
   `photo.image` *replaces* Sanity's defaults rather than extending them, so `lqip`,
   `blurhash`, `thumbhash` and `palette` are restated there deliberately — dropping one
@@ -271,24 +302,34 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
                               Committed: Vercel builds web/ and never runs typegen.
   app/
     app.vue                 ✎
-    layouts/
+    layouts/                ✎ default.vue
     pages/
-      index.vue             ✎ placeholder
+      index.vue             ✎ LIVE — reads homePage from Sanity
       shots/index.vue
       shots/[slug].vue
-      writing.vue
-      about.vue
+      writing.vue           ✎ still on ~/content/writing placeholders
+      writing/[slug].vue      A post. Featured posts on the front page link here already.
+      about.vue             ✎ placeholder
       contact.vue
     components/
-      SanityPhoto.vue         The only place an <img> is emitted (see conventions)
+      SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)
+      ProseText.vue         ✎ Renders a proseText field via SanityContent
+      ProseLink.vue         ✎ The `hyperlink` annotation inside one
+      SitePhoto.vue         ✎ TEMPORARY static twin of SanityPhoto — /writing only
+      RichParagraph.vue     ✎ TEMPORARY static twin of ProseText — /writing only
+      home/                 ✎ Hero, FeaturedWriting, PhotoStrip — slots 4, 6 and 7
       presets/                One component per layout preset
-    queries/                  GROQ, one file per route
-      home.ts
+    queries/                ✎ GROQ, one file per route
+      photo.ts              ✎ The shared photo projection. Not a route — see below.
+      home.ts               ✎
       shots.ts
       trip.ts
       writing.ts
       about.ts
       contact.ts
+    content/                ✎ Static placeholders. Shrinking; not a destination.
+      site.ts               ✎ Site chrome. Deliberately never CMS content.
+      writing.ts            ✎ The last placeholder page's copy + Unsplash URLs.
     composables/
     assets/css/             ✎ tailwind.css
   server/
@@ -325,6 +366,15 @@ build the repo root and find no app.
 **GROQ lives in `web/app/queries/`, one file per route. Never inline in a component.**
 A query is the contract between a route and the content model. Keeping them in one directory
 means a schema change has one obvious place to look for breakage, and typegen can find them.
+
+`queries/photo.ts` is the one file there that is not a route, and it holds `PHOTO_PROJECTION` —
+the fields every query selects when it dereferences a photo. Rule 1 means every route reaches
+photographs the same way, so the alternative was the same seven lines pasted into six query
+files and a `SanityPhoto` that accepts six separately-maintained shapes. **Typegen resolves the
+interpolation**, verified: `${PHOTO_PROJECTION}` inside `defineQuery` produces a fully typed
+result, not `unknown`. It also exports `PhotoProjection`, read back off a generated query result
+rather than hand-written, because a hand-written shape sitting parallel to a generated one is
+exactly how a query and a component drift.
 
 **Queries are declared with `defineQuery` from `groq`.** Sanity's typegen only extracts and
 types queries wrapped in `defineQuery()`. A raw template literal produces no type and
@@ -367,6 +417,19 @@ It is responsible for:
 
 Centralizing this is what makes ~250 photos on a phone connection acceptable. A raw `<img>`
 or a bare CDN URL anywhere in the app is a bug.
+
+It takes a whole photo projection and **not** an `alt`, an aspect ratio, or a crop. Passing
+`alt` per call site is how one photograph ends up described two ways; passing a shape is a
+framing control, which is Rule 2's whole subject. The box is the photograph's own proportions,
+read from the asset metadata, and the CDN URL carries only `w` and `auto=format` — no `fit`,
+no `rect` — so the no-crop rule holds at the URL and not merely by convention.
+
+**There are two `<img>` in the app right now, and that is temporary.** `SitePhoto` is the
+static twin serving /writing while it is still on Unsplash placeholders; `RichParagraph` is the
+same arrangement for prose. Both are deleted along with `~/content/writing` when that page gets
+a query, and `grep -rn "<img" web/app` goes back to one hit. Nothing new gets pointed at them —
+the alternative, teaching `SanityPhoto` to also accept bare URLs, would have put a permanent
+hole in the rule to paper over a temporary one.
 
 **Sanity schema files are the source of truth for the content model.** Not this document,
 not the generated types, not the GROQ queries. Schema changes flow outward:
@@ -561,10 +624,16 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   (`/2018/8/22/8mc14cj2kpvx8ufmgy9utxtw0z8kbc`) and need clean replacements. Old links in
   the world break either way, so decide about redirects at the same time. A `scripts/` job
   against `development` first.
-- **`web/sanity.types.ts` may fall outside the app's TypeScript program.**
-  `.nuxt/tsconfig.app.json` includes `../app/**/*` and `../*.d.ts`; a `.ts` file at the web
-  root matches neither. Explicit imports still work, but the `declare module "@sanity/client"`
-  augmentation that typegen emits under `overloadClientMethods: true` needs the file *in* the
-  program — and `useSanityQuery` depends on exactly that augmentation, or every result types
-  as `unknown`. A query-phase problem, not a schema one. Check it the first time a route
-  fetches something.
+Resolved, kept because the reasoning still applies:
+
+- ~~**`web/sanity.types.ts` may fall outside the app's TypeScript program.**~~ **It did, and
+  it is fixed.** `.nuxt/tsconfig.app.json` includes `../app/**/*` and `../*.d.ts`; a `.ts`
+  file at the web root matches neither, so the `declare module "@sanity/client"` augmentation
+  typegen emits under `overloadClientMethods: true` was outside the program. `typescript.tsConfig.include`
+  in `nuxt.config.ts` now names the file explicitly.
+
+  Worth knowing how this fails, because it does not fail loudly: without the augmentation
+  `ClientReturn<Q, unknown>` falls back to its second parameter, so every `useSanityQuery`
+  result types as `unknown` and *nothing errors* — the routes simply stop being typechecked.
+  A green `npm run typecheck` is not evidence. The check that is: point a query result at a
+  field that does not exist and confirm the compiler rejects it, naming the real result shape.

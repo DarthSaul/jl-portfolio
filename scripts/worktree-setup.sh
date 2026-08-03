@@ -71,11 +71,33 @@ fi
 # The two packages install separately and never share a dependency tree, so this
 # is a loop over both rather than one root install. See CLAUDE.md.
 
+lock_hash() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    sha256sum "$1" | cut -d' ' -f1
+  fi
+}
+
 install_deps() {
   pkg="$1"
+  # The hash of the lockfile a tree was installed from, kept inside the tree so
+  # it is removed along with it and can never outlive what it describes.
+  marker="$here/$pkg/node_modules/.worktree-setup-lock"
+  want="$(lock_hash "$here/$pkg/package-lock.json")"
 
+  # A tree is only reusable if we know which lockfile produced it. Presence
+  # alone proves nothing: a worktree that changes branches keeps whatever it
+  # installed the first time, and this hook — the one thing positioned to
+  # notice — would call it ready while `npm run dev` runs against the wrong
+  # dependencies. Unverifiable is treated as stale, so the reinstall below is
+  # the only way a tree ever gets a marker.
   if [ -d "$here/$pkg/node_modules" ]; then
-    return 0
+    if [ -f "$marker" ] && [ "$(cat "$marker")" = "$want" ]; then
+      return 0
+    fi
+    log "$pkg/node_modules  does not match package-lock.json — removing"
+    rm -rf "$here/$pkg/node_modules"
   fi
 
   # Only reuse the main checkout's tree when the lockfiles are byte-identical;
@@ -97,9 +119,13 @@ install_deps() {
       log "$pkg  postinstall"
     fi
   else
-    log "$pkg  npm ci (lockfile differs from the main checkout — this is slow)"
+    log "$pkg  npm ci (no matching tree to clone — this is slow)"
     ( cd "$here/$pkg" && npm ci ) >&2
   fi
+
+  # Written last, and only on success. A failed install leaves no marker, so the
+  # next run reinstalls rather than trusting a half-built tree.
+  printf '%s\n' "$want" > "$marker"
 }
 
 install_deps studio

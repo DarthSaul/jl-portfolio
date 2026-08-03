@@ -462,6 +462,15 @@ dependencies, so that case falls back to a real `npm ci`. Copying a tree skips n
 lifecycle scripts, which is why the script runs `web`'s `postinstall` (`nuxt prepare`)
 itself — without it, `web/.nuxt` is missing.
 
+**An existing `node_modules` is reused only when it can prove which lockfile built it.** A
+marker inside the tree holds the SHA-256 of the `package-lock.json` it was installed from,
+written last and only on success. A missing or non-matching marker means the tree is
+removed and reinstalled — presence alone would let a worktree that changed branches keep
+the dependencies it first installed while the hook, the one thing positioned to notice,
+called it ready. Two consequences: the first run in any checkout that predates the marker
+reinstalls once, and in the main checkout that means `npm ci` rather than a clone, since
+there is no other tree to copy from.
+
 Cloning rather than symlinking is deliberate. A shared `node_modules` is also a shared Vite
 cache inside it, and two dev servers fighting over one cache is the exact collision
 worktrees exist to prevent.

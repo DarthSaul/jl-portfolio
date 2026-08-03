@@ -105,11 +105,15 @@ export default defineType({
       name: 'featuredSubtitle',
       title: 'Photos section subtitle',
       type: 'text',
-      rows: 2,
-      description: 'The line under that heading.',
+      rows: 4,
+      description: 'The text under that heading. A short paragraph is fine.',
+      // 500, not the 200 used for one-line summaries elsewhere. Hers already runs to 357
+      // characters and reads exactly as intended, and a warning that fires on correct
+      // content only teaches her to ignore warnings. This is a runaway-paste guard, not a
+      // style guide.
       validation: (rule) => [
         rule.required(),
-        rule.max(200).warning('A sentence or two reads best here.'),
+        rule.max(500).warning('That is longer than this section is designed to hold.'),
       ],
     }),
 

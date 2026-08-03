@@ -145,3 +145,7 @@ vite.config.ts.timestamp-*
 # Sanity
 .sanity/
 sanity-build/
+
+# Worktrees
+.claude/worktrees/
+.worktrees/

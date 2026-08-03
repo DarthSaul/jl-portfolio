@@ -1,17 +1,152 @@
 @import 'tailwindcss';
 
 /*
- * Sampled from joanatstake.com with getComputedStyle, so these are her actual values
+ * Proxima Nova, from her Adobe Typekit kit — the face joanatstake.com already uses.
+ *
+ * ## Where these URLs came from, and what that costs
+ *
+ * The whole family, pulled from the kit her live Squarespace site loads (kit `646866`). The
+ * originally-supplied declaration was Thin only, and one weight cannot carry a type hierarchy:
+ * every `font-medium` and `font-light` in the app resolved to the same 100 face and rendered
+ * identically. Nine faces are licensed in that kit, so all nine are declared here.
+ *
+ * The `fvd` query parameter looks like a weight selector and is NOT — the face is identified
+ * by the path hash. `fvd=n4` on the Thin URL returns the Thin file. Each weight needs its own
+ * hash, which is why these are nine separate declarations rather than one parameterised URL.
+ *
+ * These are hotlinked rather than loaded through the kit's JS embed. That is the trade: no
+ * render-blocking third-party script and no Squarespace dependency, but a kit republish in
+ * Adobe rotates the hashes and every URL here 404s at once. The symptom would be the whole
+ * site silently falling back to system sans — which is what the `--font-sans` fallback chain
+ * below is for. If that ever happens, re-derive them from the kit rather than guessing.
+ *
+ * `font-display: auto` is kept as supplied. It behaves like `block` in most browsers — up to
+ * ~3s of invisible text on a cold cache, and that is now nine files rather than one. `swap`
+ * is a one-word change per face and worth considering for phone visitors arriving from a link.
+ *
+ * woff2 and woff only. The supplied declaration also listed opentype; every browser that can
+ * run this bundle has had woff2 since 2016, so the third URL per face was dropped rather than
+ * carried nine times over.
+ *
+ * The italics are not decoration. `proseText` allows an `em` decorator and the byline is set
+ * in italic — without real italic faces the browser synthesises an oblique by shearing the
+ * upright, which is visibly wrong at the byline's size and tracking.
+ */
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/da27c4/00000000000000007758cf8d/31/l?subset_id=2&fvd=i1&v=3) format('woff2'),
+    url(https://use.typekit.net/af/da27c4/00000000000000007758cf8d/31/d?subset_id=2&fvd=i1&v=3) format('woff');
+  font-weight: 100;
+  font-style: italic;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/0b8052/00000000000000007758cf90/31/l?subset_id=2&fvd=i3&v=3) format('woff2'),
+    url(https://use.typekit.net/af/0b8052/00000000000000007758cf90/31/d?subset_id=2&fvd=i3&v=3) format('woff');
+  font-weight: 300;
+  font-style: italic;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/6eb0e3/00000000000000007758cf8f/31/l?subset_id=2&fvd=i4&v=3) format('woff2'),
+    url(https://use.typekit.net/af/6eb0e3/00000000000000007758cf8f/31/d?subset_id=2&fvd=i4&v=3) format('woff');
+  font-weight: 400;
+  font-style: italic;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/38ea3a/00000000000000007758cf7d/31/l?subset_id=2&fvd=i7&v=3) format('woff2'),
+    url(https://use.typekit.net/af/38ea3a/00000000000000007758cf7d/31/d?subset_id=2&fvd=i7&v=3) format('woff');
+  font-weight: 700;
+  font-style: italic;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/4b22bb/00000000000000007735e601/31/l?subset_id=2&fvd=n1&v=3) format('woff2'),
+    url(https://use.typekit.net/af/4b22bb/00000000000000007735e601/31/d?subset_id=2&fvd=n1&v=3) format('woff');
+  font-weight: 100;
+  font-style: normal;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/3888dc/00000000000000007735e606/31/l?subset_id=2&fvd=n3&v=3) format('woff2'),
+    url(https://use.typekit.net/af/3888dc/00000000000000007735e606/31/d?subset_id=2&fvd=n3&v=3) format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/d7ff92/00000000000000007735e609/31/l?subset_id=2&fvd=n4&v=3) format('woff2'),
+    url(https://use.typekit.net/af/d7ff92/00000000000000007735e609/31/d?subset_id=2&fvd=n4&v=3) format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/26f7ec/00000000000000007735e605/31/l?subset_id=2&fvd=n5&v=3) format('woff2'),
+    url(https://use.typekit.net/af/26f7ec/00000000000000007735e605/31/d?subset_id=2&fvd=n5&v=3) format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+@font-face {
+  font-family: proxima-nova;
+  src:
+    url(https://use.typekit.net/af/5be242/00000000000000007735e603/31/l?subset_id=2&fvd=n7&v=3) format('woff2'),
+    url(https://use.typekit.net/af/5be242/00000000000000007735e603/31/d?subset_id=2&fvd=n7&v=3) format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-stretch: normal;
+  font-display: auto;
+}
+
+/*
+ * Colours sampled from joanatstake.com with getComputedStyle, so these are her actual values
  * rather than an eyeballed approximation.
  *
  * Tailwind v4 here is CSS-first via @tailwindcss/vite. There is no tailwind.config.ts and
  * one should not be added — theme extensions belong in this block.
- *
- * Her site sets `proxima-nova` throughout, which is Adobe-licensed and not ours to use.
- * Until a free stand-in is chosen we ride Tailwind's default system sans stack: no
- * dependency, no webfont request, and close enough in feel to judge the layout against.
  */
 @theme {
+  /*
+   * Setting `--font-sans` is what makes this global: Tailwind derives
+   * `--default-font-family` from it, and preflight applies that to `html`. No `font-sans`
+   * class is needed anywhere, and there is no second place to update.
+   */
+  --font-sans: proxima-nova, ui-sans-serif, system-ui, sans-serif;
+
   --color-ink: #0d0c0c; /* body text */
   --color-muted: #666666; /* inactive nav, section headings, footer */
   --color-faint: #a29696; /* the tagline under the wordmark */

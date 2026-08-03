@@ -261,7 +261,6 @@ target shape.
 CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
 .env.example                ✎ Root env, for scripts/ only
 .worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
-.claude/settings.json       ✎ SessionStart hook → scripts/worktree-setup.sh
 
 web/                        ✎ The Nuxt app. Vercel's root directory.
   package.json              ✎ nuxt, vue, @nuxtjs/sanity, tailwind. No React.
@@ -315,7 +314,6 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
     objects/                ✎ link, postPhoto, proseText
 
 scripts/
-  worktree-setup.sh         ✎ .env + node_modules for a fresh checkout. Idempotent.
   seed.ts                     Writes stock content to `development`
 ```
 
@@ -427,12 +425,6 @@ contract. Vercel builds `web/` and never runs typegen, so the file has to be in 
   content over the CDN with no preview token. **Revisit this flag the day Presentation or
   visual editing lands.**
 
-From the **repo root**:
-
-| Command | Purpose | Status |
-| --- | --- | --- |
-| `bash scripts/worktree-setup.sh` | Make a fresh checkout runnable: `.env` files in place, both `node_modules` installed | ✎ works |
-
 Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
 the repo root.
 
@@ -440,45 +432,20 @@ the repo root.
 
 A worktree is a fresh checkout: no `.env` files, no `node_modules`. `npm run dev` in
 `studio/` is impossible without the second and refuses to start without the first, since
-`dataset.ts` throws on an unset `SANITY_STUDIO_DATASET`. Two mechanisms cover the gap, and
-they overlap deliberately:
+`dataset.ts` throws on an unset `SANITY_STUDIO_DATASET`.
 
-- **`.worktreeinclude`** lists the three gitignored `.env` files. Claude Code copies them
-  into every worktree it creates. Native, no code — but it only fires for worktrees Claude
-  Code makes, not `git worktree add` by hand and not a fresh `git clone`.
-- **`scripts/worktree-setup.sh`** does that same job plus dependencies, in any checkout, at
-  any time. It runs at session start via the `SessionStart` hook in `.claude/settings.json`,
-  so a new worktree is generally ready before you think to ask.
+**`.worktreeinclude`** closes the first half. It lists the three gitignored `.env` files,
+and Claude Code copies them into every worktree it creates — native, and no code to own.
+It only fires for worktrees Claude Code makes, so `git worktree add` by hand and a fresh
+`git clone` still need the files put there some other way.
 
-The script is idempotent and prints nothing when there is nothing to do. That silence is
-the point rather than a courtesy: `SessionStart` output is injected into Claude's context on
-every session.
+It copies `studio/.env` verbatim from the main checkout, which means a `production` dataset
+there propagates into every worktree with nothing announcing it. That is exactly the silence
+the rule in *Datasets* exists to prevent, so check the file when a worktree behaves in a way
+you did not expect.
 
-**`node_modules` is cloned from the main checkout, not reinstalled** — whenever that
-checkout has one and the two `package-lock.json` files are byte-identical. `cp -Rc` is APFS
-`clonefile`: copy-on-write, so ~1GB across both packages lands in about 15 seconds and
-consumes no disk until the trees diverge. A lockfile mismatch means the branch changed
-dependencies, so that case falls back to a real `npm ci`. Copying a tree skips npm's
-lifecycle scripts, which is why the script runs `web`'s `postinstall` (`nuxt prepare`)
-itself — without it, `web/.nuxt` is missing.
-
-**An existing `node_modules` is reused only when it can prove which lockfile built it.** A
-marker inside the tree holds the SHA-256 of the `package-lock.json` it was installed from,
-written last and only on success. A missing or non-matching marker means the tree is
-removed and reinstalled — presence alone would let a worktree that changed branches keep
-the dependencies it first installed while the hook, the one thing positioned to notice,
-called it ready. Two consequences: the first run in any checkout that predates the marker
-reinstalls once, and in the main checkout that means `npm ci` rather than a clone, since
-there is no other tree to copy from.
-
-Cloning rather than symlinking is deliberate. A shared `node_modules` is also a shared Vite
-cache inside it, and two dev servers fighting over one cache is the exact collision
-worktrees exist to prevent.
-
-Both mechanisms copy `studio/.env` verbatim from the main checkout, so a `production`
-dataset there propagates into every worktree. The script prints the dataset whenever it
-seeds the file, which is the only thing standing between that and the silence the rule in
-*Datasets* exists to prevent.
+Dependencies are still a manual `npm ci` in each package of a new worktree. Automating that
+sits unmerged on `chore/worktree-setup-script`, pending a decision on approach.
 
 ## Environment variables
 

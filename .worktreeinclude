@@ -6,7 +6,8 @@
 #
 # This covers worktrees Claude Code makes (`claude --worktree`, subagent
 # isolation, desktop parallel sessions). A worktree made by hand with
-# `git worktree add` is not covered; scripts/worktree-setup.sh handles that.
+# `git worktree add` is not covered, and neither is a fresh clone — both still
+# want the files copied in by hand.
 
 .env
 studio/.env

@@ -174,7 +174,7 @@ against the Squarespace site this replaces.
 | 4 | Heading + intro, printed over a photo of her | `homePage.introHeading` / `introPhoto` / `intro` |
 | 5 | Blurb, 3–4 sentences, usually carrying a link | `homePage.blurb` |
 | 6 | Featured writing — exactly 3, posts and links mixed | `homePage.featuredWriting` |
-| 7 | Featured photos — title, subtitle, a row of exactly 5 | `homePage.featuredTitle` / `featuredSubtitle` / `featuredPhotos` |
+| 7 | Featured photos — title, subtitle, a row of exactly 5 | `homePage.featuredTitle` / `featuredSubtitle` / `featuredPhotos` (the first two are `proseText`) |
 
 The byline is on `siteSettings`, not `homePage`, because it sits in the header of **every**
 page. Slot 6's own heading is hardcoded in the component; only slot 7's is editable.
@@ -205,7 +205,7 @@ is a map, not a spec.
 | `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
 | `link` | label, url | Object. Used only by `siteSettings.links`. |
 | `postPhoto` | photo → ref | Object. A photo between paragraphs of a `post`. |
-| `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro` and `.blurb`. |
+| `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro`, `.blurb`, `.featuredTitle` and `.featuredSubtitle`. |
 
 **`post` and `article` split her writing by where it lives**, and that is the only thing
 that distinguishes them. An `article` points at a piece someone else published — the New
@@ -263,6 +263,22 @@ Things worth knowing before changing any of it:
 - **Prose fields are plain `text`, never Portable Text — except `proseText` and
   `post.body`.** Short intro/about/caption text stays plain. Rich text exists only where
   her writing carries meaning plain text cannot: italicised titles and links out.
+  - **`homePage.featuredTitle` and `.featuredSubtitle` are `proseText` too**, and the title
+    is the one *heading* on the site that can carry emphasis. Her own copy asked for it:
+    "Getting a Handle on @joanatstake" wants the handle set apart. Nothing was added to
+    `proseText` to allow it — the type already offered bold, italic and a link, and this
+    only widened which fields use it. Reach for the same move before ever adding a mark.
+  - **A rich-text heading needs `ProseHeading`, not `ProseText`.** Portable Text renders one
+    element per block, and a `normal` block is a `<p>` — so pointing `ProseText` at a heading
+    produces a `<div>` wrapping a `<p>` that merely looks like one, with nothing in the
+    document outline. `ProseHeading` makes the `<h2>` the real element and overrides
+    `components.block.normal` so a block renders as nothing but its children.
+    - The reason it needs its own root element at all: **`SanityContent` sets
+      `inheritAttrs: false` and returns `PortableText` with no wrapper**, so a `class` handed
+      to it is silently dropped. That is what the `<div>` in `ProseText` is for, and it is a
+      trap worth knowing before wiring the next editable heading.
+    - `featuredTitle` is capped at one block by `rule.max(1)`, because Enter in the editor
+      otherwise makes a second paragraph that would render inside the same heading.
   - The restriction is the whole point, and it lives in `objects/proseText.ts`. **The
     `styles`, `lists` and `marks` arrays REPLACE Sanity's defaults rather than extending
     them** — the same trap as `photo.image.options.metadata`, failing the same quiet way.
@@ -272,6 +288,11 @@ Things worth knowing before changing any of it:
     link.
   - `proseBlock(styles)` is a function, not a shared constant, so each schema type gets its
     own object. `proseText` passes one style; `post.body` passes three.
+  - **`rule.max(n)` changes meaning when a field becomes `proseText`: it counts characters on
+    a `string`/`text` and array *members* on Portable Text.** A carried-over `rule.max(500)`
+    keeps validating and silently guards nothing — the same line, quietly weakened. That is
+    why `featuredSubtitle`'s length guard is a hand-written `rule.custom` that walks down to
+    the spans, where the text actually lives.
   - **A photo inside a body is a `postPhoto` object wrapping a reference, not a bare or
     named `reference` member.** A *named* reference member looks like the tidier answer and
     is a trap: typegen extracts it as `_type: "reference"` while the editor writes the
@@ -314,6 +335,7 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
     components/
       SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)
       ProseText.vue         ✎ Renders a proseText field via SanityContent
+      ProseHeading.vue      ✎ The same, as a real <h2> — see the note above
       ProseLink.vue         ✎ The `hyperlink` annotation inside one
       SitePhoto.vue         ✎ TEMPORARY static twin of SanityPhoto — /writing only
       RichParagraph.vue     ✎ TEMPORARY static twin of ProseText — /writing only
@@ -581,7 +603,9 @@ don't add a dependency that anticipates them.
 - **No visitor accounts.** No login, no favorites, no comments. The only authenticated user is the editor, in the Studio.
 - **No contact form.** `/contact` is text and links — email address, social links. No form, no form handler, no spam mitigation, no inbox to check.
 - **No freeform page builder.** No drag-and-drop, no canvas, no per-photo position/size/crop controls, no arbitrary section nesting. See Rule 2.
-- **No long-form writing by anyone else, and no rich text beyond `post.body` and `proseText`.** This non-goal used to read "no long-form writing in the CMS, no post type" and it was wrong — it assumed all her writing lived on someone else's site. Half of it does, and `article` covers that. The other half is ~15 pieces she self-published on the Squarespace site being replaced; they have nowhere to go, so `post` exists. What still holds: `article` stays body-less, prose fields elsewhere stay plain `text`, and the block config stays as short as it is. Adding a style, a decorator or a block type is a decision with a cost, not a default.
+- **No long-form writing by anyone else, and no rich text beyond `post.body` and `proseText`.** This non-goal used to read "no long-form writing in the CMS, no post type" and it was wrong — it assumed all her writing lived on someone else's site. Half of it does, and `article` covers that. The other half is ~15 pieces she self-published on the Squarespace site being replaced; they have nowhere to go, so `post` exists. What still holds: `article` stays body-less, and **the block config stays as short as it is** — one style, two decorators, one annotation. Adding a style, a decorator or a block type is a decision with a cost, not a default.
+
+  This used to also read "prose fields elsewhere stay plain `text`", and that clause is gone: `homePage.featuredTitle` and `.featuredSubtitle` became `proseText` when her front-page copy turned out to need an italic and a link. Nothing was added to the type to allow it. The line worth defending was never *which fields* use `proseText` — it is what `proseText` is allowed to contain, which is unchanged. Widening the former is a normal content decision; widening the latter is the one that needs an argument.
 
 ## Working agreements
 

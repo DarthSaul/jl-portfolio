@@ -17,6 +17,11 @@ export default defineCliConfig({
      * Learn more at https://www.sanity.io/docs/studio/latest-version-of-sanity#k47faf43faf56
      */
     autoUpdates: true,
+    // The application the first deploy created, pinned for the same reason as `studioHost`
+    // above: unpinned, a later deploy prompts for an app id, and the wrong answer creates a
+    // *second* application rather than updating this one. The CLI printed this value at the
+    // end of that deploy and asked for it to be recorded here.
+    appId: 'mvg46t87wy5dtnu0x526ldd9',
   },
   schemaExtraction: {
     // Re-extract schema.json during `sanity dev` and `sanity build`, so a schema edit

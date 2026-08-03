@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { HOME_QUERY_RESULT } from '~~/sanity.types'
+import type { HOME_QUERY_RESULT } from '~~/sanity.types';
 
-type Home = NonNullable<HOME_QUERY_RESULT>
+type Home = NonNullable<HOME_QUERY_RESULT>;
 
 /**
  * Slot 7 — the title, the subtitle under it, and the row of five photographs that closes the
@@ -33,10 +33,10 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  * inside a component. Today this is a fixed composition belonging to one page.
  */
 defineProps<{
-  title: Home['featuredTitle']
-  subtitle: Home['featuredSubtitle']
-  photos: Home['featuredPhotos']
-}>()
+	title: Home['featuredTitle'];
+	subtitle: Home['featuredSubtitle'];
+	photos: Home['featuredPhotos'];
+}>();
 
 /**
  * The photograph's shape as a bare number, for the flex maths above.
@@ -46,36 +46,37 @@ defineProps<{
  * width beats a zero-width column.
  */
 const ratio = (photo: Home['featuredPhotos'][number]) => {
-  const { width, height } = photo.asset
-  return width && height ? width / height : 1.5
-}
+	const { width, height } = photo.asset;
+	return width && height ? width / height : 1.5;
+};
 </script>
 
 <template>
-  <section class="space-y-10">
-    <div class="mx-auto max-w-[1080px] space-y-6 px-5">
-      <ProseHeading
-        :value="title"
-        class="text-2xl font-normal text-muted sm:text-3xl"
-      />
-      <ProseText
-        :value="subtitle"
-        class="text-lg leading-relaxed sm:text-xl"
-      />
-    </div>
+	<section class="space-y-10">
+		<div class="mx-auto max-w-[1080px] space-y-6 px-5">
+			<!--
+				`[&_a]:no-underline` reaches through to the link inside the heading. ProseLink
+				underlines by default and should keep doing so in running prose — but at this
+				size the rule sits far enough from the text to read as a border rather than a
+				link, and the heading already reads as one. Italics are untouched.
 
-    <ul class="flex snap-x snap-mandatory gap-px overflow-x-auto lg:overflow-visible">
-      <li
-        v-for="photo in photos"
-        :key="photo._id"
-        :style="{ '--r': ratio(photo) }"
-        class="h-56 shrink-0 basis-[calc(14rem*var(--r))] snap-start sm:h-72 sm:basis-[calc(18rem*var(--r))] lg:h-auto lg:shrink lg:grow-[var(--r)] lg:basis-0"
-      >
-        <SanityPhoto
-          :photo="photo"
-          sizes="(min-width: 1024px) 20vw, 45vw"
-        />
-      </li>
-    </ul>
-  </section>
+				It wins on specificity without !important: Tailwind compiles the arbitrary
+				variant to `.\[\&_a\]\:no-underline a`, a descendant selector, against
+				ProseLink's single `.underline` class.
+			-->
+			<ProseHeading :value="title" class="text-2xl font-normal [&_a]:no-underline sm:text-3xl" />
+			<ProseText :value="subtitle" class="text-lg font-light leading-relaxed sm:text-xl" />
+		</div>
+
+		<ul class="flex snap-x snap-mandatory gap-px overflow-x-auto lg:overflow-visible">
+			<li
+				v-for="photo in photos"
+				:key="photo._id"
+				:style="{ '--r': ratio(photo) }"
+				class="h-56 shrink-0 basis-[calc(14rem*var(--r))] snap-start sm:h-72 sm:basis-[calc(18rem*var(--r))] lg:h-auto lg:shrink lg:grow-[var(--r)] lg:basis-0"
+			>
+				<SanityPhoto :photo="photo" sizes="(min-width: 1024px) 20vw, 45vw" />
+			</li>
+		</ul>
+	</section>
 </template>

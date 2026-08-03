@@ -1,5 +1,6 @@
 import {CogIcon} from '@sanity/icons/Cog'
 import {DocumentsIcon} from '@sanity/icons/Documents'
+import {DocumentTextIcon} from '@sanity/icons/DocumentText'
 import {EnvelopeIcon} from '@sanity/icons/Envelope'
 import {HomeIcon} from '@sanity/icons/Home'
 import {ImageIcon} from '@sanity/icons/Image'
@@ -43,7 +44,7 @@ export const SINGLETON_TYPES = new Set([
 const API_VERSION = '2026-07-31'
 
 /** Every type placed by hand below. Anything missing here falls through to the bottom. */
-const PLACED_TYPES = new Set([...SINGLETON_TYPES, 'photo', 'gallery', 'article'])
+const PLACED_TYPES = new Set([...SINGLETON_TYPES, 'photo', 'gallery', 'post', 'article'])
 
 function singleton(S: StructureBuilder, typeName: string, title: string, icon: ComponentType) {
   return S.listItem()
@@ -135,6 +136,10 @@ export const structure: StructureResolver = (S) =>
               // Vision query.
             ]),
         ),
+
+      // Two lists, not one, because the difference matters to her: a post is hers and
+      // lives here, a link points at someone else's site.
+      S.documentTypeListItem('post').title('Writing posts').icon(DocumentTextIcon),
 
       S.documentTypeListItem('article').title('Writing links').icon(LinkIcon),
 

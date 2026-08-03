@@ -1,0 +1,13 @@
+# Gitignored files copied into every worktree Claude Code creates.
+#
+# .gitignore syntax. Only files that match a pattern *and* are gitignored get
+# copied, so tracked files are never duplicated. Each tool loads .env from its
+# own directory, so all three are listed separately — see CLAUDE.md.
+#
+# This covers worktrees Claude Code makes (`claude --worktree`, subagent
+# isolation, desktop parallel sessions). A worktree made by hand with
+# `git worktree add` is not covered; scripts/worktree-setup.sh handles that.
+
+.env
+studio/.env
+web/.env

@@ -14,18 +14,48 @@
 
 export declare const internalGroqTypeReferenceTo: unique symbol;
 
+type ArrayOf<T> = Array<
+  T & {
+    _key: string;
+  }
+>;
+
 // Source: schema.json
-export type Link = {
-  _type: "link";
-  label: string;
-  url: string;
-};
+export type ProseText = Array<{
+  children?: Array<{
+    marks?: Array<string>;
+    text?: string;
+    _type: "span";
+    _key: string;
+  }>;
+  style?: "normal";
+  listItem?: never;
+  markDefs?: Array<{
+    url: string;
+    _type: "hyperlink";
+    _key: string;
+  }>;
+  level?: number;
+  _type: "block";
+  _key: string;
+}>;
 
 export type PhotoReference = {
   _ref: string;
   _type: "reference";
   _weak?: boolean;
   [internalGroqTypeReferenceTo]?: "photo";
+};
+
+export type PostPhoto = {
+  _type: "postPhoto";
+  photo: PhotoReference;
+};
+
+export type Link = {
+  _type: "link";
+  label: string;
+  url: string;
 };
 
 export type SiteSettings = {
@@ -35,6 +65,7 @@ export type SiteSettings = {
   _updatedAt: string;
   _rev: string;
   title: string;
+  byline: string;
   description: string;
   shareImage: PhotoReference;
   links?: Array<
@@ -102,6 +133,20 @@ export type ShotsPage = {
   >;
 };
 
+export type PostReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "post";
+};
+
+export type ArticleReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "article";
+};
+
 export type HomePage = {
   _id: string;
   _type: "homePage";
@@ -109,8 +154,14 @@ export type HomePage = {
   _updatedAt: string;
   _rev: string;
   title: string;
-  intro: string;
-  featured: Array<
+  introHeading?: string;
+  introPhoto: PhotoReference;
+  intro: ProseText;
+  blurb: ProseText;
+  featuredWriting: ArrayOf<PostReference | ArticleReference>;
+  featuredTitle: string;
+  featuredSubtitle: string;
+  featuredPhotos: Array<
     {
       _key: string;
     } & PhotoReference
@@ -128,6 +179,49 @@ export type Article = {
   url: string;
   publishedAt: string;
   summary?: string;
+  coverPhoto?: PhotoReference;
+};
+
+export type Post = {
+  _id: string;
+  _type: "post";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  slug: Slug;
+  summary?: string;
+  coverPhoto?: PhotoReference;
+  publishedAt: string;
+  body: Array<
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?: "normal" | "h2" | "blockquote";
+        listItem?: never;
+        markDefs?: Array<{
+          url: string;
+          _type: "hyperlink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+    | ({
+        _key: string;
+      } & PostPhoto)
+  >;
+};
+
+export type Slug = {
+  _type: "slug";
+  current: string;
+  source?: string;
 };
 
 export type Gallery = {
@@ -145,12 +239,6 @@ export type Gallery = {
       _key: string;
     } & PhotoReference
   >;
-};
-
-export type Slug = {
-  _type: "slug";
-  current: string;
-  source?: string;
 };
 
 export type SanityImageAssetReference = {
@@ -296,18 +384,23 @@ export type Geopoint = {
 };
 
 export type AllSanitySchemaTypes =
-  | Link
+  | ProseText
   | PhotoReference
+  | PostPhoto
+  | Link
   | SiteSettings
   | ContactPage
   | AboutPage
   | WritingPage
   | GalleryReference
   | ShotsPage
+  | PostReference
+  | ArticleReference
   | HomePage
   | Article
-  | Gallery
+  | Post
   | Slug
+  | Gallery
   | SanityImageAssetReference
   | Photo
   | SanityImageCrop

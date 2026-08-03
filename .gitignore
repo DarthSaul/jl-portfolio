@@ -145,3 +145,7 @@ vite.config.ts.timestamp-*
 # Sanity
 .sanity/
 sanity-build/
+
+# Claude Code worktrees — checkouts, not project files. Everything else under
+# .claude/ stays tracked, settings.json included.
+.claude/worktrees/

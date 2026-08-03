@@ -134,31 +134,59 @@ A preset value that has no matching component must be impossible.
 
 | Route | Contents |
 | --- | --- |
-| `/` | Intro + 5–10 featured photos |
+| `/` | Seven fixed slots — see *The front page* below |
 | `/shots` | ~50 curated photos, plus links to the trip galleries |
 | `/shots/[slug]` | 5 trip galleries, ~50 photos each |
-| `/writing` | Links out to articles published elsewhere. No article bodies live here. |
+| `/writing` | Her own posts and links out to others, newest first, interleaved |
+| `/writing/[slug]` | A `post` — writing that lives here. Not built yet. |
 | `/about` | Short text + a photo |
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
 
+## The front page
+
+Seven slots, in this fixed order. She fills them; she never reorders them. Confirmed
+against the Squarespace site this replaces.
+
+| # | Slot | Where it lives |
+| --- | --- | --- |
+| 1 | Site name | `siteSettings.title` |
+| 2 | Byline — "STAKING THINGS OUT, MAKING A FEW CLAIMS" | `siteSettings.byline` |
+| 3 | Nav | Frontend only. No schema. |
+| 4 | Heading + intro, printed over a photo of her | `homePage.introHeading` / `introPhoto` / `intro` |
+| 5 | Blurb, 3–4 sentences, usually carrying a link | `homePage.blurb` |
+| 6 | Featured writing — exactly 3, posts and links mixed | `homePage.featuredWriting` |
+| 7 | Featured photos — title, subtitle, a row of exactly 5 | `homePage.featuredTitle` / `featuredSubtitle` / `featuredPhotos` |
+
+The byline is on `siteSettings`, not `homePage`, because it sits in the header of **every**
+page. Slot 6's own heading is hardcoded in the component; only slot 7's is editable.
+
 ## The content model
 
-Ten types. The schema files in `studio/schemaTypes/` are the source of truth; this table
+Twelve types. The schema files in `studio/schemaTypes/` are the source of truth; this table
 is a map, not a spec.
 
 | Type | Shape | Notes |
 | --- | --- | --- |
 | `photo` | image, alt (required), caption, place, dateTaken, tags | Rule 1's anchor. No title field. |
 | `gallery` | title, slug, description, preset, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. |
-| `article` | title, publication, url, publishedAt, summary | A link out. No body, by design. |
-| `homePage` | title, intro, featured → refs | Singleton |
+| `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
+| `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
+| `homePage` | title, introHeading, introPhoto → ref, intro, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → refs | Singleton. See *The front page*. |
 | `shotsPage` | title, intro, photos → refs, galleries → refs | Singleton |
-| `writingPage` | title, intro | Singleton. Articles are queried, not listed by hand. |
+| `writingPage` | title, intro | Singleton. Posts and articles are queried, not listed by hand. |
 | `aboutPage` | title, body, portrait → ref | Singleton |
 | `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
-| `siteSettings` | title, description, shareImage → ref, links | Singleton |
+| `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
 | `link` | label, url | Object. Used only by `siteSettings.links`. |
+| `postPhoto` | photo → ref | Object. A photo between paragraphs of a `post`. |
+| `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro` and `.blurb`. |
+
+**`post` and `article` split her writing by where it lives**, and that is the only thing
+that distinguishes them. An `article` points at a piece someone else published — the New
+York Times, HuffPost — and copying that text here would be republishing their page. A
+`post` is hers, and exists because about fifteen of them were self-published on the
+Squarespace site being replaced and have nowhere else to go.
 
 Things worth knowing before changing any of it:
 
@@ -170,6 +198,13 @@ Things worth knowing before changing any of it:
   only stays coherent if **every preset preserves the native aspect ratio**. If a preset
   ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
   component.
+  - The front page's text-over-photo intro (slot 4) was the first real test of this, and
+    the rule held. A full-bleed hero with text on it is the classic case that wants a crop;
+    instead the photo renders at its native ratio with the text in a legible band over it,
+    which means **the photo's own proportions decide how tall that section is**. The cost
+    is real and lands on her: which photo she picks matters. That is a description in the
+    Studio, not a control. Check `grep -rn "hotspot *:" studio/schemaTypes/` returns
+    nothing — the only `hotspot` in the tree is the comment in `photo.ts` saying why.
 - **Image metadata is set at upload and never backfilled.** The `metadata` array on
   `photo.image` *replaces* Sanity's defaults rather than extending them, so `lqip`,
   `blurhash`, `thumbhash` and `palette` are restated there deliberately — dropping one
@@ -188,9 +223,30 @@ Things worth knowing before changing any of it:
   one that catches a paste or a duplicated document). `excludeAlreadyChosen` in
   `schemaTypes/photoPicker.ts` is the shared filter. On the array rather than the member,
   `options` does nothing at all, silently.
-- **Prose fields are plain `text`, never Portable Text.** Short intro/about/caption text
-  only — see the non-goals. Portable Text would cost a renderer on the Nuxt side for
-  nothing.
+  - **`post.body` is the one exception, and neither half applies there.** `unique()`
+    compares members ignoring `_key`, so on an array that is mostly prose it would reject a
+    post using the same short sentence twice. And `excludeAlreadyChosen` reads its `parent`
+    as the surrounding array, so inside a `postPhoto` object the parent is the object and
+    the filter quietly resolves to "exclude nothing" — a guarantee in appearance only. Both
+    are left off deliberately; repeating a photograph inside one essay is legitimate.
+- **Prose fields are plain `text`, never Portable Text — except `proseText` and
+  `post.body`.** Short intro/about/caption text stays plain. Rich text exists only where
+  her writing carries meaning plain text cannot: italicised titles and links out.
+  - The restriction is the whole point, and it lives in `objects/proseText.ts`. **The
+    `styles`, `lists` and `marks` arrays REPLACE Sanity's defaults rather than extending
+    them** — the same trap as `photo.image.options.metadata`, failing the same quiet way.
+    Omit `styles` and h1–h6 come back; omit `lists` and bullet lists come back; omit
+    `decorators` and code, underline and strike-through come back. `lists: []` is
+    load-bearing. Underline is left out on purpose: on the web an underline reads as a
+    link.
+  - `proseBlock(styles)` is a function, not a shared constant, so each schema type gets its
+    own object. `proseText` passes one style; `post.body` passes three.
+  - **A photo inside a body is a `postPhoto` object wrapping a reference, not a bare or
+    named `reference` member.** A *named* reference member looks like the tidier answer and
+    is a trap: typegen extracts it as `_type: "reference"` while the editor writes the
+    name, so the generated types and the stored documents silently disagree. The wrapper
+    also lets the editor show the actual photograph inline instead of a reference chip.
+    Never add a field to it — see the Rule 2 note in `objects/postPhoto.ts`.
 - `@sanity/icons` v5 has no root named exports: `import {ImageIcon} from '@sanity/icons/Image'`.
   The root import type-checks and then fails at bundle time.
 
@@ -204,6 +260,8 @@ target shape.
 ```text
 CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
 .env.example                ✎ Root env, for scripts/ only
+.worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
+.claude/settings.json       ✎ SessionStart hook → scripts/worktree-setup.sh
 
 web/                        ✎ The Nuxt app. Vercel's root directory.
   package.json              ✎ nuxt, vue, @nuxtjs/sanity, tailwind. No React.
@@ -251,12 +309,13 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   schemaTypes/
     index.ts                ✎ Schema registry
     photoPicker.ts          ✎ excludeAlreadyChosen — shared reference-picker filter
-    documents/              ✎ photo, gallery, article,
+    documents/              ✎ photo, gallery, post, article,
                               homePage, shotsPage, writingPage, aboutPage,
                               contactPage, siteSettings
-    objects/                ✎ link
+    objects/                ✎ link, postPhoto, proseText
 
 scripts/
+  worktree-setup.sh         ✎ .env + node_modules for a fresh checkout. Idempotent.
   seed.ts                     Writes stock content to `development`
 ```
 
@@ -368,8 +427,49 @@ contract. Vercel builds `web/` and never runs typegen, so the file has to be in 
   content over the CDN with no preview token. **Revisit this flag the day Presentation or
   visual editing lands.**
 
+From the **repo root**:
+
+| Command | Purpose | Status |
+| --- | --- | --- |
+| `bash scripts/worktree-setup.sh` | Make a fresh checkout runnable: `.env` files in place, both `node_modules` installed | ✎ works |
+
 Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
 the repo root.
+
+### Fresh checkouts and worktrees
+
+A worktree is a fresh checkout: no `.env` files, no `node_modules`. `npm run dev` in
+`studio/` is impossible without the second and refuses to start without the first, since
+`dataset.ts` throws on an unset `SANITY_STUDIO_DATASET`. Two mechanisms cover the gap, and
+they overlap deliberately:
+
+- **`.worktreeinclude`** lists the three gitignored `.env` files. Claude Code copies them
+  into every worktree it creates. Native, no code — but it only fires for worktrees Claude
+  Code makes, not `git worktree add` by hand and not a fresh `git clone`.
+- **`scripts/worktree-setup.sh`** does that same job plus dependencies, in any checkout, at
+  any time. It runs at session start via the `SessionStart` hook in `.claude/settings.json`,
+  so a new worktree is generally ready before you think to ask.
+
+The script is idempotent and prints nothing when there is nothing to do. That silence is
+the point rather than a courtesy: `SessionStart` output is injected into Claude's context on
+every session.
+
+**`node_modules` is cloned from the main checkout, not reinstalled** — whenever that
+checkout has one and the two `package-lock.json` files are byte-identical. `cp -Rc` is APFS
+`clonefile`: copy-on-write, so ~1GB across both packages lands in about 15 seconds and
+consumes no disk until the trees diverge. A lockfile mismatch means the branch changed
+dependencies, so that case falls back to a real `npm ci`. Copying a tree skips npm's
+lifecycle scripts, which is why the script runs `web`'s `postinstall` (`nuxt prepare`)
+itself — without it, `web/.nuxt` is missing.
+
+Cloning rather than symlinking is deliberate. A shared `node_modules` is also a shared Vite
+cache inside it, and two dev servers fighting over one cache is the exact collision
+worktrees exist to prevent.
+
+Both mechanisms copy `studio/.env` verbatim from the main checkout, so a `production`
+dataset there propagates into every worktree. The script prints the dataset whenever it
+seeds the file, which is the only thing standing between that and the silence the rule in
+*Datasets* exists to prevent.
 
 ## Environment variables
 
@@ -435,7 +535,7 @@ don't add a dependency that anticipates them.
 - **No visitor accounts.** No login, no favorites, no comments. The only authenticated user is the editor, in the Studio.
 - **No contact form.** `/contact` is text and links — email address, social links. No form, no form handler, no spam mitigation, no inbox to check.
 - **No freeform page builder.** No drag-and-drop, no canvas, no per-photo position/size/crop controls, no arbitrary section nesting. See Rule 2.
-- **No long-form writing in the CMS.** `/writing` links out to articles published elsewhere. No rich-text article bodies, no post type, no portable-text renderer for essays. Short intro/about/caption text only.
+- **No long-form writing by anyone else, and no rich text beyond `post.body` and `proseText`.** This non-goal used to read "no long-form writing in the CMS, no post type" and it was wrong — it assumed all her writing lived on someone else's site. Half of it does, and `article` covers that. The other half is ~15 pieces she self-published on the Squarespace site being replaced; they have nowhere to go, so `post` exists. What still holds: `article` stays body-less, prose fields elsewhere stay plain `text`, and the block config stays as short as it is. Adding a style, a decorator or a block type is a decision with a cost, not a default.
 
 ## Working agreements
 
@@ -468,6 +568,16 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 - **The real tag vocabulary.** `PHOTO_TAGS` in `studio/schemaTypes/documents/photo.ts` holds
   placeholders. Lock the real list with her before the Studio is deployed to `production` —
   adding is free afterwards, renaming and removing are not.
+- **`@portabletext/vue` is approved but not installed.** `post.body` and `proseText` need a
+  renderer on the Nuxt side, and `@portabletext/vue` (1.0.14, peer `vue: ^3.3.4`) is the
+  agreed choice. Nothing in `web/` reads a body yet, so it is deliberately not in
+  `web/package.json` — install it with the first route that renders one, not before.
+- **Porting the Squarespace posts.** ~15 of them, and the schema is ready for them but the
+  content is not. Every Squarespace date reads `January 01, 2030`, so real dates have to be
+  recovered from the text; several slugs are junk
+  (`/2018/8/22/8mc14cj2kpvx8ufmgy9utxtw0z8kbc`) and need clean replacements. Old links in
+  the world break either way, so decide about redirects at the same time. A `scripts/` job
+  against `development` first.
 - **`web/sanity.types.ts` may fall outside the app's TypeScript program.**
   `.nuxt/tsconfig.app.json` includes `../app/**/*` and `../*.d.ts`; a `.ts` file at the web
   root matches neither. Explicit imports still work, but the `declare module "@sanity/client"`

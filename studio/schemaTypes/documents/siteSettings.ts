@@ -23,6 +23,15 @@ export default defineType({
     }),
 
     defineField({
+      name: 'byline',
+      title: 'Byline',
+      type: 'string',
+      description: 'The line under your name at the top of every page — not just the front page.',
+      initialValue: 'STAKING THINGS OUT, MAKING A FEW CLAIMS',
+      validation: (rule) => rule.required(),
+    }),
+
+    defineField({
       name: 'description',
       title: 'Site description',
       type: 'text',

@@ -156,8 +156,8 @@ A preset value that has no matching component must be impossible.
 | `/shots` | ~50 curated photos, plus links to the trip galleries |
 | `/shots/[slug]` | 5 trip galleries, ~50 photos each |
 | `/writing` | Her own posts and links out to others, newest first, interleaved |
-| `/writing/[slug]` | A `post` — writing that lives here. Not built yet. |
-| `/about` | Short text + a photo |
+| `/writing/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
+| `/about` | Her bio — prose with photographs in it. Same body shape as a `post`. |
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
 
@@ -200,11 +200,11 @@ is a map, not a spec.
 | `homePage` | title, introHeading, introPhoto → ref, intro, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → refs | Singleton. See *The front page*. |
 | `shotsPage` | title, intro, photos → refs, galleries → refs | Singleton |
 | `writingPage` | title, intro | Singleton. Posts and articles are queried, not listed by hand. |
-| `aboutPage` | title, body, portrait → ref | Singleton |
+| `aboutPage` | title, body | Singleton. Body is prose + `postPhoto`, like `post`. Called **Bio** in the Studio. |
 | `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
 | `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
 | `link` | label, url | Object. Used only by `siteSettings.links`. |
-| `postPhoto` | photo → ref | Object. A photo between paragraphs of a `post`. |
+| `postPhoto` | photo → ref | Object. A photo between paragraphs of any body — `post` or `aboutPage`. |
 | `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro`, `.blurb`, `.featuredTitle` and `.featuredSubtitle`. |
 
 **`post` and `article` split her writing by where it lives**, and that is the only thing
@@ -218,11 +218,35 @@ Things worth knowing before changing any of it:
 - **One image field, total.** `grep -rn "type: 'image'" studio/schemaTypes/` must return
   exactly one line — the one in `photo.ts`. A second hit means Rule 1 has been broken.
   Everything else that shows a photograph holds a reference.
-- **No `hotspot`, and no crop, anywhere.** Sanity's usual advice is `hotspot: true` on
-  every image; here it is a per-photo framing control, which Rule 2 forbids. That decision
-  only stays coherent if **every preset preserves the native aspect ratio**. If a preset
-  ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
-  component.
+- **No `hotspot`, and no crop on a photograph. Preview thumbnails are the one exception.**
+  Sanity's usual advice is `hotspot: true` on every image; here it is a per-photo framing
+  control, which Rule 2 forbids. That decision only stays coherent if **every preset
+  preserves the native aspect ratio**, and it still does. If a preset ever wants uniform
+  tiles, that reopens Rule 2 — it does not get decided inside a component.
+  - **The exception is a preview thumbnail, and it is deliberately narrow.** `/writing` lists
+    each piece behind a small circular avatar of its cover photo, matching the site this
+    replaces. A circle is a square crop, so `SanityPhoto` has a `square` prop that asks the
+    CDN for `fit=crop&crop=center`.
+
+    What keeps it inside Rule 2 is that nothing about it is a choice: the size is fixed by the
+    component, the crop is always centred, and **she has no control over any of it** — no knob
+    in the Studio, none at the call site. It is a preset that happens to crop. The prop is a
+    boolean rather than a shape for exactly that reason; the moment it takes dimensions or an
+    offset it has become the thing Rule 2 exists to prevent.
+
+    It also earns its place on weight, which is what prompted it. The row used to render a
+    full-width cover at native proportions and let CSS shrink it, so the page shipped seven
+    ~1200px JPEGs to fill what is now a 128px circle.
+
+    **The cost is real and lands on her.** With no hotspot the crop is centred, so a cover
+    whose subject sits near an edge loses it in the thumbnail, and the only remedy is choosing
+    a different photo. If that starts to bite, the conversation is `hotspot` on `photo.image`
+    — a Rule 2 decision, not a component one.
+
+    **The photograph itself is never cropped.** `square` is for previews only; a photo at
+    reading size — a gallery, a post body, the front-page intro — keeps its own proportions.
+    `grep -rn "square" web/app/components/` should stay a short list, and every hit should be
+    a thumbnail.
   - The front page's intro (slot 4) was the first real test of this, and the rule held. A
     hero with text on it is the classic case that wants a crop; instead the photo renders at
     its native ratio — the right two-thirds of the container, with the heading and intro on a
@@ -254,7 +278,8 @@ Things worth knowing before changing any of it:
   one that catches a paste or a duplicated document). `excludeAlreadyChosen` in
   `schemaTypes/photoPicker.ts` is the shared filter. On the array rather than the member,
   `options` does nothing at all, silently.
-  - **`post.body` is the one exception, and neither half applies there.** `unique()`
+  - **A body — `post.body`, `aboutPage.body` — is the exception, and neither half applies.**
+    `unique()`
     compares members ignoring `_key`, so on an array that is mostly prose it would reject a
     post using the same short sentence twice. And `excludeAlreadyChosen` reads its `parent`
     as the surrounding array, so inside a `postPhoto` object the parent is the object and
@@ -287,7 +312,9 @@ Things worth knowing before changing any of it:
     load-bearing. Underline is left out on purpose: on the web an underline reads as a
     link.
   - `proseBlock(styles)` is a function, not a shared constant, so each schema type gets its
-    own object. `proseText` passes one style; `post.body` passes three.
+    own object. `proseText` and `aboutPage.body` pass one style; `post.body` passes three.
+    A bio starts at one because adding a style later costs a line and removing one she has
+    already used leaves blocks whose style no longer matches the list.
   - **`rule.max(n)` changes meaning when a field becomes `proseText`: it counts characters on
     a `string`/`text` and array *members* on Portable Text.** A carried-over `rule.max(500)`
     keeps validating and silently guards nothing — the same line, quietly weakened. That is
@@ -328,30 +355,31 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
       index.vue             ✎ LIVE — reads homePage from Sanity
       shots/index.vue
       shots/[slug].vue
-      writing.vue           ✎ still on ~/content/writing placeholders
-      writing/[slug].vue      A post. Featured posts on the front page link here already.
-      about.vue             ✎ placeholder
+      writing/index.vue     ✎ LIVE — posts and links out, newest first, from Sanity
+      writing/[slug].vue    ✎ LIVE — one post, body and all
+      about.vue             ✎ LIVE — the bio, through ProseBody
       contact.vue
     components/
       SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)
       ProseText.vue         ✎ Renders a proseText field via SanityContent
       ProseHeading.vue      ✎ The same, as a real <h2> — see the note above
       ProseLink.vue         ✎ The `hyperlink` annotation inside one
-      SitePhoto.vue         ✎ TEMPORARY static twin of SanityPhoto — /writing only
-      RichParagraph.vue     ✎ TEMPORARY static twin of ProseText — /writing only
+      ProseBody.vue         ✎ A body of prose with photos in it — post.body and aboutPage.body
+      BodyPhoto.vue         ✎ The postPhoto member of one, floated and wrapped by the text
       home/                 ✎ Hero, FeaturedWriting, PhotoStrip — slots 4, 6 and 7
+      writing/              ✎ ListItem — one row of the COPY list
       presets/                One component per layout preset
+    utils/                  ✎ date.ts — formatDate, auto-imported. See the UTC note in it.
     queries/                ✎ GROQ, one file per route
       photo.ts              ✎ The shared photo projection. Not a route — see below.
       home.ts               ✎
       shots.ts
       trip.ts
-      writing.ts
-      about.ts
+      writing.ts            ✎ WRITING_QUERY (the list) and POST_QUERY (one post)
+      about.ts              ✎ ABOUT_QUERY — the bio, body dereferenced
       contact.ts
-    content/                ✎ Static placeholders. Shrinking; not a destination.
-      site.ts               ✎ Site chrome. Deliberately never CMS content.
-      writing.ts            ✎ The last placeholder page's copy + Unsplash URLs.
+    content/                ✎ Site chrome only, now the placeholders are gone.
+      site.ts               ✎ Wordmark, nav, footer links. Deliberately never CMS content.
     composables/
     assets/css/             ✎ tailwind.css
   server/
@@ -440,18 +468,24 @@ It is responsible for:
 Centralizing this is what makes ~250 photos on a phone connection acceptable. A raw `<img>`
 or a bare CDN URL anywhere in the app is a bug.
 
-It takes a whole photo projection and **not** an `alt`, an aspect ratio, or a crop. Passing
-`alt` per call site is how one photograph ends up described two ways; passing a shape is a
-framing control, which is Rule 2's whole subject. The box is the photograph's own proportions,
-read from the asset metadata, and the CDN URL carries only `w` and `auto=format` — no `fit`,
-no `rect` — so the no-crop rule holds at the URL and not merely by convention.
+It takes a whole photo projection and **not** an `alt`, an aspect ratio, a size, or a crop
+offset. Passing `alt` per call site is how one photograph ends up described two ways; passing
+a shape is a framing control, which is Rule 2's whole subject. By default the box is the
+photograph's own proportions, read from the asset metadata, and the CDN URL carries only `w`
+and `auto=format` — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
+by convention.
 
-**There are two `<img>` in the app right now, and that is temporary.** `SitePhoto` is the
-static twin serving /writing while it is still on Unsplash placeholders; `RichParagraph` is the
-same arrangement for prose. Both are deleted along with `~/content/writing` when that page gets
-a query, and `grep -rn "<img" web/app` goes back to one hit. Nothing new gets pointed at them —
-the alternative, teaching `SanityPhoto` to also accept bare URLs, would have put a permanent
-hole in the rule to paper over a temporary one.
+The one exception is the boolean `square` prop, which switches to a centred square crop for
+preview thumbnails and its own much shorter srcset ladder. It takes no dimensions and no
+offset — on or off — so a call site still cannot invent a framing. See the thumbnail note in
+*The content model* for why it exists and what it costs.
+
+**There is exactly one `<img>` in the app, and `grep -rn "<img" web/app` is the check.** It
+was briefly two: `SitePhoto` and `RichParagraph` were static twins of `SanityPhoto` and
+`ProseText` serving /writing while that page was on Unsplash placeholders. All three — both
+twins and `~/content/writing` — died when /writing got its query. The alternative considered
+at the time, teaching `SanityPhoto` to also accept bare URLs, would have put a permanent hole
+in the rule to paper over a temporary one.
 
 **Sanity schema files are the source of truth for the content model.** Not this document,
 not the generated types, not the GROQ queries. Schema changes flow outward:
@@ -633,15 +667,18 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   with the simple version.
 - **The preset set itself.** `grid` and `stack` exist in the schema; neither has a component
   yet. What each guarantees at narrow widths is undecided — a design conversation, not an
-  implementation detail. Both must preserve native aspect ratio; see the no-crop note in
-  *The content model*.
+  implementation detail. Both must preserve native aspect ratio — the thumbnail exception is
+  for previews and does not reach them; see the no-crop note in *The content model*.
 - **The real tag vocabulary.** `PHOTO_TAGS` in `studio/schemaTypes/documents/photo.ts` holds
   placeholders. Lock the real list with her before the Studio is deployed to `production` —
   adding is free afterwards, renaming and removing are not.
-- **`@portabletext/vue` is approved but not installed.** `post.body` and `proseText` need a
-  renderer on the Nuxt side, and `@portabletext/vue` (1.0.14, peer `vue: ^3.3.4`) is the
-  agreed choice. Nothing in `web/` reads a body yet, so it is deliberately not in
-  `web/package.json` — install it with the first route that renders one, not before.
+- ~~**`@portabletext/vue` is approved but not installed.**~~ **Settled: it is never installed
+  directly.** `/writing/[slug]` renders `post.body` — the first route to read one — and needed
+  nothing added. `SanityContent` ships with `@nuxtjs/sanity`, already renders Portable Text for
+  `proseText`, and takes the same `components` map for a body: `block` for the styles, `marks`
+  for the `hyperlink` annotation, `types` for `postPhoto`. `@portabletext/vue` still arrives
+  transitively, which is why `ProseLink` and `PostPhoto` can import their props types from it.
+  Adding it to `web/package.json` would pin a second copy of something already present.
 - **Porting the Squarespace posts.** ~15 of them, and the schema is ready for them but the
   content is not. Every Squarespace date reads `January 01, 2030`, so real dates have to be
   recovered from the text; several slugs are junk

@@ -57,8 +57,15 @@ export default defineType({
         // list does nothing to photos already uploaded.
         metadata: ['lqip', 'blurhash', 'thumbhash', 'palette', 'exif'],
         // hotspot is intentionally NOT enabled. It is a per-photo focal point and crop,
-        // which Rule 2 forbids — she picks photos and order, never framing. Every preset
-        // preserves the native aspect ratio, so nothing needs a focal point.
+        // which Rule 2 forbids — she picks photos and order, never framing. Every photo
+        // shown at reading size keeps its native aspect ratio, so nothing needs one.
+        //
+        // The one place the site does crop is the preview thumbnail on /writing, which is a
+        // fixed centred square. That is a knob-free preset rather than a framing control,
+        // and it is the reason to revisit this line rather than a contradiction of it: if
+        // centred crops start losing the subject of her covers, hotspot is the fix, and
+        // turning it on is a Rule 2 decision taken with her — not a component's to make.
+        // See the thumbnail note in CLAUDE.md.
       },
       validation: (rule) => rule.required().assetRequired(),
     }),

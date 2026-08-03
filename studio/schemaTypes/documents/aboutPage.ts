@@ -1,14 +1,41 @@
 import {UserIcon} from '@sanity/icons/User'
-import {defineField, defineType} from 'sanity'
+import {defineArrayMember, defineField, defineType} from 'sanity'
+
+import {proseBlock} from '../objects/proseText'
 
 /**
- * /about — short text and one photo.
+ * /about — her bio: a few paragraphs with photographs among them.
+ *
+ * Called "Bio" in the Studio and in the sidebar, because that is the word in her nav. The
+ * type is still `aboutPage` and the route is still `/about`: renaming a document type is a
+ * content migration, and the two names cost nothing as long as the one she reads is hers.
+ *
+ * ## Why the body is the same shape as a writing post
+ *
+ * It holds prose with photographs between the paragraphs, which is exactly what `post.body`
+ * is, so it is built from the same two pieces — `proseBlock` for the text and `postPhoto` for
+ * a photograph. The renderer on the Nuxt side is shared for the same reason.
+ *
+ * That is also why **there is no longer a `portrait` field**. This page used to be a plain
+ * `text` body plus one required photo reference pinned outside it, which left the component
+ * deciding where the portrait sat. With photographs inside the body she places them by typing
+ * around them, and a separate field would be a second way to do the same thing — the kind of
+ * knob CLAUDE.md says to delete rather than document. Nothing is lost: a photo first in the
+ * body is a portrait at the top of the page.
+ *
+ * ## One style, not three
+ *
+ * `post.body` allows a subheading and a pulled-out quote because her essays use them. A bio
+ * is a few paragraphs about a person, so this starts at `normal` alone. That direction is the
+ * cheap one: adding a style later costs a line, while removing one she has already used
+ * leaves blocks in the document whose style no longer matches the list — the same asymmetry
+ * as PHOTO_TAGS. Add one when a bio actually needs it, not in advance.
  *
  * A singleton. See homePage.ts for how that is enforced.
  */
 export default defineType({
   name: 'aboutPage',
-  title: 'About page',
+  title: 'Bio page',
   type: 'document',
   icon: UserIcon,
 
@@ -18,33 +45,34 @@ export default defineType({
       title: 'Browser tab title',
       type: 'string',
       description: 'Shown in the browser tab and in search results. Not shown on the page.',
-      initialValue: 'About — Joan Lebow',
+      initialValue: 'Bio — Joan Lebow',
       validation: (rule) => rule.required(),
     }),
 
     defineField({
       name: 'body',
       title: 'About you',
-      type: 'text',
-      rows: 8,
-      description: 'A few paragraphs. Press Enter twice to start a new one.',
-      validation: (rule) => rule.required(),
-    }),
-
-    defineField({
-      name: 'portrait',
-      title: 'Photo',
-      type: 'reference',
-      to: [{type: 'photo'}],
+      type: 'array',
       description:
-        'Pick one from your photos. If it is not there yet, add it under Photos first — ' +
-        'photos always live in one place, so the description you write there is the one ' +
-        'used everywhere.',
-      validation: (rule) => rule.required(),
+        'A few paragraphs. Use the Insert button to put a photo between them — its ' +
+        'description comes from the photo itself, so fixing it there fixes it everywhere.',
+      of: [
+        proseBlock([{title: 'Normal', value: 'normal'}]),
+
+        // RULE 1. A photograph here is a reference to a photo document, exactly as in a
+        // writing post and in a gallery. `postPhoto` is shared rather than copied: the object
+        // is named for where it first appeared, not for what it can hold, and a second
+        // identical type would be a second thing to keep in step. See objects/postPhoto.ts.
+        defineArrayMember({type: 'postPhoto'}),
+      ],
+      // No `unique()`, for the same reason post.body has none: it compares members ignoring
+      // `_key`, so on an array that is mostly prose it would reject a bio that happens to use
+      // the same short sentence twice.
+      validation: (rule) => rule.required().min(1).error('The bio needs something on it.'),
     }),
   ],
 
   preview: {
-    prepare: () => ({title: 'About page'}),
+    prepare: () => ({title: 'Bio page'}),
   },
 })

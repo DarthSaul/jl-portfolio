@@ -49,12 +49,6 @@ const props = defineProps<{ items: Home['featuredWriting'] }>()
  * Each card paired with everything its three links need — photo, headline and "Read more" all
  * point at the same place, so the binding is worked out once per card rather than three times
  * per render.
- *
- * NOTE: `/writing/[slug]` does not exist yet — CLAUDE.md's route table marks it "not built
- * yet". A post links to its eventual address rather than to nowhere, so the front page is
- * already right the day that route lands. Until then a featured post 404s, and Vue Router says
- * so in the dev log every render. That warning is pointing at real unfinished work and is left
- * to keep doing it.
  */
 const cards = computed(() =>
   props.items.map(item => ({
@@ -66,18 +60,8 @@ const cards = computed(() =>
   })),
 )
 
-/**
- * `publishedAt` is a plain `YYYY-MM-DD` date, which `new Date()` reads as UTC midnight.
- * Formatting it in the server's timezone and again in the visitor's would land on different
- * days for anyone west of Greenwich and trip a hydration mismatch, so the timezone is pinned.
- */
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
+// `formatDate` is auto-imported from `~/utils/date` — /writing needs the same formatting, and
+// the UTC pin it carries is the reason it is shared rather than repeated.
 </script>
 
 <template>

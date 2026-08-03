@@ -12,6 +12,22 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
   },
 
+  // The `titleTemplate` is deliberately not here: Nuxt cannot serialise a function into
+  // app.head, so it is set with useHead() in app/app.vue instead.
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+      meta: [
+        {
+          name: 'description',
+          content:
+            'Essays, blog posts and street photography from Joan Lebow — a former '
+            + 'newspaper reporter with a taste for the wry side of real life.',
+        },
+      ],
+    },
+  },
+
   // @nuxtjs/sanity merges these onto runtimeConfig.public.sanity, which is what
   // makes the NUXT_PUBLIC_SANITY_* names in .env.example work as runtime overrides.
   // The values below are build-time defaults, not the source of truth.

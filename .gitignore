@@ -146,5 +146,6 @@ vite.config.ts.timestamp-*
 .sanity/
 sanity-build/
 
-# Claude Code worktrees — checkouts, not project files.
+# Worktrees
 .claude/worktrees/
+.worktrees/

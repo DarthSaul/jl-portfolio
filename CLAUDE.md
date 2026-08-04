@@ -157,10 +157,10 @@ only add a way to run it backwards.
 
 `npm run promote`, from `studio/`. It is `studio/promote.mjs`, and it does four things:
 
-1. **Preflight.** Reads both datasets anonymously and **refuses to run if any `_id` exists in
-   `production` but not in `development`.** Then prints what will be created, and — separately
-   — which shared documents will be replaced with *different* content, versus how many are
-   already identical.
+1. **Preflight.** Reads both datasets **authenticated** and **refuses to run if any `_id`
+   exists in `production` but not in `development`.** Then prints what will be created, and —
+   separately — which shared documents will be replaced with *different* content, versus how
+   many are already identical.
 2. **Backs `production` up** to `studio/.promote/`, gitignored, before writing anything.
 3. **Exports `development`**, drafts and assets included.
 4. **Re-checks for new `production` ids, then imports with `--replace`.**
@@ -182,6 +182,28 @@ A document differing because `development` changed is the entire point of promot
 differing because `production` changed is the thing to stop for, and the two are
 indistinguishable from content alone. The script prints the list and says so; reading it is the
 step that keeps her work.
+
+**Both halves read authenticated, and that is not a detail — an anonymous read cannot see
+drafts.** This file previously claimed the opposite, on the strength of the dataset docs saying
+a public dataset is one "everyone can query", and that reading was wrong. Sanity's auth
+documentation is explicit: *"unauthenticated users have read access to published documents…
+if you want to access draft documents… you will need to authenticate."* Dataset visibility and
+draft visibility are separate axes, and `public` governs only the first. Measured on
+`development` with a scratch draft in place: **41 documents anonymously, 55 authenticated.**
+
+An unpublished draft is exactly what the preflight most needs to see — it is work that exists
+only in `production` — so an anonymous check would have passed clean and let the import bury
+it. The reads go through `sanity api`, signed with the same logged-in session `dataset export`
+and `import` already use, so `npm run promote` needs `sanity login` and nothing else; there is
+still no `SANITY_WRITE_TOKEN` anywhere near this script. A 401 aborts with a message naming the
+cause, because a read that did not happen must never look like a read that found nothing.
+
+That same authenticated view surfaced something else worth knowing: **each dataset holds 13
+system documents under `_.` — access groups, retention policy, and `_.schemas.default`.** They
+are invisible anonymously, which is why they went unnoticed. The preflight excludes them, and
+must: `dataset export` always filters system documents out, so they are not promotable content,
+and `_.schemas.default` is whatever the last `sanity deploy` wrote — it differs between datasets
+whenever their Studio deploys differ, which is a divergence the promote neither causes nor fixes.
 
 It lives in `studio/` rather than the `scripts/` directory this file plans for `seed.ts`, and
 the reason is not filing convenience: `dataset export` and `dataset import` authenticate as the
@@ -291,8 +313,12 @@ private, which broke the app in a genuinely nasty way: an anonymous read of a pr
 returns **HTTP 200 with an empty result set**, not a 401. Nothing errors, nothing logs, the
 query just resolves to `null` and the page renders as though the content had been deleted.
 
-Public here means public *reads*; writes still need a token, and the Studio still requires a
-login. The alternative was a server-only read token in `web/.env`, and it was rejected on the
+Public here means public reads **of published documents**. Writes still need a token, the
+Studio still requires a login, and — the part that is easy to get wrong — **drafts are not
+public either.** Dataset visibility and draft visibility are separate axes; an unauthenticated
+caller gets published content on a public dataset and nothing more. That is why the app needs
+no token (it reads published content) and why the promote's preflight does (it must see
+drafts). The alternative was a server-only read token in `web/.env`, and it was rejected on the
 grounds that `production` is public and needs no token — so local dev would have been
 authenticating over a code path production never takes, which is the class of
 works-locally-fails-in-Vercel divergence this file keeps warning about. It also would have put

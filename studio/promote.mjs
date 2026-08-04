@@ -27,15 +27,18 @@
  * ## Why it lives here and not in scripts/
  *
  * `studio/` is where the Sanity CLI is installed and where sanity.cli.ts supplies the project
- * id. It also needs no SANITY_WRITE_TOKEN — `dataset export` and `dataset import` authenticate
- * as the logged-in CLI user, so this reads and writes real content without the repo-root `.env`
- * existing at all.
+ * id. It also needs no SANITY_WRITE_TOKEN: every request here — the preflight reads as much as
+ * the export and import — goes through the CLI and is signed with the logged-in session, so
+ * this touches real content without the repo-root `.env` existing at all.
  *
  * ## Usage
  *
  *   npm run promote -- --dry-run    report what would change, touch nothing
  *   npm run promote                 report, confirm at the prompt, then do it
  *   npm run promote -- --yes        skip the prompt (CI, or a repeat run)
+ *
+ * Requires `sanity login` (or SANITY_AUTH_TOKEN). Without it the preflight cannot see drafts,
+ * which is the one thing it most needs to see — so it fails rather than reporting a clean run.
  */
 import {execFileSync} from 'node:child_process'
 import {existsSync, mkdirSync} from 'node:fs'
@@ -46,12 +49,11 @@ const SOURCE = 'development'
 const TARGET = 'production'
 
 /**
- * Hardcoded for the same reason it is hardcoded in sanity.config.ts and sanity.cli.ts: it is
- * public, and this repo only ever talks to one project. The API version is pinned to match
- * NUXT_PUBLIC_SANITY_API_VERSION and the one in structure.ts — an unpinned version can move
- * underneath us, and a preflight that silently changes behaviour is worse than none.
+ * Pinned to match NUXT_PUBLIC_SANITY_API_VERSION and the one in structure.ts. An unpinned
+ * version can move underneath us, and a preflight that silently changes behaviour is worse
+ * than none. There is no project id here: every request goes through the CLI, which reads it
+ * from sanity.cli.ts.
  */
-const PROJECT_ID = 'c3808h1v'
 const API_VERSION = '2026-07-31'
 
 const WORK_DIR = fileURLToPath(new URL('.promote/', import.meta.url))
@@ -62,41 +64,69 @@ const dryRun = args.has('--dry-run')
 const assumeYes = args.has('--yes')
 
 /**
- * Anonymous read. Both datasets are `public`, which means "everyone can query for content
- * without being authorized" — there is no draft carve-out, and document-level access control
- * is a separate paid feature this project does not use. So `perspective=raw` returns drafts
- * and `versions.*` release documents to an unauthenticated caller, which is what the preflight
- * needs: a draft Joan has not published is still work that exists only in `production`.
+ * Read a dataset, authenticated.
  *
- * Verified rather than assumed — `perspective=drafts` answers 200 anonymously here, with no
- * auth challenge. Do not "fix" this by adding a token; it would buy nothing and give the
- * preflight a credential to depend on.
+ * **`perspective=raw` needs a token, and an anonymous read silently returns less.** Sanity
+ * grants unauthenticated callers published documents only — drafts require authenticating as a
+ * project member, and dataset visibility has nothing to do with it. A `public` dataset is
+ * public in the sense that anyone may query it, not in the sense that everything in it is
+ * returned. Measured here: an anonymous raw read of `development` returned 41 documents where
+ * an authenticated one returned 55.
+ *
+ * That gap is the whole preflight. A draft Joan has not published is work that exists only in
+ * `production`, and an anonymous check cannot see it — so it would pass, and the import would
+ * bury her draft without either half of the tripwire noticing.
+ *
+ * The request goes through `sanity api`, which signs it with the same logged-in CLI session
+ * that `dataset export` and `dataset import` already use, and honours `SANITY_AUTH_TOKEN` when
+ * one is set. That keeps the promote's credential story to a single sentence — run
+ * `sanity login` — and keeps `SANITY_WRITE_TOKEN` out of this file entirely.
  */
-async function query(dataset, groq) {
-  const url =
-    `https://${PROJECT_ID}.api.sanity.io/v${API_VERSION}/data/query/${dataset}` +
-    `?query=${encodeURIComponent(groq)}&perspective=raw`
+function query(dataset, groq) {
+  const endpoint = `data/query/${dataset}?query=${encodeURIComponent(groq)}&perspective=raw`
 
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`Could not read ${dataset}: HTTP ${response.status} ${response.statusText}`)
+  let response
+  try {
+    response = sanityJson('api', endpoint, '--api-version', API_VERSION)
+  } catch (cause) {
+    // The preflight is the only thing standing between a promote and her work, so a read that
+    // did not happen must never look like a read that found nothing. Say which half failed.
+    console.error(
+      `\nCould not read ${dataset}.\n\n` +
+        `  If this is a 401, the CLI is not logged in and the preflight cannot see drafts —\n` +
+        `  which is precisely what it exists to check. Run \`npx sanity login\` (or set\n` +
+        `  SANITY_AUTH_TOKEN) and try again. Nothing was written.\n`,
+    )
+    throw cause
   }
 
-  const {result, error} = await response.json()
-  if (error) throw new Error(`Could not read ${dataset}: ${error.description ?? error}`)
-  return result
+  if (response.error) {
+    throw new Error(`Could not read ${dataset}: ${response.error.description ?? response.error}`)
+  }
+  return response.result
 }
 
 /**
- * Ids of everything, plus the full content of everything that is not an asset.
+ * Ids of everything promotable, plus the full content of everything that is not an asset.
  *
- * Asset documents are deliberately fetched id-only. Their ids are content hashes, so a shared
- * id already proves the bytes match — comparing them would be a tautology paid for in
- * megabytes, and asset metadata (lqip, palette) is where the weight in this dataset lives.
+ * Two exclusions, for different reasons:
+ *
+ * `_.**` are system documents — access groups, retention policy, the deployed schema. There
+ * are 13 of them in each dataset and they are invisible to an anonymous read, which is how
+ * they went unnoticed until the reads were authenticated. `dataset export` always filters them
+ * out, so they are not promotable content and counting them would be noise. Worse, one of them
+ * would lie: `_.schemas.default` is whatever the last `sanity deploy` wrote, so it differs
+ * between datasets whenever their Studio deploys differ — a divergence the promote neither
+ * causes nor fixes.
+ *
+ * Asset documents are fetched id-only. Their ids are content hashes, so a shared id already
+ * proves the bytes match; comparing them would be a tautology paid for in megabytes, and asset
+ * metadata (lqip, palette) is where the weight in this dataset lives.
  */
+const PROMOTABLE = '!(_id in path("_.**"))'
 const SNAPSHOT = `{
-  "ids": *[]._id,
-  "docs": *[!(_type in ["sanity.imageAsset", "sanity.fileAsset"])]
+  "ids": *[${PROMOTABLE}]._id,
+  "docs": *[${PROMOTABLE} && !(_type in ["sanity.imageAsset", "sanity.fileAsset"])]
 }`
 
 /** Fields the Content Lake rewrites on every write. Comparing them would flag everything. */
@@ -116,32 +146,43 @@ function canonical(value) {
   return value
 }
 
-async function snapshot(dataset) {
-  const {ids, docs} = await query(dataset, SNAPSHOT)
+function snapshot(dataset) {
+  const {ids, docs} = query(dataset, SNAPSHOT)
   return {
     ids: new Set(ids),
     content: new Map(docs.map((doc) => [doc._id, JSON.stringify(canonical(doc))])),
   }
 }
 
-function sanity(...cliArgs) {
+// sanity.cli.ts calls requireDataset() at module load, which throws when SANITY_STUDIO_DATASET
+// is unset — even for a command that names both of its datasets explicitly on the command
+// line. So it is pinned here rather than inherited, which also means the promote does not
+// depend on studio/.env existing. The value is irrelevant to every command run below;
+// `development` is the honest one because it is the source.
+function cliOptions(capture) {
   if (!existsSync(CLI)) {
     throw new Error(`Sanity CLI not found at ${CLI}. Run \`npm ci\` in studio/ first.`)
   }
-
-  // sanity.cli.ts calls requireDataset() at module load, which throws when
-  // SANITY_STUDIO_DATASET is unset — even for a command that names both of its datasets
-  // explicitly on the command line. So it is pinned here rather than inherited, which also
-  // means the promote does not depend on studio/.env existing. The value is irrelevant to
-  // every command below; `development` is the honest one because it is the source.
-  execFileSync(CLI, cliArgs, {
+  return {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
-    stdio: 'inherit',
     env: {...process.env, SANITY_STUDIO_DATASET: SOURCE},
-  })
+    // Errors stay on the inherited stderr either way, so a failed CLI call is legible.
+    stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
+    ...(capture ? {encoding: 'utf8', maxBuffer: 256 * 1024 * 1024} : {}),
+  }
 }
 
-const [source, target] = await Promise.all([snapshot(SOURCE), snapshot(TARGET)])
+/** Run the CLI with its output on the terminal. */
+function sanity(...cliArgs) {
+  execFileSync(CLI, cliArgs, cliOptions(false))
+}
+
+/** Run the CLI and parse its stdout as JSON. */
+function sanityJson(...cliArgs) {
+  return JSON.parse(execFileSync(CLI, cliArgs, cliOptions(true)))
+}
+
+const [source, target] = [snapshot(SOURCE), snapshot(TARGET)]
 
 const orphaned = [...target.ids].filter((id) => !source.ids.has(id)).sort()
 const creating = [...source.ids].filter((id) => !target.ids.has(id)).sort()
@@ -244,7 +285,7 @@ sanity('dataset', 'export', SOURCE, payload, '--overwrite')
 // version of this script that can promise otherwise, and the docs must not claim it does.
 // What this does buy is real: the confirmation prompt, the backup and the export together can
 // take minutes, and a write arriving in that stretch is now caught rather than silently lost.
-const latest = await query(TARGET, '*[]._id')
+const latest = query(TARGET, `*[${PROMOTABLE}]._id`)
 const appeared = latest.filter((id) => !source.ids.has(id)).sort()
 if (appeared.length > 0) {
   console.error(

@@ -285,9 +285,11 @@ Things worth knowing before changing any of it:
     as the surrounding array, so inside a `postPhoto` object the parent is the object and
     the filter quietly resolves to "exclude nothing" — a guarantee in appearance only. Both
     are left off deliberately; repeating a photograph inside one essay is legitimate.
-- **Prose fields are plain `text`, never Portable Text — except `proseText` and
-  `post.body`.** Short intro/about/caption text stays plain. Rich text exists only where
-  her writing carries meaning plain text cannot: italicised titles and links out.
+- **Prose fields are plain `text`, never Portable Text — except `proseText`, `post.body` and
+  `aboutPage.body`.** Short intro/caption text stays plain. Rich text exists only where her
+  writing carries meaning plain text cannot: italicised titles and links out. The two bodies
+  are the same shape and the same exception — a bio is prose with photographs in it, which is
+  what `post.body` already was.
   - **`homePage.featuredTitle` and `.featuredSubtitle` are `proseText` too**, and the title
     is the one *heading* on the site that can carry emphasis. Her own copy asked for it:
     "Getting a Handle on @joanatstake" wants the handle set apart. Nothing was added to

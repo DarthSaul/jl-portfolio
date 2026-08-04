@@ -107,8 +107,18 @@ const srcset = computed(() => {
   return widths.map(w => `${at(w)} ${w}w`).join(', ')
 })
 
-/** The fallback `src`, sized for the shape being rendered rather than one figure for both. */
-const fallbackWidth = computed(() => (props.square ? 128 : 1200))
+/**
+ * The fallback `src`, sized for the shape being rendered rather than one figure for both.
+ *
+ * Clamped to the source for the same reason every entry in `srcset` is: past its own width the
+ * CDN upscales rather than refusing, so an asset narrower than the fallback would be enlarged
+ * and served at a size it does not have. `srcset` has always guarded this and `src` did not,
+ * which left the one request a browser makes when it ignores `srcset` as the only one able to
+ * ask for an upscale.
+ */
+const fallbackWidth = computed(() =>
+  Math.min(natural.value, props.square ? 128 : 1200),
+)
 
 /**
  * The photograph's own proportions, reserving the box before any bytes arrive.

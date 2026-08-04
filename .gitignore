@@ -146,6 +146,10 @@ vite.config.ts.timestamp-*
 .sanity/
 sanity-build/
 
+# Dataset tarballs written by `npm run promote` in studio/, including the backup of
+# production it takes before every import. Content, not source — and large.
+studio/.promote/
+
 # Worktrees
 .claude/worktrees/
 .worktrees/

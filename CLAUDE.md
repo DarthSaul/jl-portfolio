@@ -60,11 +60,13 @@ Consequences to keep in mind:
   and would be genuinely annoying to undo if we later embed the Studio. Keep it temporary
   while the arrangement is temporary.
 - **The Studio's dataset is required, never defaulted.** `studio/dataset.ts` throws if
-  `SANITY_STUDIO_DATASET` is unset. There is no safe default: `production` means a machine
-  without `studio/.env` silently edits her real photos, and `development` means a deploy
-  silently ships a Studio full of stock content. Both are wrong, so neither is the default.
-  `npm run deploy` pins `production` itself, so the deployed Studio cannot inherit a local
-  `.env`. Local work sets `development` in `studio/.env`.
+  `SANITY_STUDIO_DATASET` is unset. There is no safe default, and both wrong answers fail
+  quietly: `production` means a machine without `studio/.env` edits the dataset the live site
+  reads while believing it is in a sandbox, and `development` means a deploy ships her a Studio
+  pointed at a dataset the live site does not read — she would edit, publish, see nothing
+  change, and have no way to tell why. So neither is the default. `npm run deploy` pins
+  `production` itself, so the deployed Studio cannot inherit a local `.env`. Local work sets
+  `development` in `studio/.env`.
 - **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
   opaque error. That means both the deployed host and `http://localhost:3333` for
   `sanity dev`: `npx sanity cors add <origin> --credentials`.
@@ -85,8 +87,9 @@ Consequences to keep in mind:
   covers all of them. It does not cover an apex domain — **`joanatstake.com` needs its own
   `npx sanity cors add https://joanatstake.com --no-credentials` on the day DNS is connected**,
   or the site breaks the moment anyone navigates between pages. That is one of exactly two
-  going-live steps; the other is clearing the stock content out of `production`, in *Datasets*
-  below. Neither requires touching the dataset itself.
+  going-live steps; the other is replacing the stock photographs in `development` and running
+  `npm run promote`, in *Datasets* below. Neither requires touching a dataset's existence or
+  its visibility.
 
   **Know how a missing app origin fails, because it does not look like CORS.** SSR sends no
   `Origin` header, so a hard load always works. Nuxt purges a route's cached data on unmount,
@@ -129,68 +132,135 @@ embedded preview / visual editing becomes worth the bridge — not on general pr
 
 Two datasets on project `c3808h1v`, both created:
 
-- `development` (public) — stock photos, for building and experimenting. What local dev
-  points at, via `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET`
-  in `web/.env`.
-- `production` (public) — eventually her real content. Reached only by an explicit
-  `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
+- `development` (public) — **where content is authored.** What local dev points at, via
+  `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET` in `web/.env`.
+  The dataset anyone actually types into.
+- `production` (public) — **a mirror of `development`**, refreshed by `npm run promote`.
+  Read by the Vercel app, and written by the deployed Studio. Reached from the CLI only by an
+  explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
 
 Any script that writes must take the dataset explicitly and must not default to `production`.
 
-**`production` currently holds a copy of `development`'s stock content, and that is
-temporary.** It was seeded on 2026-08-03 — a 22-document, 14-asset copy of `development` —
-because the Vercel deployment reads `production` and the front page throws a 500 when no
-`homePage` document exists. This file used to say `production` was never seeded, and the
-reasoning behind that line still holds *for a live site*: stock photographs published under
-her name is exactly the failure it was guarding against. What made it safe to override is that
-nothing is live yet. **The Vercel app is at `jl-portfolio-seven.vercel.app` and
-`joanatstake.com` is not pointed at it**, so `production` is a staging dataset wearing the
-production name until DNS is connected.
+**This file used to treat writing to `production` as a hazard to argue around, and that was
+wrong.** It assumed content would only ever reach `production` by Joan editing it there, so
+anything else arriving was a mistake in progress. In practice her content is being authored
+*for* her in `development` — the bio, the writing links, the photographs that go with them —
+and it has to get to `production` somehow. Promotion is the intended workflow, not a
+workaround, and the old framing kept stopping the actual work.
 
-Two consequences that outlive the seeding:
+What survives from that framing is the line directly above. Naming the dataset explicitly is
+still the rule; `studio/promote.mjs` satisfies it by pinning **both** names in source rather
+than taking them as arguments, because there is exactly one legal direction and a flag would
+only add a way to run it backwards.
 
-- **Connecting the domain is not a DNS-only task — but it does not need the dataset wiped
-  either.** The stock content has to be gone before `joanatstake.com` resolves. Deleting and
-  recreating `production` is not how to get there, and an earlier draft of this section said it
-  was, on the grounds that nothing tracked which documents were seeded. Something does: every
-  seeded document kept its `_id` through the import. Verified 2026-08-03 — all 36 documents in
-  `production` share an `_id` with one in `development`, and **not one document is
-  production-only**. So the seeded set is recoverable, and a targeted delete is available.
+#### The promote
 
-  **But "seeded" and "safe to delete" are not the same set, and conflating them deletes her
-  front page.** Singletons are pinned by `structure.ts` to a `documentId` equal to the type
-  name — `homePage`'s `_id` is the literal string `homePage`, identical in both datasets by
-  construction, not by coincidence. It is also the exact document she edits, because a singleton
-  is edited in place and never replaced. It is seeded *and* must survive. A manifest of imported
-  ids has the same hazard for the same reason: it would list `homePage` too. The problem is not
-  how provenance is recorded, it is that provenance does not imply disposability.
+`npm run promote`, from `studio/`. It is `studio/promote.mjs`, and it does four things:
 
-  So the delete has to be scoped, and a `scripts/` job is the place for it (GROQ cannot span
-  datasets, and the rule above requires both dataset names be passed explicitly):
+1. **Preflight.** Reads every `_id` from both datasets anonymously and **refuses to run if any
+   `_id` exists in `production` but not in `development`.** Then prints what will be created
+   and what will be replaced.
+2. **Backs `production` up** to `studio/.promote/`, gitignored, before writing anything.
+3. **Exports `development`**, drafts and assets included.
+4. **Imports into `production` with `--replace`.**
 
-  - **By type.** Remove the stock *content* — `photo`, `post`, `article` and their image assets.
-    Never singletons; those get edited, not deleted.
-  - **By modification time.** The import stamped `_updatedAt` on everything it wrote — currently
-    `2026-08-03T17:09:09Z`. Anything with a later `_updatedAt` is something she has touched since,
-    which means it is no longer stock regardless of where its `_id` came from. Skip those.
-  - **Dry run first**, listing what would go, before anything is deleted.
+`--dry-run` stops after step 1; `--yes` skips the confirmation prompt. Run the dry run first —
+it is the whole point of the preflight being separate.
 
-  That ordering also survives the passage of time in a way a wipe does not: the moment she adds
-  or edits real content, a wipe takes it and the scoped delete does not. And recreating has a
-  trap of its own — `--visibility` is optional on `sanity dataset create`, `development` started
-  private, and a private dataset read anonymously returns **HTTP 200 with an empty result**
-  rather than an error. Rebuilding the dataset to fix stock content would risk reintroducing the
-  silent failure documented directly below, to solve something a scoped delete already solves.
+It lives in `studio/` rather than the `scripts/` directory this file plans for `seed.ts`, and
+the reason is not filing convenience: `dataset export` and `dataset import` authenticate as the
+**logged-in CLI user**, so the promote needs no `SANITY_WRITE_TOKEN` at all. Putting it at the
+repo root would have given it a token, a `package.json` and a `node_modules` it does not need,
+to reach a CLI that is already installed next to the schema it promotes.
 
-  So the going-live checklist is content plus one CORS entry, and neither step touches the
-  dataset itself. See the app-origin CORS bullet above for the second.
-- **`npx sanity dataset copy <src> <dst>` refuses when the target already exists**, and there
-  is no `--force`. Copying into a dataset that exists is `sanity dataset export` followed by
-  `sanity dataset import <tarball> --dataset <name>`, which is what was actually run. It
-  strengthens references on the way in, so the result is a genuine copy rather than one dataset
-  pointing at another's assets. Note it does *not* mint new `_id`s — asset ids are content
-  hashes and document ids are carried over verbatim, which is what makes the seeded set
-  identifiable above.
+**The promote has an expiry date, and the preflight is the tripwire — not a formality.** The
+deployed Studio at `joanatstake.sanity.studio` writes to `production`. The promote overwrites
+`production`. Those two facts collide the day Joan starts editing, and from then on a promote
+destroys her work. A document she creates in the deployed Studio exists in `production` and
+nowhere else, so the subset check catches it and the script exits non-zero. **When that happens
+the answer is never a `--force` flag.** It means the handover has happened, the content now
+moves the other way, and `development` is the copy that needs updating.
+
+Import semantics worth knowing before changing any of this, all verified against
+`@sanity/import` rather than inferred:
+
+- **Import never deletes.** Nothing in the target is removed, ever — a document there that the
+  source lacks simply survives. That is precisely why the subset check is the *precondition*
+  for calling the result a mirror. Without it, "promote" would mean "overlay", and the two stop
+  being the same thing the moment `production` grows a document of its own.
+- **`--replace` is a whole-document replace, not a merge**, so a field present in the target and
+  absent in the source is dropped from that document. Correct here, and only because of the
+  check above.
+- **Without `--replace` the default operation is `create`, which fails on the first colliding
+  id.** `--missing` is the opposite mistake: it lands new documents and skips every existing
+  one, so edits to content already promoted would silently never arrive.
+- **Drafts and assets are both included by default.** Do not add `--no-drafts` — it also strips
+  `versions.*` release documents, and it would discard unpublished Studio work.
+- **Never `--raw`.** Asset CDN URLs are dataset-scoped (`/images/<projectId>/<dataset>/…`), so a
+  raw export re-imported into a sibling dataset fails with *"Asset has different target than
+  source"*. A plain export bundles the binaries and rewrites the references.
+- Assets are deduplicated against the target by `sha1hash`, so a repeat promote re-uploads
+  nothing. The operation is idempotent and a second run is a no-op.
+- **Any Sanity CLI command run from `studio/` needs `SANITY_STUDIO_DATASET` set, even one that
+  names both of its datasets on the command line.** `sanity.cli.ts` calls `requireDataset()`
+  at module load, which throws before the command is parsed. `promote.mjs` therefore pins the
+  variable in the child environment rather than inheriting it, so it does not depend on
+  `studio/.env` existing — the same move `npm run deploy` makes for a different reason.
+
+**`npx sanity dataset copy <src> <dst>` is not the mechanism, and cannot be.** It refuses when
+the target already exists, there is still no `--force`, and it is Enterprise-gated besides.
+Export-then-import is the supported way into a dataset that exists. It strengthens references on
+the way in, so the result is a genuine copy rather than one dataset pointing at another's
+assets, and it does *not* mint new `_id`s — asset ids are content hashes and document ids carry
+over verbatim, which is what makes the subset check meaningful in the first place.
+
+#### Stock content is cleaned in `development`, not in `production`
+
+`production` was first seeded on 2026-08-03 from `development`, because the Vercel deployment
+reads `production` and the front page throws a 500 when no `homePage` document exists. It was
+promoted over on 2026-08-04, which is when the arrangement above became the workflow rather
+than a one-off; the two datasets held identical id sets — 41 documents each — immediately
+afterwards. **The Vercel app is at `jl-portfolio-seven.vercel.app` and `joanatstake.com` is not
+pointed at it**, so `production` is a staging dataset wearing the production name until DNS is
+connected.
+
+That first promote is also what `/about` was waiting on. `aboutPage` existed only in
+`development`, so the live route returned a 500 while `/` and `/writing` returned 200 — a
+reminder that **a missing singleton fails per-route, not visibly at the dataset level**. Adding
+a route that queries a singleton adds a way for `production` to be wrong without anything
+saying so.
+
+Some of that stock content is still there — see the front-page note about
+`homePage.featuredPhotos` — and it has to be gone before `joanatstake.com` resolves. Stock
+photographs published under her name is the failure the old "never seed `production`" line was
+guarding against, and that concern was always right; it was only ever the remedy that was wrong.
+
+**The remedy is to clean `development` and promote.** One dataset to clean, and the mirror
+carries the cleanup across. This file used to specify a `scripts/` job that deleted stock
+content out of `production` directly, scoped by type and by `_updatedAt` against the import
+stamp. That design is retired, for two reasons:
+
+- Cleaning the source is strictly simpler than keeping two datasets clean independently, and it
+  cannot drift.
+- **Its `_updatedAt` heuristic does not survive the promote.** The rule was "anything stamped
+  later than the import is something she has touched since". But import brings references in
+  weak and then patches them strong in a second transaction, which sets a fresh `_updatedAt` on
+  every reference-bearing document it writes. The signal the script depended on is destroyed by
+  the operation that would immediately precede it.
+
+**What does survive, and is now load-bearing in the other direction: "seeded" and "safe to
+delete" are not the same set.** Singletons are pinned by `structure.ts` to a `documentId` equal
+to the type name — `homePage`'s `_id` is the literal string `homePage`, identical in both
+datasets by construction, not by coincidence. That used to be the trap: deleting everything the
+two datasets had in common would have taken her front page with it. It is now the mechanism.
+Because the id is the same on both sides, the promote **updates her page in place** rather than
+creating a second one, and every singleton behaves the same way.
+
+Note also what the going-live checklist does *not* require: recreating `production`.
+`--visibility` is optional on `sanity dataset create`, `development` started private, and a
+private dataset read anonymously returns **HTTP 200 with an empty result** rather than an error.
+Rebuilding a dataset to fix its contents would risk reintroducing the silent failure documented
+directly below, to solve something a promote already solves.
 
 **Both datasets are `public`, and `development` had to be changed to match.** It started
 private, which broke the app in a genuinely nasty way: an anonymous read of a private dataset
@@ -288,6 +358,13 @@ dataset — the type is in the schema, nothing has been created against it. Slot
 frontend-only by design and stays there. Wiring the header means creating the singleton and
 giving the layout a query, which is site chrome rather than front-page work and touches every
 route, so it did not ride along with slots 4–7.
+
+**Slot 7 is still pointed at stock photographs, and they are load-bearing.**
+`homePage.featuredPhotos` holds six real-estate-listing photos of a house — the last of the
+stock content, in both datasets. **Deleting them is not the fix; replacing them is.** The strip
+renders whatever the array references, so removing them empties slot 7 rather than improving it.
+Swapping in five of Joan's photographs, in `development`, then `npm run promote`, is a named
+launch blocker in *Open questions*. Everything else on the front page is her real copy.
 
 ## The content model
 
@@ -499,7 +576,10 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   sanity.cli.ts             ✎ projectId, autoUpdates, schemaExtraction, typegen paths
   structure.ts              ✎ Sidebar shape + SINGLETON_TYPES
   dataset.ts                ✎ requireDataset() — throws when unset, never defaults
+  promote.mjs               ✎ development → production. Here, not scripts/, because it
+                              authenticates as the CLI user and needs no write token.
   .env.example              ✎ SANITY_STUDIO_DATASET only
+  .promote/                   GENERATED — dataset tarballs and backups, gitignored
   schema.json                 GENERATED — typegen intermediate, gitignored
   schemaTypes/
     index.ts                ✎ Schema registry
@@ -509,7 +589,7 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
                               contactPage, siteSettings
     objects/                ✎ link, postPhoto, proseText
 
-scripts/
+scripts/                      Still empty. The promote deliberately is not here — see above.
   seed.ts                     Writes stock content to `development`
 ```
 
@@ -597,9 +677,9 @@ not the generated types, not the GROQ queries. Schema changes flow outward:
 schema → `typegen` → queries → components. When they disagree, the schema is right and the
 rest needs updating.
 
-**The app never writes to Sanity.** All content mutation happens in the Studio or in
-`scripts/`. No write token in app code, no mutation endpoints, no server routes that POST to
-the Content Lake.
+**The app never writes to Sanity.** All content mutation happens in the Studio, in
+`studio/promote.mjs`, or in `scripts/`. No write token in app code, no mutation endpoints, no
+server routes that POST to the Content Lake.
 
 ## Commands
 
@@ -622,8 +702,13 @@ From **`studio/`** — the Sanity Studio:
 | `npm run dev` | Studio on :3333, against `SANITY_STUDIO_DATASET` | ✎ works |
 | `npm run build` | Build the Studio bundle | ✎ works |
 | `npm run deploy` | Ship the Studio to `joanatstake.sanity.studio`, pinned to `production` | ✎ host claimed and live |
+| `npm run promote` | Mirror `development` onto `production`. `-- --dry-run` first. | ✎ works |
 | `npm run typegen` | `sanity schemas extract --force` then `sanity typegen generate` | ✎ works |
 | `npx sanity schemas validate` | Check the schema for problems. Touches no data. | ✎ works |
+
+`deploy` and `promote` are the two commands that reach `production`, and they are not
+substitutes: `deploy` ships the Studio bundle and no content, `promote` ships content and no
+code. A schema change reaches her through the first; a content change through the second.
 
 Note it is `sanity schemas extract` — plural. The singular form is not the command.
 
@@ -650,7 +735,11 @@ contract. Vercel builds `web/` and never runs typegen, so the file has to be in 
   visual editing lands.**
 
 Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
-the repo root.
+the repo root. It stays there rather than joining `promote.mjs` in `studio/` because the two
+authenticate differently — seeding writes documents through the client and needs
+`SANITY_WRITE_TOKEN`, where the promote goes through the CLI and needs nothing. Its value has
+also dropped: `development` now holds real content, so seeding it with stock photos is
+something to do to a *third* dataset, not to the one being authored in.
 
 ### Fresh checkouts and worktrees
 
@@ -664,11 +753,12 @@ It only fires for worktrees Claude Code makes, so `git worktree add` by hand and
 `git clone` still need the files put there some other way.
 
 It copies `studio/.env` verbatim, which is safe only because that file has exactly one
-legitimate value. **`studio/.env` holds `development`.** Production is reached two other
-ways and neither of them writes to it: `npm run deploy` pins `SANITY_STUDIO_DATASET=production`
-itself, and a one-off look at real content is an inline override for that single command,
-`SANITY_STUDIO_DATASET=production npm run dev` — an inline value beats the file, which
-`npx sanity debug` will confirm.
+legitimate value. **`studio/.env` holds `development`.** Production is reached three other
+ways and none of them needs this file to say so: `npm run deploy` pins
+`SANITY_STUDIO_DATASET=production` itself, `npm run promote` pins the variable in the child
+environment it hands the CLI, and a one-off look at real content is an inline override for that
+single command, `SANITY_STUDIO_DATASET=production npm run dev` — an inline value beats the file,
+which `npx sanity debug` will confirm.
 
 So `production` never needs to be in that file, and it is the one edit that propagates:
 every Claude-created worktree inherits the copy in silence, which turns a single mistake
@@ -762,6 +852,19 @@ or a positioning control, say so and propose the preset-shaped version instead.
 
 Unresolved. Don't paper over these — raise them when the relevant work comes up.
 
+- **The going-live checklist, both halves.** Neither is optional and neither is hard; they
+  just have to happen on the same day, and both are easy to forget because the site looks fine
+  without them right up until it doesn't.
+  1. **Replace slot 7's six stock house photos** with five of Joan's, in `development`, then
+     `npm run promote`. See the note under *The front page* — replace, do not delete.
+  2. **`npx sanity cors add https://joanatstake.com --no-credentials`.** See the app-origin
+     CORS bullet; without it the site breaks on the first client-side navigation, and the
+     symptom looks nothing like CORS.
+- **When the promote stops.** The deployed Studio writes to `production` and `npm run promote`
+  overwrites it, so the day Joan starts editing is the day the direction reverses for good.
+  Nothing detects "she has been given the URL" — the preflight only catches it *after* she has
+  created her first document. Decide deliberately when to retire the promote rather than
+  letting the tripwire decide, and say so here when it happens.
 - **Vision plugin in the Studio.** `@sanity/vision` (a GROQ playground) ships in
   `studio/sanity.config.ts` from the generator. It's useful while building and clutter for
   her — a visible tab that does nothing she needs. Keep it through the query-building phase;

@@ -68,6 +68,55 @@ Consequences to keep in mind:
 - **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
   opaque error. That means both the deployed host and `http://localhost:3333` for
   `sanity dev`: `npx sanity cors add <origin> --credentials`.
+- **Every *app* origin needs one too, and without credentials.** Different flag, different
+  reason, and the Studio line above is the wrong template to copy. The app never logs in — it
+  reads a public dataset anonymously — so `--no-credentials` grants a browser exactly what
+  `curl` already returns to anyone holding the project id. `--credentials` on an app origin
+  would be a real widening for no gain. Four entries exist today:
+
+  | Origin | Credentials | For |
+  | --- | --- | --- |
+  | `https://joanatstake.sanity.studio` | yes | deployed Studio |
+  | `http://localhost:3333` | yes | `sanity dev` |
+  | `https://*.vercel.app` | **no** | the app, production and every preview deploy |
+  | `http://localhost:3000` | **no** | the app, `npm run dev` |
+
+  The wildcard is deliberate: Vercel gives each preview deploy its own hostname, and one entry
+  covers all of them. It does not cover an apex domain — **`joanatstake.com` needs its own
+  `npx sanity cors add https://joanatstake.com --no-credentials` on the day DNS is connected**,
+  or the site breaks the moment anyone navigates between pages. That is one of exactly two
+  going-live steps; the other is clearing the stock content out of `production`, in *Datasets*
+  below. Neither requires touching the dataset itself.
+
+  **Know how a missing app origin fails, because it does not look like CORS.** SSR sends no
+  `Origin` header, so a hard load always works. Nuxt purges a route's cached data on unmount,
+  so navigating away from a page and back re-runs its query *in the browser* — which does send
+  one, gets a 403, and leaves the result `null`. Identical to a query that found nothing. `/`
+  spent a while reporting "No homePage document found in this dataset" for this, and the dataset
+  was correct throughout. `index.vue` now checks `error` before `data` and returns a 502 naming
+  the origin. Any route that gains a query should do the same.
+
+  Diagnosing it takes three requests, and the contrast between them *is* the signature — a
+  status alone does not distinguish "origin rejected" from "dataset empty":
+
+  ```sh
+  U="https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D"
+
+  # allowlisted origin  -> 200, and the origin echoed back
+  curl -sS -D - -o /dev/null "$U" -H "Origin: https://jl-portfolio-seven.vercel.app" \
+    | grep -iE '^HTTP|^access-control-allow-origin'
+
+  # origin not on the list -> 403, and no allow-origin header at all
+  curl -sS -D - -o /dev/null "$U" -H "Origin: https://example.com" \
+    | grep -iE '^HTTP|^access-control-allow-origin'
+
+  # no Origin header -> 200. This is the SSR path, and why hard loads never showed the bug.
+  curl -sS -o /dev/null -w '%{http_code}\n' "$U"
+  ```
+
+  **Grep those headers case-insensitively.** Under HTTP/2 all header names are lowercase, so a
+  pattern anchored on `Access-Control-Allow-Origin` matches nothing and reads as a rejection on
+  an origin that is in fact allowed.
 
 Sanity's own guidance now treats a standalone, separately-deployed Studio as the recommended
 shape and embedding as legacy — it slows builds, couples Studio updates to app deploys, and
@@ -83,11 +132,65 @@ Two datasets on project `c3808h1v`, both created:
 - `development` (public) — stock photos, for building and experimenting. What local dev
   points at, via `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET`
   in `web/.env`.
-- `production` (public) — her real content. Never seeded, never scripted against casually.
-  Reached only by an explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy`
-  supplies.
+- `production` (public) — eventually her real content. Reached only by an explicit
+  `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
 
 Any script that writes must take the dataset explicitly and must not default to `production`.
+
+**`production` currently holds a copy of `development`'s stock content, and that is
+temporary.** It was seeded on 2026-08-03 — a 22-document, 14-asset copy of `development` —
+because the Vercel deployment reads `production` and the front page throws a 500 when no
+`homePage` document exists. This file used to say `production` was never seeded, and the
+reasoning behind that line still holds *for a live site*: stock photographs published under
+her name is exactly the failure it was guarding against. What made it safe to override is that
+nothing is live yet. **The Vercel app is at `jl-portfolio-seven.vercel.app` and
+`joanatstake.com` is not pointed at it**, so `production` is a staging dataset wearing the
+production name until DNS is connected.
+
+Two consequences that outlive the seeding:
+
+- **Connecting the domain is not a DNS-only task — but it does not need the dataset wiped
+  either.** The stock content has to be gone before `joanatstake.com` resolves. Deleting and
+  recreating `production` is not how to get there, and an earlier draft of this section said it
+  was, on the grounds that nothing tracked which documents were seeded. Something does: every
+  seeded document kept its `_id` through the import. Verified 2026-08-03 — all 36 documents in
+  `production` share an `_id` with one in `development`, and **not one document is
+  production-only**. So the seeded set is recoverable, and a targeted delete is available.
+
+  **But "seeded" and "safe to delete" are not the same set, and conflating them deletes her
+  front page.** Singletons are pinned by `structure.ts` to a `documentId` equal to the type
+  name — `homePage`'s `_id` is the literal string `homePage`, identical in both datasets by
+  construction, not by coincidence. It is also the exact document she edits, because a singleton
+  is edited in place and never replaced. It is seeded *and* must survive. A manifest of imported
+  ids has the same hazard for the same reason: it would list `homePage` too. The problem is not
+  how provenance is recorded, it is that provenance does not imply disposability.
+
+  So the delete has to be scoped, and a `scripts/` job is the place for it (GROQ cannot span
+  datasets, and the rule above requires both dataset names be passed explicitly):
+
+  - **By type.** Remove the stock *content* — `photo`, `post`, `article` and their image assets.
+    Never singletons; those get edited, not deleted.
+  - **By modification time.** The import stamped `_updatedAt` on everything it wrote — currently
+    `2026-08-03T17:09:09Z`. Anything with a later `_updatedAt` is something she has touched since,
+    which means it is no longer stock regardless of where its `_id` came from. Skip those.
+  - **Dry run first**, listing what would go, before anything is deleted.
+
+  That ordering also survives the passage of time in a way a wipe does not: the moment she adds
+  or edits real content, a wipe takes it and the scoped delete does not. And recreating has a
+  trap of its own — `--visibility` is optional on `sanity dataset create`, `development` started
+  private, and a private dataset read anonymously returns **HTTP 200 with an empty result**
+  rather than an error. Rebuilding the dataset to fix stock content would risk reintroducing the
+  silent failure documented directly below, to solve something a scoped delete already solves.
+
+  So the going-live checklist is content plus one CORS entry, and neither step touches the
+  dataset itself. See the app-origin CORS bullet above for the second.
+- **`npx sanity dataset copy <src> <dst>` refuses when the target already exists**, and there
+  is no `--force`. Copying into a dataset that exists is `sanity dataset export` followed by
+  `sanity dataset import <tarball> --dataset <name>`, which is what was actually run. It
+  strengthens references on the way in, so the result is a genuine copy rather than one dataset
+  pointing at another's assets. Note it does *not* mint new `_id`s — asset ids are content
+  hashes and document ids are carried over verbatim, which is what makes the seeded set
+  identifiable above.
 
 **Both datasets are `public`, and `development` had to be changed to match.** It started
 private, which broke the app in a genuinely nasty way: an anonymous read of a private dataset

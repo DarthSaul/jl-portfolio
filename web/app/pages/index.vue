@@ -16,13 +16,52 @@ import { HOME_QUERY } from '~/queries/home'
  * `homePage.title` is the browser tab title and nothing else — the schema says as much to her,
  * and it is deliberately not rendered as a heading on the page.
  */
-const { data: home } = await useSanityQuery(HOME_QUERY)
+const { data: home, error } = await useSanityQuery(HOME_QUERY)
+
+/**
+ * `error` is checked before `home`, because a failed request also leaves `home` null and the
+ * two mean opposite things.
+ *
+ * This distinction cost real debugging time once. Nuxt purges a route's cached data when it
+ * unmounts, so navigating away from `/` and back re-runs this query in the *browser* rather
+ * than on the server — and a browser request carries an `Origin` header the server's does not.
+ * The Vercel origin was missing from the project's CORS allowlist, so Sanity answered 403; the
+ * page reported "No homePage document found in this dataset"; and the search went to the
+ * dataset environment variable, which was correct all along. A hard load kept working, because
+ * that path never leaves the server. See the CORS note in CLAUDE.md.
+ *
+ * So: transport failures say so, and the CORS hint is in the message because it is the one
+ * cause that is invisible from the symptom. `cause` keeps the underlying error — a 403, a 404
+ * for a dataset name that does not exist, an outage — attached rather than discarded.
+ *
+ * Where that surfaces depends on which side ran the query, and the two are not the same place.
+ * A failure during SSR is printed in full by Nitro's default request-error logger, `cause` and
+ * all: verified against a production build, where a bad dataset name logged the nested Sanity
+ * `ClientError`, its 404 and the response body under `[request error]`. That is what reaches
+ * Vercel. A failure on client-side navigation never touches the server, so it is in the
+ * browser console instead — and since that is exactly the CORS case above, it is the console
+ * to open first when the message mentions the allowlist.
+ */
+if (error.value) {
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
+      + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
+    fatal: true,
+    cause: error.value,
+  })
+}
 
 /**
  * `homePage` is a singleton and the Studio will not let her delete it, so a missing document
- * means the dataset is wrong — the wrong dataset name, or one that was never seeded. Failing
- * loudly beats rendering a page with seven empty slots, which reads as a broken site rather
- * than a misconfigured one.
+ * means the dataset was never seeded. Failing loudly beats rendering a page with seven empty
+ * slots, which reads as a broken site rather than a misconfigured one.
+ *
+ * Note this no longer covers a mistyped dataset *name*, which the branch above catches instead:
+ * Sanity answers a nonexistent dataset with a 404, not an empty result. What still lands here
+ * is a real dataset holding no `homePage` — including, per CLAUDE.md, a dataset that was made
+ * private, since an anonymous read of one of those returns 200 and an empty result rather than
+ * a 401.
  */
 if (!home.value) {
   throw createError({

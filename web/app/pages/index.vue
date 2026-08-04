@@ -31,9 +31,16 @@ const { data: home, error } = await useSanityQuery(HOME_QUERY)
  * that path never leaves the server. See the CORS note in CLAUDE.md.
  *
  * So: transport failures say so, and the CORS hint is in the message because it is the one
- * cause that is invisible from the symptom. `cause` carries the real error — a 403, a 404 for
- * a dataset name that does not exist, an outage — into the Vercel logs rather than swallowing
- * it, and that is where to look first.
+ * cause that is invisible from the symptom. `cause` keeps the underlying error — a 403, a 404
+ * for a dataset name that does not exist, an outage — attached rather than discarded.
+ *
+ * Where that surfaces depends on which side ran the query, and the two are not the same place.
+ * A failure during SSR is printed in full by Nitro's default request-error logger, `cause` and
+ * all: verified against a production build, where a bad dataset name logged the nested Sanity
+ * `ClientError`, its 404 and the response body under `[request error]`. That is what reaches
+ * Vercel. A failure on client-side navigation never touches the server, so it is in the
+ * browser console instead — and since that is exactly the CORS case above, it is the console
+ * to open first when the message mentions the allowlist.
  */
 if (error.value) {
   throw createError({

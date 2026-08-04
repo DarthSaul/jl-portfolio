@@ -94,13 +94,29 @@ Consequences to keep in mind:
   one, gets a 403, and leaves the result `null`. Identical to a query that found nothing. `/`
   spent a while reporting "No homePage document found in this dataset" for this, and the dataset
   was correct throughout. `index.vue` now checks `error` before `data` and returns a 502 naming
-  the origin. Any route that gains a query should do the same. Diagnose it in one command —
-  a 403 here and a 200 without the header is the whole signature:
+  the origin. Any route that gains a query should do the same.
+
+  Diagnosing it takes three requests, and the contrast between them *is* the signature — a
+  status alone does not distinguish "origin rejected" from "dataset empty":
 
   ```sh
-  curl -si "https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D" \
-    -H "Origin: https://example.com" | head -1
+  U="https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D"
+
+  # allowlisted origin  -> 200, and the origin echoed back
+  curl -sS -D - -o /dev/null "$U" -H "Origin: https://jl-portfolio-seven.vercel.app" \
+    | grep -iE '^HTTP|^access-control-allow-origin'
+
+  # origin not on the list -> 403, and no allow-origin header at all
+  curl -sS -D - -o /dev/null "$U" -H "Origin: https://example.com" \
+    | grep -iE '^HTTP|^access-control-allow-origin'
+
+  # no Origin header -> 200. This is the SSR path, and why hard loads never showed the bug.
+  curl -sS -o /dev/null -w '%{http_code}\n' "$U"
   ```
+
+  **Grep those headers case-insensitively.** Under HTTP/2 all header names are lowercase, so a
+  pattern anchored on `Access-Control-Allow-Origin` matches nothing and reads as a rejection on
+  an origin that is in fact allowed.
 
 Sanity's own guidance now treats a standalone, separately-deployed Studio as the recommended
 shape and embedding as legacy — it slows builds, couples Studio updates to app deploys, and
@@ -137,20 +153,34 @@ Two consequences that outlive the seeding:
   either.** The stock content has to be gone before `joanatstake.com` resolves. Deleting and
   recreating `production` is not how to get there, and an earlier draft of this section said it
   was, on the grounds that nothing tracked which documents were seeded. Something does: every
-  seeded document kept its `_id` through the import, so the seeded set is recoverable as "every
-  `_id` in `production` that also exists in `development`" — two reads and a set intersection,
-  not lost information. GROQ cannot span datasets, so it is a `scripts/` job taking both dataset
-  names explicitly, per the rule above. Verified 2026-08-03: all 36 documents in `production`
-  share an `_id` with one in `development`, and **not one document is production-only**. A
-  targeted delete is available and always was.
+  seeded document kept its `_id` through the import. Verified 2026-08-03 — all 36 documents in
+  `production` share an `_id` with one in `development`, and **not one document is
+  production-only**. So the seeded set is recoverable, and a targeted delete is available.
 
-  It is also the option that stays correct. The moment she adds a real photograph the two
-  approaches stop being equivalent — a wipe takes her work with it, while the query still names
-  exactly the stock documents. And recreating has a trap of its own: `--visibility` is optional
-  on `sanity dataset create`, `development` started private, and a private dataset read
-  anonymously returns **HTTP 200 with an empty result** rather than an error. Rebuilding the
-  dataset to fix stock content would risk reintroducing the silent failure documented directly
-  below, to solve a problem a delete query already solves.
+  **But "seeded" and "safe to delete" are not the same set, and conflating them deletes her
+  front page.** Singletons are pinned by `structure.ts` to a `documentId` equal to the type
+  name — `homePage`'s `_id` is the literal string `homePage`, identical in both datasets by
+  construction, not by coincidence. It is also the exact document she edits, because a singleton
+  is edited in place and never replaced. It is seeded *and* must survive. A manifest of imported
+  ids has the same hazard for the same reason: it would list `homePage` too. The problem is not
+  how provenance is recorded, it is that provenance does not imply disposability.
+
+  So the delete has to be scoped, and a `scripts/` job is the place for it (GROQ cannot span
+  datasets, and the rule above requires both dataset names be passed explicitly):
+
+  - **By type.** Remove the stock *content* — `photo`, `post`, `article` and their image assets.
+    Never singletons; those get edited, not deleted.
+  - **By modification time.** The import stamped `_updatedAt` on everything it wrote — currently
+    `2026-08-03T17:09:09Z`. Anything with a later `_updatedAt` is something she has touched since,
+    which means it is no longer stock regardless of where its `_id` came from. Skip those.
+  - **Dry run first**, listing what would go, before anything is deleted.
+
+  That ordering also survives the passage of time in a way a wipe does not: the moment she adds
+  or edits real content, a wipe takes it and the scoped delete does not. And recreating has a
+  trap of its own — `--visibility` is optional on `sanity dataset create`, `development` started
+  private, and a private dataset read anonymously returns **HTTP 200 with an empty result**
+  rather than an error. Rebuilding the dataset to fix stock content would risk reintroducing the
+  silent failure documented directly below, to solve something a scoped delete already solves.
 
   So the going-live checklist is content plus one CORS entry, and neither step touches the
   dataset itself. See the app-origin CORS bullet above for the second.

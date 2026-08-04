@@ -157,15 +157,31 @@ only add a way to run it backwards.
 
 `npm run promote`, from `studio/`. It is `studio/promote.mjs`, and it does four things:
 
-1. **Preflight.** Reads every `_id` from both datasets anonymously and **refuses to run if any
-   `_id` exists in `production` but not in `development`.** Then prints what will be created
-   and what will be replaced.
+1. **Preflight.** Reads both datasets anonymously and **refuses to run if any `_id` exists in
+   `production` but not in `development`.** Then prints what will be created, and — separately
+   — which shared documents will be replaced with *different* content, versus how many are
+   already identical.
 2. **Backs `production` up** to `studio/.promote/`, gitignored, before writing anything.
 3. **Exports `development`**, drafts and assets included.
-4. **Imports into `production` with `--replace`.**
+4. **Re-checks for new `production` ids, then imports with `--replace`.**
 
 `--dry-run` stops after step 1; `--yes` skips the confirmation prompt. Run the dry run first —
 it is the whole point of the preflight being separate.
+
+**The preflight has two halves because the two failures have different shapes**, and the id
+check alone was not enough. A document Joan *creates* in the deployed Studio exists in
+`production` and nowhere else, so it is a production-only id and the script refuses outright.
+A document she *edits* leaves the id set untouched — and editing is the likelier first move,
+because the singletons are pinned by `structure.ts` and can only ever be edited, never created.
+`homePage` is the exact document at risk and the exact one an id check cannot see.
+
+So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`) and
+key order are normalised away; asset documents are compared by id only, since their ids are
+content hashes and a matching id already proves matching bytes. **What it cannot do is decide.**
+A document differing because `development` changed is the entire point of promoting; one
+differing because `production` changed is the thing to stop for, and the two are
+indistinguishable from content alone. The script prints the list and says so; reading it is the
+step that keeps her work.
 
 It lives in `studio/` rather than the `scripts/` directory this file plans for `seed.ts`, and
 the reason is not filing convenience: `dataset export` and `dataset import` authenticate as the
@@ -176,10 +192,18 @@ to reach a CLI that is already installed next to the schema it promotes.
 **The promote has an expiry date, and the preflight is the tripwire — not a formality.** The
 deployed Studio at `joanatstake.sanity.studio` writes to `production`. The promote overwrites
 `production`. Those two facts collide the day Joan starts editing, and from then on a promote
-destroys her work. A document she creates in the deployed Studio exists in `production` and
-nowhere else, so the subset check catches it and the script exits non-zero. **When that happens
-the answer is never a `--force` flag.** It means the handover has happened, the content now
-moves the other way, and `development` is the copy that needs updating.
+destroys her work. **When the preflight refuses, the answer is never a `--force` flag.** It
+means the handover has happened, the content now moves the other way, and `development` is the
+copy that needs updating.
+
+**Know the one guarantee the promote does not make: it is not atomic, and it cannot be.** The
+preflight is re-run immediately before the import, which narrows the gap — the confirm prompt,
+the backup and the export together take minutes, and a write arriving in that stretch is caught
+rather than silently lost. But Sanity offers no dataset-level lock, and `dataset import` does
+not send per-document `ifRevisionID`, so a write landing *during* the import can still be
+overwritten. No version of this script closes that window. Do not write a line here claiming
+it does; the honest mitigation is that only one person writes to `production` today, and that
+stops being true on exactly the day the promote should stop running anyway.
 
 Import semantics worth knowing before changing any of this, all verified against
 `@sanity/import` rather than inferred:

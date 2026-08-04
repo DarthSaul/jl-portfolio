@@ -2,7 +2,14 @@ import {ImageIcon} from '@sanity/icons/Image'
 import {defineField, defineType} from 'sanity'
 
 /**
- * A photograph sitting between two paragraphs of a writing post.
+ * A photograph sitting between two paragraphs of a body of text.
+ *
+ * Named for `post.body`, where it first appeared, and since shared with `aboutPage.body` —
+ * the name records where it came from, not what is allowed to use it. It is deliberately not
+ * renamed to something neutral: every photograph already inside a post is stored with
+ * `_type: 'postPhoto'`, so a rename is a content migration in exchange for a tidier word.
+ * Any body that wants prose with photographs in it should reuse this rather than declare a
+ * second identical object.
  *
  * RULE 1. This holds a reference and nothing else — no image, no alt text, no caption.
  * Those live on the photo document, so fixing a caption there fixes it everywhere the

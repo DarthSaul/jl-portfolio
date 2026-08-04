@@ -68,7 +68,9 @@ export const structure: StructureResolver = (S) =>
               singleton(S, 'homePage', 'Home', HomeIcon),
               singleton(S, 'shotsPage', 'Shots', ImagesIcon),
               singleton(S, 'writingPage', 'Writing', DocumentsIcon),
-              singleton(S, 'aboutPage', 'About', UserIcon),
+              // "Bio", not "About" — it is the word in her nav. The type name stays
+              // `aboutPage` because renaming one is a content migration; see aboutPage.ts.
+              singleton(S, 'aboutPage', 'Bio', UserIcon),
               singleton(S, 'contactPage', 'Contact', EnvelopeIcon),
             ]),
         ),

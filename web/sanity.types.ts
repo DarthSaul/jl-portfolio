@@ -92,8 +92,29 @@ export type AboutPage = {
   _updatedAt: string;
   _rev: string;
   title: string;
-  body: string;
-  portrait: PhotoReference;
+  body: Array<
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?: "normal";
+        listItem?: never;
+        markDefs?: Array<{
+          url: string;
+          _type: "hyperlink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+    | ({
+        _key: string;
+      } & PostPhoto)
+  >;
 };
 
 export type WritingPage = {
@@ -414,6 +435,48 @@ export type AllSanitySchemaTypes =
   | SanityImageAsset
   | Geopoint;
 
+// Source: ../web/app/queries/about.ts
+// Variable: ABOUT_QUERY
+// Query: *[_type == "aboutPage"][0]{    title,    body[]{      ...,      _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }    }  }
+export type ABOUT_QUERY_RESULT = {
+  title: string;
+  body: Array<
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?: "normal";
+        listItem?: never;
+        markDefs?: Array<{
+          url: string;
+          _type: "hyperlink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+    | {
+        _key: string;
+        _type: "postPhoto";
+        photo: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        };
+      }
+  >;
+} | null;
+
 // Source: ../web/app/queries/home.ts
 // Variable: HOME_QUERY
 // Query: *[_type == "homePage"][0]{    title,    introHeading,    introPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },    intro,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
@@ -489,10 +552,109 @@ export type HOME_QUERY_RESULT = {
   }>;
 } | null;
 
+// Source: ../web/app/queries/writing.ts
+// Variable: WRITING_QUERY
+// Query: {    "page": *[_type == "writingPage"][0]{ title, intro },    "items": *[_type in ["post", "article"]] | order(publishedAt desc){      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    }  }
+export type WRITING_QUERY_RESULT = {
+  page: {
+    title: string;
+    intro: string | null;
+  } | null;
+  items: Array<
+    | {
+        _id: string;
+        _type: "article";
+        title: string;
+        publishedAt: string;
+        summary: string | null;
+        coverPhoto: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        } | null;
+        url: string;
+        publication: string;
+      }
+    | {
+        _id: string;
+        _type: "post";
+        title: string;
+        publishedAt: string;
+        summary: string | null;
+        coverPhoto: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        } | null;
+        slug: string;
+      }
+  >;
+};
+
+// Source: ../web/app/queries/writing.ts
+// Variable: POST_QUERY
+// Query: *[_type == "post" && slug.current == $slug][0]{    _id,    title,    publishedAt,    summary,    body[]{      ...,      _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }    }  }
+export type POST_QUERY_RESULT = {
+  _id: string;
+  title: string;
+  publishedAt: string;
+  summary: string | null;
+  body: Array<
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?: "blockquote" | "h2" | "normal";
+        listItem?: never;
+        markDefs?: Array<{
+          url: string;
+          _type: "hyperlink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+    | {
+        _key: string;
+        _type: "postPhoto";
+        photo: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
+            url: string;
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
+          };
+        };
+      }
+  >;
+} | null;
+
 // Query TypeMap
 import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
+    '\n  *[_type == "aboutPage"][0]{\n    title,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': ABOUT_QUERY_RESULT;
     '\n  *[_type == "homePage"][0]{\n    title,\n    introHeading,\n    introPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n    intro,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': HOME_QUERY_RESULT;
+    '\n  {\n    "page": *[_type == "writingPage"][0]{ title, intro },\n    "items": *[_type in ["post", "article"]] | order(publishedAt desc){\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    }\n  }\n': WRITING_QUERY_RESULT;
+    '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    publishedAt,\n    summary,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': POST_QUERY_RESULT;
   }
 }

@@ -216,11 +216,18 @@
    * non-negotiable." So Tailwind's named radius steps are unset outright rather than left
    * sitting there for someone to reach for.
    *
+   * `--radius` with no suffix is the bare `rounded` utility, and it has to be unset separately
+   * — the named steps above it do not cover it. Verified against tailwindcss@4.3.3: with only
+   * the suffixed tokens unset, `rounded-md` emits nothing while `rounded` still emits
+   * `border-radius: 0.25rem`, which is the one soft corner that could reach the page through a
+   * scale that is supposed to be square throughout.
+   *
    * `rounded-full` survives on purpose and is the single exception the spec allows —
    * "{rounded.full} 9999px: circular icon containers only". It does not read from a
-   * `--radius-*` token, so unsetting these does not touch it. Two call sites: the circular
-   * thumbnails on /writing and the social buttons in the sidebar.
+   * `--radius-*` token, so unsetting these does not touch it — confirmed by the same test.
+   * Two call sites: the circular thumbnails on /writing and the social buttons in the sidebar.
    */
+  --radius: initial;
   --radius-xs: initial;
   --radius-sm: initial;
   --radius-md: initial;

@@ -5,9 +5,9 @@ import { PHOTO_PROJECTION } from './photo'
 /**
  * The front page, in one request.
  *
- * The field order below is the slot order in CLAUDE.md — site name and byline are slots 1 and
- * 2 and live on `siteSettings`, so this query starts at slot 4. Slot 3 is the nav, which is
- * frontend-only and has no schema.
+ * The field order below is the order the page reads. The site name, the byline and the nav are
+ * not here: they are chrome on every page rather than front-page content, so the first two live
+ * on `siteSettings` and the third is assembled in `queries/nav.ts`.
  *
  * Everything a photograph needs comes back dereferenced. `featuredWriting` resolves to a
  * mixed list of posts and links out, so the projection is conditional on `_type`: an
@@ -30,14 +30,11 @@ import { PHOTO_PROJECTION } from './photo'
  *
  * ## The whole introduction has left this page
  *
- * `introHeading` and `intro` are `aboutPage`'s fields now and are rendered there; `introPhoto`
- * still lives on `homePage` but is rendered by `/about` too. None of the three is fetched here,
- * because none of them appears on the front page — which now opens with the photo grid and goes
- * straight to the featured writing.
- *
- * `introPhoto` staying on `homePage` is the one loose end, and `queries/about.ts` explains why
- * it did not simply follow the text. Fetching it here would leave the front page carrying an
- * image request it never renders.
+ * `introHeading` and `intro` are `aboutPage`'s fields now and are rendered there. `introPhoto`
+ * was deleted outright rather than following them — `aboutPage` has no photo field by design,
+ * and photographs on that page come from its body. None of the three is fetched here, because
+ * none of them appears on the front page, which now opens with the photo grid and goes straight
+ * to the featured writing.
  */
 export const HOME_QUERY = defineQuery(`
   *[_type == "homePage"][0]{

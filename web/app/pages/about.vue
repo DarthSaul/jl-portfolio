@@ -25,7 +25,25 @@ import { ABOUT_QUERY } from '~/queries/about';
  * an empty page, the same call `pages/index.vue` makes and for the same reason. That is the
  * difference from /writing, where the missing singleton only costs an optional intro.
  */
-const { data: about } = await useSanityQuery(ABOUT_QUERY);
+const { data: about, error } = await useSanityQuery(ABOUT_QUERY);
+
+/**
+ * `error` before `about`, the same order and for the same reason as `pages/index.vue`, which
+ * spells it out at length: a failed request also leaves the data null, so without this branch a
+ * transport failure reports "No aboutPage document found in this dataset" and sends the search
+ * to the dataset name, which was right all along. The CORS case is the one that is invisible
+ * from the symptom, so the message names it.
+ */
+if (error.value) {
+	throw createError({
+		statusCode: 502,
+		statusMessage:
+			'Could not reach Sanity — see the logged cause. If this appears only after ' +
+			"navigating between pages, this origin is missing from the project's CORS allowlist.",
+		fatal: true,
+		cause: error.value,
+	});
+}
 
 const doc = about.value;
 if (!doc) {

@@ -2,11 +2,11 @@
 import { HOME_QUERY } from '~/queries/home';
 
 /**
- * The front page. Seven slots in a fixed order — see CLAUDE.md.
+ * The front page: five featured photographs, then three featured pieces of writing — see
+ * CLAUDE.md.
  *
- * Slots 1 to 3 are the site name, the byline and the nav, which sit in the header of every
- * page and are rendered by the layout. This page is slots 4 to 7, and every string in it comes
- * from one request.
+ * The site name, the byline and the nav are not here. They are chrome on every page and are
+ * rendered by the sidebar in the layout. Everything this page does show comes from one request.
  *
  * One query for the whole page, following references as it goes. That is the shape CLAUDE.md
  * asks for: a route fetches exactly its own shape, and the GROQ that defines it lives in

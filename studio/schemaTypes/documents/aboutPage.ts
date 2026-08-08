@@ -33,10 +33,11 @@ import {proseBlock} from '../objects/proseText'
  * knob CLAUDE.md says to delete rather than document. Nothing is lost: a photo first in the
  * body is a portrait at the top of the page.
  *
- * That decision is the reason the intro above arrived as two fields and a photograph did not,
- * even though `/about` currently renders one below the body: it comes from
- * `homePage.introPhoto`, and resolving that is a question about where the *photo* belongs
- * rather than the text. See the note in `queries/about.ts`.
+ * That decision is also the reason the intro above arrived as two fields and a photograph did
+ * not. `/about` briefly rendered one below the body, read across from `homePage.introPhoto`
+ * because the front page had stopped showing it. That field and that cross-document read are
+ * both gone: photographs on this page come from the body, and there is nothing else to reach
+ * for. See the note in `queries/about.ts`.
  *
  * ## One style, not three
  *

@@ -42,23 +42,39 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  * photographs open the page instead of closing it. `ProseHeading` has no other caller and is
  * waiting on the same decision — it is not dead code yet.
  */
-defineProps<{
+const props = defineProps<{
   photos: Home['featuredPhotos']
 }>()
+
+/**
+ * The slots that actually have a photograph, and the only array anything below reads.
+ *
+ * `featuredPhoto.photo` is required in the schema, so typegen types it non-null and nothing
+ * here forces this filter. The dataset can still disagree: a slot stored in the pre-migration
+ * shape — a bare reference rather than a `featuredPhoto` object — has no `photo` field for
+ * `photo->` to resolve, so the projection returns `null` and `SanityPhoto` is handed nothing to
+ * read `asset` off. `production` is in exactly that state today (see the deployment note on the
+ * PR), and the failure is a blank front page rather than four photographs and a gap.
+ *
+ * So: drop those slots and render the rest. Filtering here rather than in `GalleryGrid` keeps
+ * the index alignment correct — the grid renders the array it is given, and `slots[index]`
+ * below indexes that same array.
+ */
+const slots = computed(() => props.photos.filter(slot => slot.photo))
 </script>
 
 <template>
   <section>
-    <PresetsGalleryGrid :photos="photos.map(slot => slot.photo)">
+    <PresetsGalleryGrid :photos="slots.map(slot => slot.photo)">
       <template #default="{ photo, index }">
-        <!-- `photos[index]` rather than a lookup by `_id`: the grid renders the array it was
+        <!-- `slots[index]` rather than a lookup by `_id`: the grid renders the array it was
              given, in order, so the index is exact and a photograph appearing twice could not
              be told apart by id anyway. The schema forbids that duplication, but the index is
              correct whether or not the schema is. -->
         <NuxtLink
-          v-if="photos[index]?.gallery"
-          :to="`/shots/${photos[index].gallery.slug}`"
-          :aria-label="`${photos[index].gallery.title} — see the photos`"
+          v-if="slots[index]?.gallery"
+          :to="`/shots/${slots[index].gallery.slug}`"
+          :aria-label="`${slots[index].gallery.title} — see the photos`"
           class="group relative block"
         >
           <SanityPhoto
@@ -92,7 +108,7 @@ defineProps<{
             class="pointer-events-none absolute inset-x-0 bottom-0 bg-ink/70 px-4 py-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <span class="type-body-sm-strong uppercase tracking-[0.12em] text-canvas">
-              {{ photos[index].gallery.title }}
+              {{ slots[index].gallery.title }}
             </span>
           </div>
         </NuxtLink>

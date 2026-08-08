@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PhotoTag } from '~/content/tags'
 import { tagLabel } from '~/content/tags'
 
 /**
@@ -27,9 +28,21 @@ import { tagLabel } from '~/content/tags'
  * state come from the same attribute rather than being tracked twice.
  */
 defineProps<{
-  /** Only tags actually carried by visible photographs — see `tagsInUse` in the query. */
-  tags: string[]
-  /** The active tag, or '' for everything. */
+  /**
+   * Only tags actually carried by visible photographs — see `tagsInUse` in the query.
+   *
+   * `PhotoTag[]` rather than `string[]`: these come out of the schema's own vocabulary via
+   * typegen, so a tag removed from `PHOTO_TAGS` fails to typecheck here rather than rendering
+   * as a filter that matches nothing.
+   */
+  tags: PhotoTag[]
+  /**
+   * The active tag, or '' for everything.
+   *
+   * Deliberately a plain `string` and not `PhotoTag | ''`, unlike the list above. This one comes
+   * off the query string, where a visitor can type anything; narrowing it would mean asserting a
+   * union over input nothing validates. It is only ever compared, never looked up.
+   */
   active: string
 }>()
 

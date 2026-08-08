@@ -255,7 +255,7 @@ A preset value that has no matching component must be impossible.
 
 | Route | Contents |
 | --- | --- |
-| `/` | Seven fixed slots — see *The front page* below |
+| `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
 | `/shots/everything` | Every photo she has uploaded except those flagged `excludeFromIndex`. Tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `everything` because of it. |
 | `/shots/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
 | `/writing` | Her own posts and links out to others, newest first, interleaved |
@@ -594,7 +594,8 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
                               children do not.
       writing/index.vue     ✎ LIVE — posts and links out, newest first, from Sanity
       writing/[slug].vue    ✎ LIVE — one post, body and all
-      about.vue             ✎ LIVE — intro, body and the portrait
+      about.vue             ✎ LIVE — intro and body. Every photograph on it comes from the
+                              body, as postPhoto members; there is no photo field.
       contact.vue
     components/
       SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)

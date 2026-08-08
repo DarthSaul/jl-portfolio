@@ -51,12 +51,14 @@ const layout = computed(() => props.value.layout ?? 'wrap')
  * whatever she picked — which is the one place the preset is overridden, and it is overridden
  * towards the arrangement that always works.
  *
- * `md:clear-both` on the wrapped variant is what stops two photographs landing side by side
- * when they fall close together in the text: each one starts below the last.
+ * `md:clear-both` is on **both** variants, and the full-width one needs it quite as much. A
+ * float is out of flow, so a following block box does not move down for it — only its line
+ * boxes shorten, and a figure holding an image has none. Without the clear, a full-width
+ * photograph that follows a wrapped one closely enough is drawn straight through it.
  */
 const LAYOUTS = {
   wrap: 'w-full md:mb-4 md:w-[350px] md:clear-both',
-  full: 'w-full',
+  full: 'w-full md:clear-both',
 } satisfies Record<NonNullable<PostPhoto['layout']>, string>
 
 const FLOAT = { right: 'md:float-right md:ml-8', left: 'md:float-left md:mr-8' }

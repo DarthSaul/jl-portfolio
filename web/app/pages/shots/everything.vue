@@ -60,10 +60,32 @@ const tag = computed(() => String(route.query.tag ?? ''))
  * failure inside the composable, which says nothing about the call site that caused it. A
  * plain reactive object satisfies both, and the composable pushes it onto its own `watch`
  * list, so mutating a property below is what triggers the refetch.
+ *
+ * `end`, not `limit`. A GROQ slice takes two absolute indices — `[$offset...$end]` — so the
+ * second one is where the slice stops, not how many rows it returns. Named `limit` it read as a
+ * count, and `end: offset + PAGE_SIZE` in `loadMore` looked like arithmetic nobody could
+ * justify.
  */
-const params = reactive({ filterTag: tag.value, offset: 0, limit: PAGE_SIZE })
+const params = reactive({ filterTag: tag.value, offset: 0, end: PAGE_SIZE })
 
-const { data } = await useSanityQuery(EVERYTHING_QUERY, params)
+const { data, error } = await useSanityQuery(EVERYTHING_QUERY, params)
+
+/**
+ * `error` before `data`, for the reason `pages/index.vue` spells out at length: a failed request
+ * also leaves `data` null, and the two mean opposite things. Without this the template's
+ * `v-if="data"` renders nothing at all on a transport failure — a page that looks like a dataset
+ * holding no photographs, which is the one symptom a missing CORS origin is indistinguishable
+ * from.
+ */
+if (error.value) {
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
+      + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
+    fatal: true,
+    cause: error.value,
+  })
+}
 
 /**
  * Everything fetched *after* the first page. Kept separate rather than merged into `data` so
@@ -114,6 +136,15 @@ async function loadMore() {
     const offset = photos.value.length
 
     /*
+     * The filter this request was started for. A request in flight when she changes the filter
+     * comes back describing the *previous* set, and the watcher above has already emptied the
+     * accumulator by then — so appending it would refill the list with photographs that do not
+     * carry the tag now in the URL, underneath the new first page. `loading` does not cover this:
+     * it stops two requests overlapping, not a single one outliving the filter that asked for it.
+     */
+    const requestedTag = tag.value
+
+    /*
      * The result type is stated rather than inferred, and this is the one call on the site
      * that has to do that.
      *
@@ -132,10 +163,13 @@ async function loadMore() {
      * cleanly. Only the imperative path is affected.
      */
     const next = await sanity.client.fetch<MORE_PHOTOS_QUERY_RESULT>(MORE_PHOTOS_QUERY, {
-      filterTag: tag.value,
+      filterTag: requestedTag,
       offset,
-      limit: offset + PAGE_SIZE,
+      end: offset + PAGE_SIZE,
     })
+
+    // Discarded rather than appended if the filter moved while this was in flight. See above.
+    if (requestedTag !== tag.value) return
 
     appended.value.push(...next)
   }

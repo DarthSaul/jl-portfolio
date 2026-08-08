@@ -28,9 +28,18 @@ import { PHOTO_PROJECTION } from './photo'
  * up: with a hand-picked list she drags photos into the order she wants, and with a tag the
  * order is computed. That is the trade the mode makes, not an oversight.
  *
- * `defined(tag)` rather than a truthiness check, because an empty string is a state the Studio
- * can produce by clearing the dropdown, and `"" in tags` is false for every photo — which would
- * be an empty page rather than a fallback to the picked list.
+ * ## `defined(tag)` alone is not the test, and an empty string is why
+ *
+ * `defined("")` is true — verified against the live dataset — so a `tag` cleared to an empty
+ * string rather than unset takes the tag branch, and `"" in tags` is false for every photo. The
+ * page comes out empty, which is indistinguishable from a tag nothing carries yet.
+ *
+ * The Studio has already made its own decision about that value and it is the opposite one:
+ * `gallery.ts` hides the photo list on `Boolean(parent?.tag)` and validates on `Boolean(doc?.tag)`,
+ * so at `""` it shows her the hand-picked list and raises nothing. Without the second term here
+ * the two halves disagree — she sees her photos in the form and an empty page on the site, with
+ * nothing anywhere saying why. `tag != ""` is what keeps the query reading the field the same
+ * way the Studio does.
  */
 export const GALLERY_QUERY = defineQuery(`
   *[_type == "gallery" && slug.current == $slug][0]{
@@ -39,7 +48,7 @@ export const GALLERY_QUERY = defineQuery(`
     preset,
     tag,
     "photos": select(
-      defined(tag) => *[_type == "photo" && ^.tag in tags]
+      defined(tag) && tag != "" => *[_type == "photo" && ^.tag in tags]
         | order(dateTaken desc, _createdAt desc){ ${PHOTO_PROJECTION} },
       photos[]->{ ${PHOTO_PROJECTION} }
     )

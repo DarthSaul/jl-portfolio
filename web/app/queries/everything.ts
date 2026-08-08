@@ -23,7 +23,9 @@ import { PHOTO_PROJECTION } from './photo'
  *
  * ## Paging
  *
- * `[$offset...$limit]` is a GROQ slice, so exactly one page of documents crosses the wire. The
+ * `[$offset...$end]` is a GROQ slice, so exactly one page of documents crosses the wire. Both
+ * indices are absolute — `$end` is where the slice stops, not how many rows come back, which is
+ * why it is not called `$limit`. The
  * cost that matters is not the document count but the LQIP: every projected photo carries a
  * base64 placeholder of roughly a kilobyte, so 200 photographs is ~200 kB of JSON before a
  * single image is requested. That is the reason this pages at all, and the reason `MORE_QUERY`
@@ -52,7 +54,7 @@ import { PHOTO_PROJECTION } from './photo'
 export const EVERYTHING_QUERY = defineQuery(`
   {
     "photos": *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]
-      | order(dateTaken desc, _createdAt desc)[$offset...$limit]{ ${PHOTO_PROJECTION} },
+      | order(dateTaken desc, _createdAt desc)[$offset...$end]{ ${PHOTO_PROJECTION} },
 
     "total": count(*[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]),
 
@@ -72,5 +74,5 @@ export const EVERYTHING_QUERY = defineQuery(`
  */
 export const MORE_PHOTOS_QUERY = defineQuery(`
   *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]
-    | order(dateTaken desc, _createdAt desc)[$offset...$limit]{ ${PHOTO_PROJECTION} }
+    | order(dateTaken desc, _createdAt desc)[$offset...$end]{ ${PHOTO_PROJECTION} }
 `)

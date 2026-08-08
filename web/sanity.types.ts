@@ -437,53 +437,47 @@ export type AllSanitySchemaTypes =
 
 // Source: ../web/app/queries/about.ts
 // Variable: ABOUT_QUERY
-// Query: *[_type == "aboutPage"][0]{    title,    body[]{      ...,      _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }    }  }
+// Query: {    "page": *[_type == "aboutPage"][0]{      title,      body[]{        ...,        _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }      }    },    "portrait": *[_type == "homePage"][0].introPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
 export type ABOUT_QUERY_RESULT = {
-  title: string;
-  body: Array<
-    | {
-        children?: Array<{
-          marks?: Array<string>;
-          text?: string;
-          _type: "span";
-          _key: string;
-        }>;
-        style?: "normal";
-        listItem?: never;
-        markDefs?: Array<{
-          url: string;
-          _type: "hyperlink";
-          _key: string;
-        }>;
-        level?: number;
-        _type: "block";
-        _key: string;
-      }
-    | {
-        _key: string;
-        _type: "postPhoto";
-        photo: {
-          _id: string;
-          alt: string;
-          caption: string | null;
-          asset: {
+  page: {
+    title: string;
+    body: Array<
+      | {
+          children?: Array<{
+            marks?: Array<string>;
+            text?: string;
+            _type: "span";
+            _key: string;
+          }>;
+          style?: "normal";
+          listItem?: never;
+          markDefs?: Array<{
             url: string;
-            lqip: string | null;
-            width: number | null;
-            height: number | null;
+            _type: "hyperlink";
+            _key: string;
+          }>;
+          level?: number;
+          _type: "block";
+          _key: string;
+        }
+      | {
+          _key: string;
+          _type: "postPhoto";
+          photo: {
+            _id: string;
+            alt: string;
+            caption: string | null;
+            asset: {
+              url: string;
+              lqip: string | null;
+              width: number | null;
+              height: number | null;
+            };
           };
-        };
-      }
-  >;
-} | null;
-
-// Source: ../web/app/queries/home.ts
-// Variable: HOME_QUERY
-// Query: *[_type == "homePage"][0]{    title,    introHeading,    introPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },    intro,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
-export type HOME_QUERY_RESULT = {
-  title: string;
-  introHeading: string | null;
-  introPhoto: {
+        }
+    >;
+  } | null;
+  portrait: {
     _id: string;
     alt: string;
     caption: string | null;
@@ -493,7 +487,15 @@ export type HOME_QUERY_RESULT = {
       width: number | null;
       height: number | null;
     };
-  };
+  } | null;
+};
+
+// Source: ../web/app/queries/home.ts
+// Variable: HOME_QUERY
+// Query: *[_type == "homePage"][0]{    title,    introHeading,    intro,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
+export type HOME_QUERY_RESULT = {
+  title: string;
+  introHeading: string | null;
   intro: ProseText;
   blurb: ProseText;
   featuredWriting: Array<
@@ -652,8 +654,8 @@ export type POST_QUERY_RESULT = {
 import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
-    '\n  *[_type == "aboutPage"][0]{\n    title,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': ABOUT_QUERY_RESULT;
-    '\n  *[_type == "homePage"][0]{\n    title,\n    introHeading,\n    introPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n    intro,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': HOME_QUERY_RESULT;
+    '\n  {\n    "page": *[_type == "aboutPage"][0]{\n      title,\n      body[]{\n        ...,\n        _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n      }\n    },\n    "portrait": *[_type == "homePage"][0].introPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': ABOUT_QUERY_RESULT;
+    '\n  *[_type == "homePage"][0]{\n    title,\n    introHeading,\n    intro,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': HOME_QUERY_RESULT;
     '\n  {\n    "page": *[_type == "writingPage"][0]{ title, intro },\n    "items": *[_type in ["post", "article"]] | order(publishedAt desc){\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    }\n  }\n': WRITING_QUERY_RESULT;
     '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    publishedAt,\n    summary,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': POST_QUERY_RESULT;
   }

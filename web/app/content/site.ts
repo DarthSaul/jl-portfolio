@@ -32,7 +32,9 @@ export const SITE = {
    *
    * COPY and BIO are her words, already on joanatstake.com; the paths follow the route
    * table in CLAUDE.md. Stored in sentence case and uppercased in CSS so that assistive
-   * tech reads "Copy" rather than spelling it out.
+   * tech reads "Copy" rather than spelling it out. Keep the stored value in sentence case
+   * whatever the design does — a spec that stops uppercasing them costs nothing, and one
+   * that stores them shouting cannot be undone from a stylesheet.
    *
    * /contact is deliberately absent — the footer carries contact, exactly as her current
    * site does.

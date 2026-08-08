@@ -1,42 +1,74 @@
 <script setup lang="ts">
-import type { HOME_QUERY_RESULT } from '~~/sanity.types';
+import type { HOME_QUERY_RESULT } from '~~/sanity.types'
 
-type Home = NonNullable<HOME_QUERY_RESULT>;
+type Home = NonNullable<HOME_QUERY_RESULT>
 
 /**
- * Slot 7 — the title, the subtitle under it, and the row of five photographs that closes the
- * front page. One section, because the schema treats them as one: `featuredTitle` is described
- * to her as "the heading over the row of photos".
+ * Slot 7 — the featured photographs, as a grid. It opens the front page now rather than
+ * closing it.
  *
- * ## Why the row is built the way it is
+ * ## How the grid works, and why it is not a crop
  *
- * Five photographs of different shapes in one row, and CLAUDE.md forbids cropping any of them
- * to match. Equal widths would leave a ragged bottom edge, which is what a cropped-to-uniform
- * grid exists to avoid — so instead every photo gets the **same height** and a width in
- * proportion to its own shape. Landscapes come out wide, portraits narrow, the row has one
- * straight top edge and one straight bottom edge, and not a pixel is cropped.
+ * Photographs wrap into rows, and **every photograph in a row shares one height while taking a
+ * width proportional to its own shape**. Landscapes come out wide, portraits narrow, each row
+ * has a straight top edge and a straight bottom edge, and not a pixel is cropped. All the
+ * variation in size is the photographs' own proportions — which is what makes this Rule 2
+ * shaped rather than Rule 2 breaking. A uniform-tile grid would need every photo cropped to a
+ * common shape, and `photo.image` has no hotspot by design.
  *
- * That is one line of CSS per photo: `flex-grow` set to the photograph's aspect ratio against a
- * `flex-basis` of zero distributes the row's width in proportion to shape, and `SanityPhoto`'s
- * own aspect-ratio box then resolves every height to the same number.
+ * It is two declarations per photo, and the maths is worth writing down because it is not
+ * obvious that it works:
  *
- * Below `lg` the same rule runs against a fixed height instead and the row scrolls sideways.
- * Five across is right on a laptop and far too small on a phone; wrapping into a grid was the
- * first attempt and looked broken, because five items into two or three columns always leaves
- * a ragged last row. The partial photo at the right edge is what tells you there is more to
- * swipe, and `overflow-x-auto` on the list keeps the page itself from ever scrolling sideways.
+ *   flex-basis: calc(var(--r) * K)   flex-grow: var(--r)
  *
- * This is the closest thing on the site to a real layout preset and the obvious candidate for
- * promotion into `components/presets/` — but not yet. CLAUDE.md is explicit that a preset is a
- * component *and* an option in the gallery schema's fixed list, always together, and that what
- * a preset guarantees at narrow widths is a design conversation rather than something settled
- * inside a component. Today this is a fixed composition belonging to one page.
+ * For items on one line, the final width is `basis + grow/Σgrow × free`. With both terms
+ * proportional to the ratio `r`, that comes out as `w = r × (K + free/Σr)` — so `w ∝ r`, and
+ * therefore `h = w/r = K + free/Σr`, **the same number for every item on the line**. The
+ * browser decides how many fit; the row heights fall out.
+ *
+ * `K` is the only knob, and it sets roughly how tall a row wants to be before wrapping. It is
+ * not a size control on any individual photograph — nothing here can be set per photo, which is
+ * the property Rule 2 actually cares about.
+ *
+ * ## Why not the two obvious alternatives
+ *
+ * **CSS multi-column** (`columns-3`) is the mechanism the reference site uses and was the first
+ * thing tried here. It balances columns by *total* height, which works beautifully for the ~16
+ * photographs that site has and badly for the five this field holds: measured, it put one photo
+ * in the first column and two in each of the others, leaving a ~500px hole under the first.
+ * Dropping to two columns made it worse, not better. It also flows items *down* each column, so
+ * her chosen order would read 1, 3, 5 across the top.
+ *
+ * **A grid with `row-span` computed per photo** needs the row unit expressed in the same pixels
+ * as the rendered column width. The column width changes with the viewport and the row unit
+ * cannot follow it, so the packing comes apart at every size except the one it was tuned for.
+ *
+ * The wrap-and-fill above has neither problem: it packs at every width with no breakpoints at
+ * all, and it fills **left to right, top to bottom**, so her order survives.
+ *
+ * The honest cost is the last row. It grows whatever is left to fill the width, so a row of two
+ * is taller than a row of three above it. That is the same trade the row-of-five made before
+ * it, and here it reads as part of the varying-size grid rather than as a mistake.
+ *
+ * ## This is still not a preset
+ *
+ * It is the closest thing on the site to one and the obvious candidate for promotion into
+ * `components/presets/`, but CLAUDE.md is explicit that a preset is a component *and* an option
+ * in the gallery schema's fixed list, always together. Today this is a fixed composition
+ * belonging to one page. Promoting it is the conversation to have when /shots needs a gallery —
+ * and it is the same maths, which is the point.
+ *
+ * ## The title and subtitle used to live here
+ *
+ * `featuredTitle` and `featuredSubtitle` were rendered above the row, through `ProseHeading` and
+ * `ProseText`. Both are still in the schema and still fetched by `HOME_QUERY`; neither is
+ * rendered anywhere at the moment, pending a decision about where they belong now that the
+ * photographs open the page instead of closing it. `ProseHeading` has no other caller and is
+ * waiting on the same decision — it is not dead code yet.
  */
 defineProps<{
-	title: Home['featuredTitle'];
-	subtitle: Home['featuredSubtitle'];
-	photos: Home['featuredPhotos'];
-}>();
+  photos: Home['featuredPhotos']
+}>()
 
 /**
  * The photograph's shape as a bare number, for the flex maths above.
@@ -46,37 +78,42 @@ defineProps<{
  * width beats a zero-width column.
  */
 const ratio = (photo: Home['featuredPhotos'][number]) => {
-	const { width, height } = photo.asset;
-	return width && height ? width / height : 1.5;
-};
+  const { width, height } = photo.asset
+  return width && height ? width / height : 1.5
+}
 </script>
 
 <template>
-	<section class="space-y-10">
-		<div class="mx-auto max-w-[1080px] space-y-6 px-5">
-			<!--
-				`[&_a]:no-underline` reaches through to the link inside the heading. ProseLink
-				underlines by default and should keep doing so in running prose — but at this
-				size the rule sits far enough from the text to read as a border rather than a
-				link, and the heading already reads as one. Italics are untouched.
+  <section>
+    <!--
+      `bleed` plus `px-(--gutter)` is the edge-to-edge-scroller idiom doing something quieter
+      here: it lets the row reach the main column's edges while keeping the first photograph
+      aligned with the text above and below it.
 
-				It wins on specificity without !important: Tailwind compiles the arbitrary
-				variant to `.\[\&_a\]\:no-underline a`, a descendant selector, against
-				ProseLink's single `.underline` class.
-			-->
-			<ProseHeading :value="title" class="text-2xl font-normal [&_a]:no-underline sm:text-3xl" />
-			<ProseText :value="subtitle" class="text-lg font-light leading-relaxed sm:text-xl" />
-		</div>
+      `gap-4` applies to both axes on a wrapping flex container, so rows and columns are spaced
+      the same 1rem.
+    -->
+    <ul class="bleed flex flex-wrap gap-4 px-(--gutter)">
+      <li
+        v-for="photo in photos"
+        :key="photo._id"
+        :style="{ '--r': ratio(photo) }"
+        class="min-w-full grow-[var(--r)] basis-[calc(var(--r)*22rem)] sm:min-w-0 sm:max-w-[55%]"
+      >
+        <!--
+          `min-w-full` below `sm` forces one photograph per row on a phone, where two landscapes
+          side by side are too small to be worth showing. From `sm` the basis takes over and the
+          browser decides how many fit.
 
-		<ul class="flex snap-x snap-mandatory gap-px overflow-x-auto lg:overflow-visible">
-			<li
-				v-for="photo in photos"
-				:key="photo._id"
-				:style="{ '--r': ratio(photo) }"
-				class="h-56 shrink-0 basis-[calc(14rem*var(--r))] snap-start sm:h-72 sm:basis-[calc(18rem*var(--r))] lg:h-auto lg:shrink lg:grow-[var(--r)] lg:basis-0"
-			>
-				<SanityPhoto :photo="photo" sizes="(min-width: 1024px) 20vw, 45vw" />
-			</li>
-		</ul>
-	</section>
+          Row height is ~224px (`K` above) plus its share of the leftover, so a photograph is
+          never much wider than half the main column. The `sizes` steps track that rather than
+          the viewport, which the 1440px shell and the 240px sidenav would make wrong.
+        -->
+        <SanityPhoto
+          :photo="photo"
+          sizes="(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw"
+        />
+      </li>
+    </ul>
+  </section>
 </template>

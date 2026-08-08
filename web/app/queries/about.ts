@@ -14,15 +14,37 @@ import { PHOTO_PROJECTION } from './photo'
  * That dereference is Rule 1 at the query layer. The object stores a reference and nothing
  * else; alt text and caption live on the photo and arrive with it.
  *
- * There is no `portrait` here because there is no longer a `portrait` field — a photograph
- * first in the body is a portrait at the top of the page. See `documents/aboutPage.ts`.
+ * ## Why this route reads a field off `homePage`
+ *
+ * `portrait` is the photograph that used to open the front page — `homePage.introPhoto`. It now
+ * sits under the bio instead, and `aboutPage` has no photo field of its own to hold it.
+ *
+ * **This is a stopgap and should not survive contact with the Studio.** Reading one page's
+ * field to render another page's content is exactly the kind of hidden coupling that makes a
+ * field's description a lie: `introPhoto` still tells her it is the photo on the front page,
+ * and it is not any more. Nothing warns her, and moving it back is a code change rather than
+ * an edit.
+ *
+ * The shaped fix is a `portrait` reference on `aboutPage`, which is a schema change — a new
+ * field, a typegen run and a Studio deploy — and deliberately out of scope for a styling pass.
+ * Until then this keeps the photograph on the page it was asked for, in one request, without
+ * duplicating the image or copying its alt text. Both halves are separate top-level projections
+ * because they come from two different documents; GROQ returns them as one object.
+ *
+ * Note the two are allowed to fail independently. `aboutPage` missing is a broken dataset and
+ * the route throws. A missing `homePage` — or a `homePage` whose `introPhoto` is unset — costs
+ * a photograph and nothing else, so `portrait` comes back `null` and the page renders without
+ * it.
  */
 export const ABOUT_QUERY = defineQuery(`
-  *[_type == "aboutPage"][0]{
-    title,
-    body[]{
-      ...,
-      _type == "postPhoto" => { photo->{ ${PHOTO_PROJECTION} } }
-    }
+  {
+    "page": *[_type == "aboutPage"][0]{
+      title,
+      body[]{
+        ...,
+        _type == "postPhoto" => { photo->{ ${PHOTO_PROJECTION} } }
+      }
+    },
+    "portrait": *[_type == "homePage"][0].introPhoto->{ ${PHOTO_PROJECTION} }
   }
 `)

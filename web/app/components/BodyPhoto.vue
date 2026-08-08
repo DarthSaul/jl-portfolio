@@ -27,8 +27,8 @@ defineProps<PortableTextComponentProps<{ _type: 'postPhoto', photo: PhotoProject
 
 <template>
   <!-- Full width on a phone; from `md` up it becomes a 350px column that the prose wraps
-       around. Which side it takes is decided by `WritingPostBody`, because alternating needs
-       to know the figure's position among its siblings and this component cannot see that.
+       around. Which side it takes is decided by `ProseBody`, because alternating needs to know
+       the figure's position among its siblings and this component cannot see that.
 
        `clear-both` is what keeps two photographs from landing side by side when they fall
        close together in the text — each one starts below the last. -->
@@ -36,7 +36,7 @@ defineProps<PortableTextComponentProps<{ _type: 'postPhoto', photo: PhotoProject
     <!-- 350px from `md` up, full viewport below it. -->
     <SanityPhoto :photo="value.photo" sizes="(min-width: 768px) 350px, 100vw" />
 
-    <figcaption class="mt-3 text-sm text-muted" v-if="value.photo.caption">
+    <figcaption class="type-caption mt-3 text-muted" v-if="value.photo.caption">
       {{ value.photo.caption }}
     </figcaption>
   </figure>

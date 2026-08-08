@@ -1,64 +1,50 @@
 <script setup lang="ts">
-import type { HOME_QUERY_RESULT } from '~~/sanity.types';
+import type { HOME_QUERY_RESULT } from '~~/sanity.types'
 
-type Home = NonNullable<HOME_QUERY_RESULT>;
+type Home = NonNullable<HOME_QUERY_RESULT>
 
 /**
- * Slot 4 — the heading and introduction, on a card overlapping her photograph.
+ * Slot 4 — the heading and introduction. DESIGN.md's `hero-band`.
  *
- * The photograph takes the right two-thirds and the card sits at the top left, crossing the
- * photo's left edge by 100px. Both live in the same grid cell rather than being absolutely
- * positioned, so the card cannot escape the container or collide with what follows at any
- * width — the overlap is a width overrun inside a grid track, not a coordinate.
+ * The headline in `display-hero` — Playfair at 64px, the spec's most-recognisable typographic
+ * signature — and the intro in the serif body face beneath it. No card, no fill, no border:
+ * `hero-band` sits on the canvas, and the elevation table is emphatic that "Level 0 — Flat"
+ * is where almost every surface lives. The size of the type is the whole effect.
  *
- * Below `md` there is no room for two-thirds-plus-an-overlap, so the two stack: the photo runs
- * full-bleed and the card is pulled up over its lower edge. Deliberately the *lower* edge — the
- * intro photo is a portrait of her, and a card near the top of a full-width phone-sized photo
- * lands squarely on the subject's face. The desktop overlap sits beside her, not on her.
+ * ## What used to be here
  *
- * ## What the rules cost here, still
+ * A photograph in the right two-thirds with a card overlapping its left edge by 100px, built as
+ * a width overrun inside a grid track. That composition and its `min-w-0` are gone along with
+ * the photograph, which now lives under the bio — see `queries/about.ts`, which also explains
+ * why reading it from `homePage` is a stopgap.
  *
- * CLAUDE.md calls this the first real test of the no-crop rule and that has not changed by
- * narrowing the photo. There is no hotspot to crop around, so the photograph renders at its own
- * proportions and **the photo decides how tall this section is** — now at two-thirds width
- * rather than full, which makes a tall portrait roughly a third shorter than it was. The cost
- * still lands on her: which photo she picks matters. That is a sentence in the Studio field
- * description, not a knob.
+ * Worth knowing what left with it: that hero was CLAUDE.md's worked example of the no-crop rule
+ * holding under pressure, and the argument still stands, it just no longer has a demonstration
+ * on the front page. If a photograph ever returns here, the rule returns with it — a hero with
+ * text over an image is the classic case that wants a crop, and `photo.image` still has no
+ * hotspot by design.
  *
- * The card is solid `bg-ink`, not the translucent band it was when it sat wholly over the
- * photo. Only 100px of it overlaps now; the rest is over the white page, where a translucent
- * dark panel reads as washed out rather than deliberate.
- *
- * This lives in `components/home/`, not `components/presets/`. A preset is something she picks
- * from the fixed list in the gallery schema, and CLAUDE.md requires a component and a schema
- * option always land together. This is a fixed composition belonging to one page.
+ * The front page now opens with the photographs and reaches this second, which is another
+ * reason the band carries no image of its own: a hero photo directly under the grid would be
+ * the sixth photograph in a row of five.
  */
 defineProps<{
-	heading: Home['introHeading'];
-	intro: Home['intro'];
-	photo: Home['introPhoto'];
-}>();
+  heading: Home['introHeading']
+  intro: Home['intro']
+}>()
 </script>
 
 <template>
-	<section class="grid md:grid-cols-3 md:items-start">
-		<!-- Right two-thirds, flush to the container's right edge. -->
-		<div class="md:col-span-2 md:col-start-2 md:row-start-1">
-			<SanityPhoto :photo="photo" priority sizes="(min-width: 1080px) 693px, (min-width: 768px) 66vw, 100vw" />
-		</div>
+  <section class="max-w-read">
+    <h2 v-if="heading" class="type-display-hero text-ink">
+      {{ heading }}
+    </h2>
 
-		<!-- Left third plus 100px, which is what puts the card over the photo's edge. `min-w-0`
-         is load-bearing: a grid track's automatic minimum is its item's min-content size, so
-         without it an item deliberately wider than its track widens the track instead of
-         overflowing it — and the photo would be squeezed below two-thirds. Later in the DOM
-         than the photo, so it paints on top without a z-index. -->
-		<div class="-mt-16 px-5 md:col-start-1 md:row-start-1 md:mt-10 md:w-[calc(100%_+_100px)] md:min-w-0 md:px-0">
-			<div class="bg-ink p-8 text-white sm:p-10">
-				<h2 v-if="heading" class="text-xl font-light sm:text-2xl">
-					{{ heading }}
-				</h2>
-				<ProseText :value="intro" :class="['text-lg leading-relaxed sm:text-xl', heading && 'mt-3']" />
-			</div>
-		</div>
-	</section>
+    <!-- `body-serif-lg` is DESIGN.md's lead-paragraph token — Lora at 19px. Serif for
+         narrative, sans for structure: this is narrative. -->
+    <ProseText
+      :value="intro"
+      :class="['type-body-serif-lg', heading && 'mt-6']"
+    />
+  </section>
 </template>

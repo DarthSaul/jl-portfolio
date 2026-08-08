@@ -29,7 +29,7 @@ import type { POST_QUERY_RESULT } from '~~/sanity.types'
  *
  * The style is *stored* as `h2` — that is the value in the schema, and Sanity's convention is
  * to name block styles after the element they resemble. It is not an instruction about depth.
- * On this site `SiteHeader` puts the wordmark in an `<h1>` on every page and the post's own
+ * On this site `SiteSidebar` puts the wordmark in an `<h1>` on every page and the post's own
  * title is the `<h2>`, so rendering a subheading as a literal `<h2>` would put it level with
  * the title of the piece it sits inside. `<h3>` is what the outline actually calls for.
  *
@@ -40,13 +40,21 @@ import type { POST_QUERY_RESULT } from '~~/sanity.types'
 defineProps<{ value: NonNullable<POST_QUERY_RESULT>['body'] }>()
 
 const Subheading: FunctionalComponent = (_props, { slots }) =>
-  h('h3', { class: 'text-xl font-medium leading-snug sm:text-2xl' }, slots.default?.())
+  h('h3', { class: 'type-display-sm mt-12' }, slots.default?.())
 Subheading.inheritAttrs = false
 
+/**
+ * A hairline in the margin, which is the only elevation cue DESIGN.md gives — "surface contrast
+ * and hairline borders carry all visual hierarchy", and there are no shadows and no fills to
+ * reach for.
+ *
+ * The italic is a real one: Lora ships an italic face and it is loaded, so the browser is not
+ * shearing an upright into an oblique.
+ */
 const Quote: FunctionalComponent = (_props, { slots }) =>
   h(
     'blockquote',
-    { class: 'border-l-2 border-neutral-200 pl-5 italic text-muted' },
+    { class: 'border-l border-hairline pl-6 italic text-muted' },
     slots.default?.(),
   )
 Quote.inheritAttrs = false

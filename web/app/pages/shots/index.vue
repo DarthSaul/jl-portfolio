@@ -9,11 +9,11 @@ useHead({ title: 'Shots' })
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1080px] px-5 py-16">
-    <h2 class="text-2xl font-normal text-muted sm:text-3xl">
+  <div>
+    <h2 class="type-display-lg text-ink">
       Shots
     </h2>
-    <p class="mt-4 text-lg">
+    <p class="type-body-md mt-4 text-muted">
       Coming soon.
     </p>
   </div>

@@ -1,154 +1,461 @@
 @import 'tailwindcss';
 
 /*
- * Proxima Nova, from her Adobe Typekit kit — the face joanatstake.com already uses.
+ * ============================================================================
+ * The design system.
+ * ============================================================================
+ *
+ * `DESIGN.md` at the repo root is the spec; this file is the implementation. Colour, type,
+ * radius and container width are decided here and nowhere else. Tailwind v4 is CSS-first via
+ * `@tailwindcss/vite` — there is no `tailwind.config.ts` and one should not be added.
+ *
+ * DESIGN.md names three proprietary faces and, in its own "Note on Font Substitutes", the
+ * open-source stand-ins used below:
+ *
+ *   WiredDisplay  ->  Playfair Display   display headlines, the wordmark
+ *   BreveText     ->  Lora               long-form body, bylines
+ *   Apercu        ->  Inter              nav, metadata, captions, buttons
+ *
+ * ## Weight strategy — measured, not assumed
+ *
+ * Lora and Inter are declared as variable ranges (`font-weight: 400 700`) and Playfair is
+ * pinned to 400. That asymmetry is deliberate and comes from the latin-subset byte counts:
+ *
+ *   Lora      variable 400..700   78 kB   vs   pinned 400 + 700   157 kB
+ *   Inter     variable 400..700   48 kB   vs   pinned 400 + 700    97 kB
+ *   Playfair  variable 400..700   77 kB   vs   pinned 400          44 kB
+ *
+ * Lora and Inter genuinely need both ends — nav links, bylines and the `strong` decorator in
+ * `post.body` are all 700 — so the variable file is half the bytes of two static ones. Playfair
+ * only ever renders at 400, because DESIGN.md is explicit that display weight is never promoted
+ * past it ("the brand's elegance is in the typeface design, not bold weight"), so the range
+ * would be 33 kB spent on a weight nothing asks for.
+ *
+ * The cost of pinning: a `strong` decorator inside a Playfair heading would render as synthetic
+ * bold rather than a real one. That is the correct trade at 33 kB, and DESIGN.md would not have
+ * us set a display heading bold anyway.
+ *
+ * Latin-only cold-cache cost: ~171 kB across five files. latin-ext is a lazy second request,
+ * which is what the `unicode-range` lines buy — do not drop them.
  *
  * ## Where these URLs came from, and what that costs
  *
- * The whole family, pulled from the kit her live Squarespace site loads (kit `646866`). The
- * originally-supplied declaration was Thin only, and one weight cannot carry a type hierarchy:
- * every `font-medium` and `font-light` in the app resolved to the same 100 face and rendered
- * identically. Nine faces are licensed in that kit, so all nine are declared here.
+ * Hotlinked from `fonts.gstatic.com` rather than vendored into `web/public/fonts/`. Google
+ * rotates the path hash on every font revision — `/v40/`, `/v37/` and `/v20/` below are part of
+ * the path — so a republish can 404 these and the site silently falls back to Georgia and
+ * system sans. Nothing errors and nothing logs; the page just changes typeface. The mitigation
+ * is the fallback chain in `@theme`, and it has to stay a real chain.
  *
- * The `fvd` query parameter looks like a weight selector and is NOT — the face is identified
- * by the path hash. `fvd=n4` on the Thin URL returns the Thin file. Each weight needs its own
- * hash, which is why these are nine separate declarations rather than one parameterised URL.
+ * If they ever do 404, re-derive rather than guess:
  *
- * These are hotlinked rather than loaded through the kit's JS embed. That is the trade: no
- * render-blocking third-party script and no Squarespace dependency, but a kit republish in
- * Adobe rotates the hashes and every URL here 404s at once. The symptom would be the whole
- * site silently falling back to system sans — which is what the `--font-sans` fallback chain
- * below is for. If that ever happens, re-derive them from the kit rather than guessing.
+ *   curl -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+ *     (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' \
+ *     'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400\
+ * &family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400..700&display=swap'
  *
- * `font-display: auto` is kept as supplied. It behaves like `block` in most browsers — up to
- * ~3s of invisible text on a cold cache, and that is now nine files rather than one. `swap`
- * is a one-word change per face and worth considering for phone visitors arriving from a link.
+ * The `User-Agent` is load-bearing: without a modern one Google serves TTF/EOT, not woff2.
+ * Keep the latin and latin-ext blocks and drop cyrillic, greek, vietnamese and the rest.
  *
- * woff2 and woff only. The supplied declaration also listed opentype; every browser that can
- * run this bundle has had woff2 since 2016, so the third URL per face was dropped rather than
- * carried nine times over.
- *
- * The italics are not decoration. `proseText` allows an `em` decorator and the byline is set
- * in italic — without real italic faces the browser synthesises an oblique by shearing the
- * upright, which is visibly wrong at the byline's size and tracking.
+ * `font-display: swap`: for a visitor arriving on a phone from a link, a moment of Georgia
+ * beats up to three seconds of nothing.
  */
 
+/* ── Playfair Display — display headlines and the wordmark. 400 only, upright + italic. ── */
 @font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/da27c4/00000000000000007758cf8d/31/l?subset_id=2&fvd=i1&v=3) format('woff2'),
-    url(https://use.typekit.net/af/da27c4/00000000000000007758cf8d/31/d?subset_id=2&fvd=i1&v=3) format('woff');
-  font-weight: 100;
-  font-style: italic;
-  font-stretch: normal;
-  font-display: auto;
-}
-
-@font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/0b8052/00000000000000007758cf90/31/l?subset_id=2&fvd=i3&v=3) format('woff2'),
-    url(https://use.typekit.net/af/0b8052/00000000000000007758cf90/31/d?subset_id=2&fvd=i3&v=3) format('woff');
-  font-weight: 300;
-  font-style: italic;
-  font-stretch: normal;
-  font-display: auto;
-}
-
-@font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/6eb0e3/00000000000000007758cf8f/31/l?subset_id=2&fvd=i4&v=3) format('woff2'),
-    url(https://use.typekit.net/af/6eb0e3/00000000000000007758cf8f/31/d?subset_id=2&fvd=i4&v=3) format('woff');
+  font-family: 'Playfair Display';
+  font-style: normal;
   font-weight: 400;
-  font-style: italic;
-  font-stretch: normal;
-  font-display: auto;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtPK-F2qC0s.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/38ea3a/00000000000000007758cf7d/31/l?subset_id=2&fvd=i7&v=3) format('woff2'),
-    url(https://use.typekit.net/af/38ea3a/00000000000000007758cf7d/31/d?subset_id=2&fvd=i7&v=3) format('woff');
-  font-weight: 700;
-  font-style: italic;
-  font-stretch: normal;
-  font-display: auto;
-}
-
-@font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/4b22bb/00000000000000007735e601/31/l?subset_id=2&fvd=n1&v=3) format('woff2'),
-    url(https://use.typekit.net/af/4b22bb/00000000000000007735e601/31/d?subset_id=2&fvd=n1&v=3) format('woff');
-  font-weight: 100;
+  font-family: 'Playfair Display';
   font-style: normal;
-  font-stretch: normal;
-  font-display: auto;
-}
-
-@font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/3888dc/00000000000000007735e606/31/l?subset_id=2&fvd=n3&v=3) format('woff2'),
-    url(https://use.typekit.net/af/3888dc/00000000000000007735e606/31/d?subset_id=2&fvd=n3&v=3) format('woff');
-  font-weight: 300;
-  font-style: normal;
-  font-stretch: normal;
-  font-display: auto;
-}
-
-@font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/d7ff92/00000000000000007735e609/31/l?subset_id=2&fvd=n4&v=3) format('woff2'),
-    url(https://use.typekit.net/af/d7ff92/00000000000000007735e609/31/d?subset_id=2&fvd=n4&v=3) format('woff');
   font-weight: 400;
-  font-style: normal;
-  font-stretch: normal;
-  font-display: auto;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDZbtPK-F2qC0usEw.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 @font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/26f7ec/00000000000000007735e605/31/l?subset_id=2&fvd=n5&v=3) format('woff2'),
-    url(https://use.typekit.net/af/26f7ec/00000000000000007735e605/31/d?subset_id=2&fvd=n5&v=3) format('woff');
-  font-weight: 500;
-  font-style: normal;
-  font-stretch: normal;
-  font-display: auto;
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTXtHA-X-uE0qEEw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: proxima-nova;
-  src:
-    url(https://use.typekit.net/af/5be242/00000000000000007735e603/31/l?subset_id=2&fvd=n7&v=3) format('woff2'),
-    url(https://use.typekit.net/af/5be242/00000000000000007735e603/31/d?subset_id=2&fvd=n7&v=3) format('woff');
-  font-weight: 700;
-  font-style: normal;
-  font-stretch: normal;
-  font-display: auto;
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTXt_A-X-uE0qEE5Do.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 /*
- * Colours sampled from joanatstake.com with getComputedStyle, so these are her actual values
- * rather than an eyeballed approximation.
+ * ── Lora — long-form body and bylines. Variable 400–700, upright + italic. ──
  *
- * Tailwind v4 here is CSS-first via @tailwindcss/vite. There is no tailwind.config.ts and
- * one should not be added — theme extensions belong in this block.
+ * The italics are not decoration. `proseText` allows an `em` decorator, `post.body` and
+ * `aboutPage.body` allow the same, and `ProseBody`'s blockquote is set in italic. Without a
+ * real italic face the browser shears the upright into an oblique, which is visibly wrong at
+ * body size.
+ */
+@font-face {
+  font-family: Lora;
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7I_FMl_E.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Lora;
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwT7I_FMl_GW8g.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: Lora;
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LIftLtfOm8w.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Lora;
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LL_tLtfOm84TX.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * ── Inter — nav, metadata, captions, buttons. Variable 400–700, upright only. ──
+ *
+ * No italic. Nothing set in Inter is ever italicised: DESIGN.md's principle is "serif for
+ * narrative, sans for structure", and structure does not lean.
+ */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7W0Q5n-wU.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * ============================================================================
+ * Tokens
+ * ============================================================================
+ *
+ * DESIGN.md's palette, with **one deliberate departure: the canvas is cream, not white.**
+ *
+ * The spec's `{colors.canvas}` is `#ffffff` and its whole identity is "stark black wordmark on
+ * white canvas". Warming the floor to `#fffaf0` is an explicit product decision layered on top
+ * of it — the black-and-white duet, the square geometry, the hairline dividers and the three
+ * type faces are all untouched, so what changes is the paper stock and nothing else. Anyone
+ * reconciling this file against DESIGN.md should expect exactly this one hex to disagree, and
+ * `--color-canvas-soft` to follow it.
  */
 @theme {
   /*
-   * Setting `--font-sans` is what makes this global: Tailwind derives
-   * `--default-font-family` from it, and preflight applies that to `html`. No `font-sans`
-   * class is needed anywhere, and there is no second place to update.
+   * Setting `--font-sans` is what makes Inter global: Tailwind derives `--default-font-family`
+   * from it, and preflight applies that to `html`. No `font-sans` class is needed anywhere.
+   *
+   * Georgia is the honest fallback for both serifs — ubiquitous, and closer to Lora's
+   * proportions than `ui-serif`, which resolves to New York on Apple platforms and to
+   * something less predictable elsewhere.
+   *
+   * Note `--font-display` also generates a `font-display` *utility class*, which shares a name
+   * with the CSS `font-display` descriptor used in every `@font-face` above. They are unrelated.
    */
-  --font-sans: proxima-nova, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-serif: Lora, Georgia, 'Times New Roman', serif;
+  --font-display: 'Playfair Display', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
 
-  --color-ink: #0d0c0c; /* body text */
-  --color-muted: #666666; /* inactive nav, section headings, footer */
-  --color-faint: #a29696; /* the tagline under the wordmark */
-  --color-accent: #b40444; /* active nav item, link hover, wordmark hover */
+  --color-ink: #000000; /* {colors.ink} / {colors.primary} — headlines, body, the wordmark */
+  --color-ink-soft: #1a1a1a; /* {colors.ink-soft} */
+  --color-muted: #757575; /* {colors.body} — bylines, dates, inactive nav */
+  --color-hairline: #e0e0e0; /* {colors.hairline} — the site's only line */
+  --color-link: #057dbc; /* {colors.link} — inline body links ONLY, never nav or buttons */
+
+  /*
+   * The two departures. `canvas-soft` is derived rather than picked: DESIGN.md steps
+   * #ffffff -> #f5f5f5, which is a ~96% multiplier per channel, and the same multiplier
+   * against #fffaf0 gives #f5f0e7. Keeping the step means the pair stays as related as the
+   * spec had them, instead of a cool grey sitting on a warm page.
+   */
+  --color-canvas: #fffaf0; /* {colors.canvas}, warmed — see the block comment above */
+  --color-canvas-soft: #f5f0e7; /* {colors.canvas-soft}, warmed by the same step */
+
+  /*
+   * `{rounded.none}` is the whole radius scale. DESIGN.md: "Use {rounded.none} 0px on every
+   * button and form input. The brand reads as a printed magazine — square corners are
+   * non-negotiable." So Tailwind's named radius steps are unset outright rather than left
+   * sitting there for someone to reach for.
+   *
+   * `rounded-full` survives on purpose and is the single exception the spec allows —
+   * "{rounded.full} 9999px: circular icon containers only". It does not read from a
+   * `--radius-*` token, so unsetting these does not touch it. Two call sites: the circular
+   * thumbnails on /writing and the social buttons in the sidebar.
+   */
+  --radius-xs: initial;
+  --radius-sm: initial;
+  --radius-md: initial;
+  --radius-lg: initial;
+  --radius-xl: initial;
+  --radius-2xl: initial;
+  --radius-3xl: initial;
+  --radius-4xl: initial;
+
+  --spacing-section: 3rem; /* {spacing.4xl} 48px — DESIGN.md's section padding */
+  --spacing-bar: 3.5rem; /* 56px — the mobile bar's height, and the drawer's top offset */
+
+  --container-shell: 90rem; /* 1440px — the whole app, centred */
+  --container-sidebar: 15rem; /* 240px — the sidenav column */
+  --container-read: 46.875rem; /* 750px — the prose measure */
+}
+
+/*
+ * The canvas goes on the root element, not only on the shell.
+ *
+ * `layouts/default.vue` puts `bg-canvas` on its `min-h-dvh` wrapper, which covers the page —
+ * and stops exactly there. Anything outside it is the browser's default white: the overscroll
+ * area an iOS rubber-band exposes above and below the document. That gap did not show while
+ * the canvas *was* white; it does now, which is the kind of thing a colour change quietly
+ * brings with it.
+ */
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+  }
+}
+
+/*
+ * ============================================================================
+ * Type
+ * ============================================================================
+ *
+ * DESIGN.md's fourteen typography tokens, one `@utility` each. **Type is set with a `type-*`
+ * class and never with `text-*` + `leading-*` + `tracking-*` + `font-*` at a call site.**
+ *
+ * Three things to know before editing any of them.
+ *
+ * **Every token sets all five properties** — family, size, line-height, letter-spacing, weight
+ * — even when a value is `0em` or `400`. Custom utilities sort *before* core ones in the
+ * emitted CSS, which is what lets `tracking-[0.14em]` at a call site override a token. The same
+ * ordering means `type-display-sm lg:type-display-md` would leak the smaller token's *omitted*
+ * properties past the breakpoint if any were left out.
+ *
+ * **The responsive step lives inside the token**, via `@variant`. DESIGN.md specifies a hero
+ * that drops 64px -> 40px on a phone; putting that in the token means no call site ever writes
+ * `text-[2.5rem] md:text-[4rem]`, and the ladder cannot drift between two places.
+ *
+ * **Tracking is in `em`, never `rem` or `px`.** A fixed pixel gap tuned for a 64px headline is
+ * visibly blown apart at 40px. In `em` it stays proportional at every step.
+ *
+ * There is deliberately **no `text-transform` in any token**. `SITE.nav` stores labels in
+ * sentence case and uppercases them in CSS so assistive tech reads "Copy" rather than spelling
+ * it out — keeping `uppercase` a separate class keeps that visible where it is decided.
+ */
+
+/* — Display. Playfair, always weight 400 — DESIGN.md: never promote display past it. — */
+
+@utility type-display-hero {
+  font-family: var(--font-display);
+  font-size: 2.5rem; /* 40px — DESIGN.md's mobile step down from 64 */
+  line-height: 1.05;
+  letter-spacing: -0.0078em; /* -0.5px at 64px */
+  font-weight: 400;
+  @variant md {
+    font-size: 4rem; /* 64px */
+    line-height: 0.95;
+  }
+}
+
+@utility type-display-lg {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.0083em;
+  font-weight: 400;
+  @variant md {
+    font-size: 3rem;
+    line-height: 1.05;
+  }
+}
+
+@utility type-display-md {
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  line-height: 1.15;
+  letter-spacing: -0.0094em;
+  font-weight: 400;
+  @variant md {
+    font-size: 2rem;
+    line-height: 1.1;
+  }
+}
+
+@utility type-display-sm {
+  font-family: var(--font-display);
+  font-size: 1.625rem; /* 26px */
+  line-height: 1.08;
+  letter-spacing: 0em;
+  font-weight: 400;
+}
+
+/* The one display token set in the sans face — DESIGN.md's `display-xs`, for category callouts. */
+@utility type-display-xs {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.014em;
+  font-weight: 700;
+}
+
+/* — Body. Lora for narrative, Inter for structure. — */
+
+@utility type-body-serif-lg {
+  font-family: var(--font-serif);
+  font-size: 1.1875rem; /* 19px */
+  line-height: 1.47;
+  letter-spacing: 0.0057em;
+  font-weight: 400;
+}
+
+@utility type-body-serif-md {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0.0056em;
+  font-weight: 400;
+}
+
+@utility type-body-md {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.176;
+  letter-spacing: 0em;
+  font-weight: 400;
+}
+
+@utility type-body-md-strong {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.294;
+  letter-spacing: -0.0085em;
+  font-weight: 700;
+}
+
+@utility type-body-sm {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.286;
+  letter-spacing: 0.0286em;
+  font-weight: 400;
+}
+
+@utility type-body-sm-strong {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.286;
+  letter-spacing: 0.0286em;
+  font-weight: 700;
+}
+
+/*
+ * DESIGN.md's `byline`, and the relaxed line-height is part of it: "the vertical breathing is
+ * part of the editorial signature". It is the one metadata token set in the serif.
+ */
+@utility type-byline {
+  font-family: var(--font-serif);
+  font-size: 0.8125rem;
+  line-height: 2.15;
+  letter-spacing: 0.0083em;
+  font-weight: 700;
+}
+
+@utility type-caption {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.333;
+  letter-spacing: 0em;
+  font-weight: 400;
+}
+
+@utility type-button-md {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: 0.0188em;
+  font-weight: 700;
+}
+
+/*
+ * ============================================================================
+ * Layout
+ * ============================================================================
+ */
+
+/*
+ * The gutter, set once on <main> and on the sidebar's own strips.
+ *
+ * Before the sidenav, five pages and `writing/ListItem.vue` each declared their own
+ * `mx-auto max-w-[…] px-5` — six places to keep in step — and the front page's photo row
+ * escaped them by simply not being inside one. Now the shell owns the horizontal padding and
+ * pages own only vertical rhythm and, for prose, `max-w-read`.
+ */
+@utility main-column {
+  --gutter: 1.25rem; /* 20px */
+  padding-inline: var(--gutter);
+  @variant lg {
+    --gutter: 2.5rem; /* 40px */
+  }
+  @variant xl {
+    --gutter: 3.5rem; /* 56px */
+  }
+}
+
+/*
+ * Full-bleed, which means the edge of the *main column* rather than of the viewport — the
+ * shell is centred and capped, so the viewport edge is no longer the page edge.
+ *
+ * `--gutter` is a custom property set by `main-column` and inherited, so this is automatically
+ * correct at every breakpoint and there is no negative-margin arithmetic at the call site. The
+ * `0px` fallback means a `bleed` outside a `main-column` is a no-op rather than a broken layout.
+ */
+@utility bleed {
+  margin-inline: calc(var(--gutter, 0px) * -1);
+}
+
+/*
+ * DESIGN.md's `story-row` — the bylined row in a list of writing, separated by the site's only
+ * line. This is what carries the rhythm on /writing; the list needs no gap of its own.
+ */
+@utility story-row {
+  border-block-end: 1px solid var(--color-hairline);
+  padding-block: 1.5rem;
 }

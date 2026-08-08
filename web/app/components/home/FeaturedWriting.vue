@@ -66,7 +66,10 @@ const cards = computed(() =>
 
 <template>
   <section>
-    <h2 class="text-2xl font-normal text-muted sm:text-3xl">
+    <!-- DESIGN.md's `category-eyebrow` over a hairline: a small uppercase sans label rather
+         than a heading in the display serif. That keeps the three card headlines below it as
+         the largest type in the section, which is what the eye should land on. -->
+    <h2 class="type-display-xs border-t border-hairline pt-3 uppercase tracking-[0.1em] text-ink">
       Featured Writing
     </h2>
 
@@ -94,45 +97,46 @@ const cards = computed(() =>
           aria-hidden="true"
           class="block md:self-start"
         >
+          <!-- A third of the main column, not of the viewport — the shell caps at 1440px with
+               the sidenav beside it, so the column never exceeds ~1120px. -->
           <SanityPhoto
             v-if="item.coverPhoto"
             :photo="item.coverPhoto"
-            sizes="(min-width: 768px) 33vw, 100vw"
+            sizes="(min-width: 1024px) 360px, (min-width: 768px) 33vw, 100vw"
           />
         </component>
 
         <!-- One grid row for the rest, flowing freely inside it. -->
         <div>
-          <h3 class="mt-5 text-xl leading-snug sm:text-2xl">
-            <component :is="link.is" v-bind="link" class="transition-colors hover:text-accent">
+          <h3 class="type-display-sm mt-5">
+            <component :is="link.is" v-bind="link" class="transition-opacity hover:opacity-60">
               {{ item.title }}
             </component>
           </h3>
 
-          <!-- Back to `text-sm`, now carrying `font-medium`. It was bumped to `text-base` when
-               the only face available was Thin and 14px grey was unreadable in a 100-weight;
-               with the real family declared, 500 does that job without costing the size step
-               that separates this line from the summary below it. -->
-          <p class="mt-2 text-sm font-medium text-muted">
+          <p class="type-byline mt-1 text-muted">
             <!-- A link out names its publication; a post is on this site and does not need to
                  say so. Both carry the date, which is what orders her writing everywhere. -->
             <template v-if="item._type === 'article'">{{ item.publication }} &middot; </template>
             <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt) }}</time>
           </p>
 
-          <p v-if="item.summary" class="mt-3 text-base leading-relaxed text-ink">
+          <p v-if="item.summary" class="type-body-serif-md mt-2 text-ink">
             {{ item.summary }}
           </p>
 
           <!-- "Read more" is meaningless out of context, and a screen reader can pull links
-               out of context. The aria-label names the destination; the arrow is decorative. -->
+               out of context. The aria-label names the destination.
+
+               `body-sm-strong` in caps is also what /writing's row uses, so the two lists say
+               "read more" the same way. -->
           <component
             :is="link.is"
             v-bind="link"
             :aria-label="`Read more: ${item.title}`"
-            class="mt-3 inline-block text-base font-medium text-muted transition-colors hover:text-accent"
+            class="type-body-sm-strong mt-4 inline-block uppercase tracking-[0.12em] text-ink hover:underline"
           >
-            Read more <span aria-hidden="true">&rarr;</span>
+            Read more
           </component>
         </div>
       </li>

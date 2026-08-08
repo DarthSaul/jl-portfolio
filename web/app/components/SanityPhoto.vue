@@ -159,7 +159,7 @@ const placeholder = computed(() => {
     :loading="priority ? 'eager' : 'lazy'"
     :fetchpriority="priority ? 'high' : undefined"
     decoding="async"
-    class="block w-full bg-neutral-100 bg-cover bg-center"
+    class="block w-full bg-canvas-soft bg-cover bg-center"
     :class="square ? 'h-full object-cover' : ''"
   >
 </template>

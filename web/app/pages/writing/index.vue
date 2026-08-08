@@ -31,17 +31,20 @@ useHead(
 </script>
 
 <template>
-  <!-- Tighter than the 80px rhythm this page had when each row was a full-width photo. The
-       rows are now ~128px tall and left-aligned, and at that size the old spacing read as
-       seven unrelated things rather than one list. -->
-  <div v-if="writing" class="space-y-10 py-4 pb-16 sm:space-y-12">
-    <p
-      v-if="writing.page?.intro"
-      class="mx-auto max-w-[750px] px-5 text-lg font-light leading-relaxed sm:text-xl"
-    >
+  <div v-if="writing" class="max-w-read">
+    <p v-if="writing.page?.intro" class="type-body-serif-lg mb-12">
       {{ writing.page.intro }}
     </p>
 
-    <WritingListItem v-for="item in writing.items" :key="item._id" :item="item" />
+    <!-- The `<ul>` moved up here from `WritingListItem`, which used to declare its own
+         `mx-auto max-w-[750px] px-5` per row. Seven rows are one list, so the measure belongs
+         to the list.
+
+         No `space-y`. Each row is a `story-row` with a hairline beneath it, and that border is
+         what carries the rhythm — a gap on top of it would read as seven separated things
+         rather than one list. `border-t` closes the top of the first row. -->
+    <ul class="border-t border-hairline">
+      <WritingListItem v-for="item in writing.items" :key="item._id" :item="item" />
+    </ul>
   </div>
 </template>

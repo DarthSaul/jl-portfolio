@@ -23,7 +23,7 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 | --- | --- |
 | **Nuxt 4** (Vue 3) | File-based routing, SSR/SSG per route, and a small surface area for a site this size. |
 | **TypeScript** | Content shapes come from generated types — the compiler catches schema drift. |
-| **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. |
+| **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. v4, CSS-first — the `@theme` and `@utility` block in `web/app/assets/css/tailwind.css` is the single source for type, colour and container width. **There is no `tailwind.config.ts` and one should not be added.** |
 | **Sanity** (hosted Content Lake) | The CMS. Structured content, real references between documents, and an editing UI we control the shape of. |
 | **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `joanatstake.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
 | **`@nuxtjs/sanity`** | Client + `useSanityQuery` wiring for the Nuxt app. |
@@ -274,13 +274,25 @@ against the Squarespace site this replaces.
 | 1 | Site name | `siteSettings.title` |
 | 2 | Byline — "STAKING THINGS OUT, MAKING A FEW CLAIMS" | `siteSettings.byline` |
 | 3 | Nav | Frontend only. No schema. |
-| 4 | Heading + intro, printed over a photo of her | `homePage.introHeading` / `introPhoto` / `intro` |
+| 4 | Heading + intro, as a text band | `homePage.introHeading` / `intro` |
 | 5 | Blurb, 3–4 sentences, usually carrying a link | `homePage.blurb` |
 | 6 | Featured writing — exactly 3, posts and links mixed | `homePage.featuredWriting` |
-| 7 | Featured photos — title, subtitle, a row of exactly 5 | `homePage.featuredTitle` / `featuredSubtitle` / `featuredPhotos` (the first two are `proseText`) |
+| 7 | Featured photos — exactly 5, as a grid | `homePage.featuredPhotos` |
 
 The byline is on `siteSettings`, not `homePage`, because it sits in the header of **every**
-page. Slot 6's own heading is hardcoded in the component; only slot 7's is editable.
+page. Slot 6's own heading is hardcoded in the component.
+
+**The order above is the schema's, and it is no longer the order on the page.** Slot 7 renders
+first — the photographs open the front page — then 4, then 6. The table stays in slot order
+because that is what `homePage`'s field order and `HOME_QUERY` follow, and because "she fills
+them, she never reorders them" is still true of the fields. Read it as a list of what the front
+page holds, not as a rendering sequence; `pages/index.vue` is the sequence.
+
+**Two of those slots are not rendered anywhere at the moment.** `blurb` (slot 5) is parked as a
+commented line in `index.vue`, and `featuredTitle`/`featuredSubtitle` came off slot 7 when the
+row became a grid. All three are still in the schema and still fetched by `HOME_QUERY`; they are
+looking for a home now that the page opens with photographs instead of closing with them. Do not
+delete the fields or the query lines to tidy up — that is a content decision, not a cleanup.
 
 **Status: slots 4–7 read from Sanity. Slots 1–3 do not yet.** The site name and byline still
 come from `web/app/content/site.ts`, because no `siteSettings` document exists in either
@@ -288,6 +300,13 @@ dataset — the type is in the schema, nothing has been created against it. Slot
 frontend-only by design and stays there. Wiring the header means creating the singleton and
 giving the layout a query, which is site chrome rather than front-page work and touches every
 route, so it did not ride along with slots 4–7.
+
+**Slots 1–3 are no longer a header.** They are the top of the left sidenav — `SiteSidebar.vue`
+— on every page, and a hamburger drawer below `lg`. That does not change where they read from
+or what would have to happen to wire them to `siteSettings`; it changes only which file to
+open. One consequence worth knowing: the byline sits in the collapsible part of the sidebar, so
+on a phone it is visible only while the nav is open. The alternative was the same string in two
+places, which is worse.
 
 ## The content model
 
@@ -300,7 +319,7 @@ is a map, not a spec.
 | `gallery` | title, slug, description, preset, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
-| `homePage` | title, introHeading, introPhoto → ref, intro, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → refs | Singleton. See *The front page*. |
+| `homePage` | title, introHeading, introPhoto → ref, intro, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → refs | Singleton. See *The front page*. **`introPhoto` is no longer rendered on the front page** — `/about` reads it. See *Open questions*. |
 | `shotsPage` | title, intro, photos → refs, galleries → refs | Singleton |
 | `writingPage` | title, intro | Singleton. Posts and articles are queried, not listed by hand. |
 | `aboutPage` | title, body | Singleton. Body is prose + `postPhoto`, like `post`. Called **Bio** in the Studio. |
@@ -350,19 +369,29 @@ Things worth knowing before changing any of it:
     reading size — a gallery, a post body, the front-page intro — keeps its own proportions.
     `grep -rn "square" web/app/components/` should stay a short list, and every hit should be
     a thumbnail.
-  - The front page's intro (slot 4) was the first real test of this, and the rule held. A
-    hero with text on it is the classic case that wants a crop; instead the photo renders at
-    its native ratio — the right two-thirds of the container, with the heading and intro on a
-    card overlapping its left edge by 100px — which means **the photo's own proportions
-    decide how tall that section is**. The cost is real and lands on her: which photo she
-    picks matters. That is a description in the Studio, not a control. Check
-    `grep -rn "hotspot *:" studio/schemaTypes/` returns nothing — the only `hotspot` in the
-    tree is the comment in `photo.ts` saying why.
+  - The front page's intro (slot 4) used to be this rule's worked example, and **there is no
+    longer a photograph on the front page at all** — slot 4 is a text band, per DESIGN.md's
+    `hero-band`, and `homePage.introPhoto` renders under the bio instead. The argument is worth
+    keeping even though the demonstration is gone, because it is what any future hero has to
+    answer to: text over an image is the classic case that wants a crop, and `photo.image` has
+    no hotspot by design, so the photograph rendered at its native ratio in the right
+    two-thirds and **the photo's own proportions decided how tall the section was**. The cost
+    landed on her — which photo she picks mattered — and that was a description in the Studio,
+    not a control. Check `grep -rn "hotspot *:" studio/schemaTypes/` still returns nothing; the
+    only `hotspot` in the tree is the comment in `photo.ts` saying why.
 
-    The overlap is a width overrun inside a grid track, not absolute positioning, so the card
-    cannot escape the container at any width. `min-w-0` on it is load-bearing: a grid track's
-    automatic minimum is its item's min-content size, so an item deliberately wider than its
-    track will otherwise widen the track and squeeze the photo below two-thirds.
+    What went with it: an overlapping card built as a width overrun inside a grid track rather
+    than absolute positioning, so it could not escape the container at any width. If a
+    composition like that ever comes back, `min-w-0` on the overrunning item is the load-bearing
+    part — a grid track's automatic minimum is its item's min-content size, so an item
+    deliberately wider than its track widens the track instead of overflowing it.
+  - **Watch what a cream canvas does to a photograph with white in it.** `{colors.canvas}` is
+    `#fffaf0`, not white, and several of the stock photographs have pure `#ffffff` baked into
+    their own edges — the intro portrait carries roughly 30px of it down both sides, verified by
+    sampling the asset. On the old white page that padding was invisible. On cream it reads as a
+    light panel behind the photo. Nothing in the app can fix it: trimming it is a crop, which is
+    Rule 2, and the pixels belong to the asset rather than to the layout. It is a re-upload, or
+    it is accepted.
 - **Image metadata is set at upload and never backfilled.** The `metadata` array on
   `photo.image` *replaces* Sanity's defaults rather than extending them, so `lqip`,
   `blurhash`, `thumbhash` and `palette` are restated there deliberately — dropping one
@@ -443,6 +472,13 @@ target shape.
 
 ```text
 CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
+DESIGN.md                   ✎ The design spec — colours, type scale, radius, component
+                              chrome. Currently Wired-derived: three type faces, square
+                              corners, hairline dividers, no chromatic accent. Implemented in
+                              web/app/assets/css/tailwind.css, with ONE deliberate departure
+                              (the canvas is cream, not white). It has been swapped twice
+                              already — see "The design system" in Conventions for what a swap
+                              is and is not allowed to move.
 .env.example                ✎ Root env, for scripts/ only
 .worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
 
@@ -466,12 +502,26 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
       contact.vue
     components/
       SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)
+      SiteSidebar.vue       ✎ All the chrome: wordmark, byline, nav, socials, copyright.
+                              The desktop column AND the mobile drawer, one instance —
+                              see the single-<h1> note in the file. There is no SiteHeader
+                              and no SiteFooter; this replaced both.
+      SiteNav.vue           ✎ The nav inside it, stacked
+      SiteSocialIcon.vue    ✎ Four hand-written glyphs. Named Site* because content/site.ts
+                              already exports a `SocialIcon` *type*, and the auto-import
+                              would collide with it.
       ProseText.vue         ✎ Renders a proseText field via SanityContent
-      ProseHeading.vue      ✎ The same, as a real <h2> — see the note above
-      ProseLink.vue         ✎ The `hyperlink` annotation inside one
+      ProseHeading.vue      ✎ The same, as a real <h2> — see the note above. NO CALLER right
+                              now: it rendered homePage.featuredTitle above the photographs,
+                              and that field is looking for a new home. Not dead code yet.
+      ProseLink.vue         ✎ The `hyperlink` annotation inside one. The only user of
+                              --color-link.
       ProseBody.vue         ✎ A body of prose with photos in it — post.body and aboutPage.body
       BodyPhoto.vue         ✎ The postPhoto member of one, floated and wrapped by the text
-      home/                 ✎ Hero, FeaturedWriting, PhotoStrip — slots 4, 6 and 7
+      home/                 ✎ Hero, FeaturedWriting, PhotoStrip — slots 4, 6 and 7.
+                              PhotoStrip is a wrap-and-fill grid, not a strip, and no longer
+                              takes the title/subtitle — the name is now a lie worth fixing
+                              the next time that file is opened.
       writing/              ✎ ListItem — one row of the COPY list
       presets/                One component per layout preset
     utils/                  ✎ date.ts — formatDate, auto-imported. See the UTC note in it.
@@ -484,9 +534,14 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
       about.ts              ✎ ABOUT_QUERY — the bio, body dereferenced
       contact.ts
     content/                ✎ Site chrome only, now the placeholders are gone.
-      site.ts               ✎ Wordmark, nav, footer links. Deliberately never CMS content.
-    composables/
-    assets/css/             ✎ tailwind.css
+      site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
+                              content. (Was "footer links" — there is no footer any more.)
+    composables/            ✎ useNavDrawer.ts — open/closed state for the mobile nav.
+                              State and actions only: it is called from two components, so a
+                              lifecycle hook in it would register two Escape listeners. Every
+                              effect lives in SiteSidebar.vue.
+    assets/css/             ✎ tailwind.css — the design system. Type, colour and container
+                              width are decided here and nowhere else. See Conventions.
   server/
     routes/
       admin.ts              ✎ 302 redirect to NUXT_PUBLIC_SANITY_STUDIO_URL
@@ -517,6 +572,71 @@ scripts/
 build the repo root and find no app.
 
 ## Conventions
+
+### The design system
+
+**`DESIGN.md` is the spec; `web/app/assets/css/tailwind.css` is the implementation.** Colour,
+type, radius and container width are decided in that one file's `@theme` and `@utility` blocks,
+and nowhere else. The file itself carries the reasoning; what belongs here is the part that
+constrains everyone.
+
+**`DESIGN.md` is replaceable, and the layout is not.** It has been swapped twice — Wired to a
+Clay-derived system and back again — and the sidenav shell survived both untouched while every
+token under it changed. Treat that as the contract: a new spec re-skins `tailwind.css` and the
+`type-*` call sites, and it does not get to re-open the shell, Rule 1 or Rule 2. If a spec seems
+to require moving the layout, say so before writing code.
+
+**The canvas is cream `#fffaf0`, and DESIGN.md says `#ffffff`.** That is the one deliberate
+disagreement between spec and implementation, made as a product decision and kept across the
+swap back. Everything else in the spec is followed: the black-and-white duet, the square
+geometry, the hairline dividers, the three faces. `--color-canvas-soft` is derived from it
+rather than picked — the spec steps `#ffffff` to `#f5f5f5`, and the same per-channel multiplier
+against `#fffaf0` gives `#f5f0e7`, so the pair stays as related as it was. Expect exactly these
+two hexes to differ when reconciling the file against the spec, and no others.
+
+**Type is set with a `type-*` utility and never with `text-*` + `leading-*` + `tracking-*` +
+`font-*` at a call site.** There is one per DESIGN.md typography token, and each sets **all
+five** of family, size, line-height, letter-spacing and weight — even when a value is `0em`.
+That is not tidiness: custom utilities sort *before* core ones in the emitted CSS, which is
+what lets a call site override with `tracking-[0.1em]`, and the same ordering means
+`type-display-sm lg:type-display-md` would leak the smaller token's *omitted* properties past
+the breakpoint. Responsive steps live inside the token, via `@variant`.
+
+**No token carries `text-transform`.** `SITE.nav` stores sentence-case labels deliberately, so
+assistive tech reads "Copy" rather than spelling it out, and a transform hidden inside a type
+token is how that decision gets lost. `uppercase` stays a class at the call site, beside the
+text it changes. The failure when this is forgotten is quiet and looks like a bug in the font:
+a token whose tracking assumes capitals renders as wide-spaced lowercase.
+
+**Removing a colour token is silent, so the grep is the check.** Verified against
+tailwindcss@4.3.3: with a token absent, `hover:text-accent` emits zero rules — no warning, no
+error, the class simply stays in the markup doing nothing. After any palette change, grep the
+old token names across `web/app` and expect hits only in prose. That is the only thing standing
+between a deleted token and a stale class that looks fine in review.
+
+**Fonts are hotlinked from `fonts.gstatic.com`, not vendored.** Playfair Display, Lora and
+Inter — DESIGN.md's own named substitutes for its three proprietary faces. Google rotates the
+path hash per revision, so a republish can 404 them and drop the site silently to Georgia and
+system sans; the fallback chains in `@theme` are the mitigation and must stay real chains. The
+re-derivation command is in the CSS comment, and its `User-Agent` header is load-bearing.
+
+Playfair is pinned to weight 400 while Lora and Inter are variable ranges, and that asymmetry
+is measured rather than assumed — the byte counts and the one thing it costs are in the CSS
+comment. Re-check it if the face set ever changes; the answer is not the same for every family.
+
+**The radius scale is `{rounded.none}` — Tailwind's named steps are unset in `@theme`.** The
+spec calls square corners non-negotiable, so `rounded-md` and friends resolve to nothing rather
+than sitting there to be reached for. `rounded-full` survives deliberately and is the one
+exception the spec allows, "circular icon containers only": exactly two call sites, the
+thumbnails on /writing and the social links in the sidebar. `grep -rn "rounded-" web/app`
+should return those two and nothing else.
+
+Worth keeping straight across spec swaps, because the previous one was built on generous radii:
+**a corner radius is not a crop.** It is a surface treatment — `SanityPhoto` reads the box from
+the asset's own metadata and the CDN URL carries only `w` and `auto=format`, with no `fit` and
+no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
+`rounded-*` on a photograph is a design question, free to come and go with the spec;
+`object-cover` on one is a Rule 2 question and is not.
 
 **GROQ lives in `web/app/queries/`, one file per route. Never inline in a component.**
 A query is the contract between a route and the content model. Keeping them in one directory
@@ -770,6 +890,34 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 - **ISR revalidation.** Time-based `routeRules` will make edits appear on a delay. If that
   delay feels wrong to her, it becomes a Sanity webhook doing on-demand revalidation. Start
   with the simple version.
+- **Fonts are hotlinked rather than vendored.** ~171 kB of latin woff2 across five files, from
+  `fonts.gstatic.com`. Copying them into `web/public/fonts/` and serving them same-origin
+  removes a third-party dependency, removes a DNS + TLS handshake from the critical path, and
+  removes the silent-404 failure mode entirely. Deferred, not rejected — `web/public/` does not
+  exist yet. Note the number moves with the spec: it was ~48 kB and one file under the previous
+  one, so re-measure rather than quoting this line after a swap.
+- **The copyright is only visible on a phone with the nav drawer open.** It sits at the bottom
+  of the sidebar. If that turns out to matter, the fix is to *move* the single node into a slim
+  `<footer>` at the end of `<main>` — never to duplicate it into both.
+- **`/about` reads `homePage.introPhoto`, and that is a stopgap with a deadline.** The bio shows
+  the portrait that used to open the front page, and `aboutPage` has no photo field to hold it,
+  so `ABOUT_QUERY` reaches into the other singleton for it. Two things are wrong with that and
+  neither is visible from the Studio: `introPhoto`'s field description still tells her it is the
+  front-page photo, and moving it back is a code change rather than an edit. The shaped fix is a
+  `portrait` reference on `aboutPage` — a schema change, a typegen run and a Studio deploy. Do
+  it before she is ever shown the Studio, not after.
+- **`homePage.blurb`, `.featuredTitle` and `.featuredSubtitle` are fetched and not rendered.**
+  See the note under *The front page*. They need a home, and until they get one `ProseHeading`
+  has no caller.
+- **The photo grid's `K` is tuned against five photographs of the shapes currently in
+  `development`.** `home/PhotoStrip.vue` wraps photographs into rows by a flex basis
+  proportional to each one's aspect ratio; `K` (the `22rem` in the basis) sets roughly how tall
+  a row wants to be before wrapping, and at the current content it produces a 3-then-2 split on
+  a wide screen. Different photographs will pack differently — that is the mechanism working,
+  not breaking. The `sm:max-w-[55%]` beside it is a guard so a leftover single photograph
+  cannot grow to fill a whole row; measured, it was reaching 765px tall at tablet widths
+  without it. Both are properties of the grid, never of a photograph, so neither is a Rule 2
+  control — but re-measure them if `featuredPhotos` ever stops being exactly five.
 - **The preset set itself.** `grid` and `stack` exist in the schema; neither has a component
   yet. What each guarantees at narrow widths is undecided — a design conversation, not an
   implementation detail. Both must preserve native aspect ratio — the thumbnail exception is

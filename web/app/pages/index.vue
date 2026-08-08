@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HOME_QUERY } from '~/queries/home'
+import { HOME_QUERY } from '~/queries/home';
 
 /**
  * The front page. Seven slots in a fixed order — see CLAUDE.md.
@@ -16,7 +16,7 @@ import { HOME_QUERY } from '~/queries/home'
  * `homePage.title` is the browser tab title and nothing else — the schema says as much to her,
  * and it is deliberately not rendered as a heading on the page.
  */
-const { data: home, error } = await useSanityQuery(HOME_QUERY)
+const { data: home, error } = await useSanityQuery(HOME_QUERY);
 
 /**
  * `error` is checked before `home`, because a failed request also leaves `home` null and the
@@ -43,13 +43,14 @@ const { data: home, error } = await useSanityQuery(HOME_QUERY)
  * to open first when the message mentions the allowlist.
  */
 if (error.value) {
-  throw createError({
-    statusCode: 502,
-    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
-      + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
-    fatal: true,
-    cause: error.value,
-  })
+	throw createError({
+		statusCode: 502,
+		statusMessage:
+			'Could not reach Sanity — see the logged cause. If this appears only after ' +
+			"navigating between pages, this origin is missing from the project's CORS allowlist.",
+		fatal: true,
+		cause: error.value,
+	});
 }
 
 /**
@@ -64,11 +65,11 @@ if (error.value) {
  * a 401.
  */
 if (!home.value) {
-  throw createError({
-    statusCode: 500,
-    statusMessage: 'No homePage document found in this dataset.',
-    fatal: true,
-  })
+	throw createError({
+		statusCode: 500,
+		statusMessage: 'No homePage document found in this dataset.',
+		fatal: true,
+	});
 }
 
 /**
@@ -79,35 +80,27 @@ if (!home.value) {
  * Her current site titles its front page with the plain wordmark, and this matches it while
  * still taking the value from the field the Studio tells her controls the browser tab.
  */
-useHead({ title: home.value.title, titleTemplate: '%s' })
+useHead({ title: home.value.title, titleTemplate: '%s' });
 </script>
 
 <template>
-  <div v-if="home" class="space-y-20 pb-4 sm:space-y-24">
-    <!-- No horizontal padding below `md`, so the hero photo runs full-bleed on a phone and
-         Hero.vue's card supplies its own gutter. From `md` up the usual 20px returns, and the
-         photo's right edge lines up with every section beneath it. -->
-    <div class="mx-auto max-w-[1080px] md:px-5">
-      <HomeHero
-        :heading="home.introHeading"
-        :intro="home.intro"
-        :photo="home.introPhoto"
-      />
-    </div>
+	<!-- The four `mx-auto max-w-[1080px] px-5` wrappers this page used to carry are gone: the
+       layout's `<main>` owns the gutter, and `bleed` is how the photo grid reaches past it.
+       See `layouts/default.vue`.
 
-    <ProseText
-      :value="home.blurb"
-      class="mx-auto max-w-[1080px] px-5 text-lg leading-relaxed sm:text-xl"
-    />
+       `space-y-section` is DESIGN.md's 48px section padding, opened up on a phone where the
+       photo grid collapses to one column and the bands need more air to stay distinct. -->
+	<div v-if="home" class="space-y-14 lg:space-y-section">
+		<!-- :title="home.featuredTitle" :subtitle="home.featuredSubtitle"  -->
+		<HomePhotoStrip :photos="home.featuredPhotos" />
 
-    <div class="mx-auto max-w-[1080px] px-5">
-      <HomeFeaturedWriting :items="home.featuredWriting" />
-    </div>
+		<HomeHero :heading="home.introHeading" :intro="home.intro" />
 
-    <HomePhotoStrip
-      :title="home.featuredTitle"
-      :subtitle="home.featuredSubtitle"
-      :photos="home.featuredPhotos"
-    />
-  </div>
+		<!-- Slot 5. Parked, not deleted — `blurb` is still fetched by HOME_QUERY. Tokens updated
+		     with the rest of the page so this drops back in working: `text-body` was a Clay
+		     colour and no longer resolves to anything.
+		<ProseText :value="home.blurb" class="type-body-serif-lg max-w-read" /> -->
+
+		<HomeFeaturedWriting :items="home.featuredWriting" />
+	</div>
 </template>

@@ -43,4 +43,4 @@ export const PHOTO_PROJECTION = `
  */
 export type PhotoProjection = NonNullable<
   import('~~/sanity.types').HOME_QUERY_RESULT
->['featuredPhotos'][number]
+>['featuredPhotos'][number]['photo']

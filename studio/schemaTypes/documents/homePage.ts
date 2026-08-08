@@ -33,43 +33,20 @@ export default defineType({
       validation: (rule) => rule.required(),
     }),
 
-    defineField({
-      name: 'introHeading',
-      title: 'Heading over the introduction',
-      type: 'string',
-      description:
-        'Optional. Leave it empty and no heading is shown — the introduction simply ' +
-        'starts on its own.',
-      initialValue: 'Welcome',
-    }),
-
-    defineField({
-      name: 'introPhoto',
-      title: 'Photo behind the introduction',
-      type: 'reference',
-      to: [{type: 'photo'}],
-      description:
-        'The introduction is printed over this photo. It is shown at its own shape, so ' +
-        'the photo’s proportions decide how tall this part of the page is, and a photo ' +
-        'with a calm area in it is easiest to read words over.',
-      validation: (rule) => rule.required(),
-    }),
-
-    defineField({
-      name: 'intro',
-      title: 'Introduction',
-      type: 'proseText',
-      description: 'A few sentences, over the photo above.',
-      validation: (rule) => rule.required(),
-    }),
-
+    /**
+     * Parked, not dead. `HOME_QUERY` still fetches this and `index.vue` still carries the line
+     * that would render it, commented out — see *The front page* in CLAUDE.md. The description
+     * used to say "below the introduction", which stopped being true when the introduction
+     * moved to the About page, so it now describes where the field stands rather than a
+     * position on a page that no longer has one.
+     */
     defineField({
       name: 'blurb',
       title: 'Blurb',
       type: 'proseText',
       description:
-        'The short paragraph below the introduction. Three or four sentences, and the ' +
-        'place for a link out to something.',
+        'Three or four sentences, and the place for a link out to something. Not shown on the ' +
+        'site at the moment — it is waiting for a home now the front page opens with photos.',
       validation: (rule) => rule.required(),
     }),
 
@@ -151,19 +128,29 @@ export default defineType({
       title: 'Featured photos',
       type: 'array',
       description:
-        'The row of photos at the bottom of the front page, in the order they appear. ' +
-        'Exactly five — the row is built for five. Drag to reorder.',
+        'The photos at the top of the front page, in the order they appear. Exactly five. ' +
+        'Drag to reorder. Each one can link to a gallery — open a photo to set that.',
       options: {layout: 'grid'},
-      of: [
-        defineArrayMember({
-          type: 'reference',
-          to: [{type: 'photo'}],
-          options: {filter: excludeAlreadyChosen},
-        }),
-      ],
+      // A `featuredPhoto` object, not a bare reference: each slot carries the photograph and
+      // optionally the gallery it links to. See objects/featuredPhoto.ts for why the link is
+      // a reference rather than a typed-in address, and why a wrapper beats a named
+      // reference member.
+      of: [defineArrayMember({type: 'featuredPhoto'})],
       validation: (rule) => [
-        rule.required().length(5).error('The front page row holds exactly five photos.'),
-        rule.unique().error('That photo is already featured.'),
+        rule.required().length(5).error('The front page holds exactly five photos.'),
+        // `unique()` cannot do this job any more. It compares whole members ignoring `_key`,
+        // and now that a member is an object, the same photograph pointed at two different
+        // galleries reads as two different members and passes. The rule below compares the
+        // part that actually has to be unique.
+        rule.custom((slots) => {
+          const refs = (Array.isArray(slots) ? slots : [])
+            .map((slot) => (slot as {photo?: {_ref?: string}})?.photo?._ref)
+            .filter(Boolean)
+
+          return new Set(refs).size === refs.length
+            ? true
+            : 'The same photo is featured more than once.'
+        }),
       ],
     }),
   ],

@@ -13,8 +13,8 @@ import { POST_QUERY } from '~/queries/writing'
  * in the writing below for that" — so showing it here would contradict the field's own
  * description, and the photos in the body are the ones she chose for the piece.
  *
- * The title is an `<h2>`: `SiteHeader` renders the wordmark as the page's `<h1>`. Subheadings
- * inside the body land on `<h3>` for the same reason — see `WritingPostBody`.
+ * The title is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`. Subheadings
+ * inside the body land on `<h3>` for the same reason — see `ProseBody`.
  */
 const route = useRoute()
 
@@ -41,25 +41,23 @@ useSeoMeta({ description: doc.summary || undefined })
 </script>
 
 <template>
-  <article v-if="post" class="mx-auto max-w-[750px] px-5 py-4 pb-16">
-    <h2 class="text-center text-2xl font-light leading-snug sm:text-[2rem]">
+  <!-- Left-aligned, and that is two changes rather than one: the three `text-center` classes
+       are gone, and so is the `mx-auto` that centred the column itself. A centred column of
+       centred text made sense under a centred wordmark; under a sidenav the page has a left
+       edge and everything should agree on where it is. -->
+  <article v-if="post" class="max-w-read">
+    <h2 class="type-display-lg text-ink">
       {{ post.title }}
     </h2>
 
-    <p class="mt-3 text-center text-base text-muted">
+    <p class="type-byline text-muted">
       <time :datetime="post.publishedAt">{{ formatDate(post.publishedAt) }}</time>
     </p>
 
-    <p
-      v-if="post.summary"
-      class="mt-6 text-center text-lg font-light leading-relaxed text-muted sm:text-xl"
-    >
+    <p v-if="post.summary" class="type-body-serif-lg mt-6 text-muted">
       {{ post.summary }}
     </p>
 
-    <ProseBody
-      :value="post.body"
-      class="mt-12 text-lg font-light leading-relaxed sm:text-xl"
-    />
+    <ProseBody :value="post.body" class="type-body-serif-lg mt-12" />
   </article>
 </template>

@@ -153,3 +153,6 @@ studio/.promote/
 # Worktrees
 .claude/worktrees/
 .worktrees/
+
+# macOS
+.DS_Store

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { NuxtLink } from '#components'
-import type { HOME_QUERY_RESULT } from '~~/sanity.types'
+import { NuxtLink } from '#components';
+import type { HOME_QUERY_RESULT } from '~~/sanity.types';
 
-type Home = NonNullable<HOME_QUERY_RESULT>
+type Home = NonNullable<HOME_QUERY_RESULT>;
 
 /**
  * Slot 6 — exactly three pieces of writing, posts and links out mixed.
@@ -43,7 +43,7 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  * `md:`-prefixed. `md:gap-y-0` is part of that: the `gap-10` that separates stacked cards on a
  * phone would otherwise reappear as a 40px gutter between the two shared rows on desktop.
  */
-const props = defineProps<{ items: Home['featuredWriting'] }>()
+const props = defineProps<{ items: Home['featuredWriting'] }>();
 
 /**
  * Each card paired with everything its three links need — photo, headline and "Read more" all
@@ -51,91 +51,83 @@ const props = defineProps<{ items: Home['featuredWriting'] }>()
  * per render.
  */
 const cards = computed(() =>
-  props.items.map(item => ({
-    item,
-    link:
-      item._type === 'article'
-        ? { is: 'a', href: item.url, target: '_blank', rel: 'noopener' }
-        : { is: NuxtLink, to: `/writing/${item.slug}` },
-  })),
-)
+	props.items.map((item) => ({
+		item,
+		link:
+			item._type === 'article'
+				? { is: 'a', href: item.url, target: '_blank', rel: 'noopener' }
+				: { is: NuxtLink, to: `/writing/${item.slug}` },
+	})),
+);
 
 // `formatDate` is auto-imported from `~/utils/date` — /writing needs the same formatting, and
 // the UTC pin it carries is the reason it is shared rather than repeated.
 </script>
 
 <template>
-  <section>
-    <h2 class="text-2xl font-normal text-muted sm:text-3xl">
-      Featured Writing
-    </h2>
+	<section>
+		<!-- DESIGN.md's `category-eyebrow` over a hairline: a small uppercase sans label rather
+         than a heading in the display serif. That keeps the three card headlines below it as
+         the largest type in the section, which is what the eye should land on. -->
+		<h2 class="type-display-xs border-t border-hairline pt-10 uppercase tracking-[0.1em] text-ink">Featured Writing</h2>
 
-    <!-- Straight from one column to three. Two columns orphans the third card into a row of
+		<!-- Straight from one column to three. Two columns orphans the third card into a row of
          its own with a half-page of white space beside it, and the schema guarantees there are
          always exactly three, so the awkward middle step is worth skipping.
          The two shared rows are: thumbnail area, then everything else. -->
-    <ul class="mt-8 grid gap-10 md:grid-cols-3 md:grid-rows-[auto_auto] md:gap-y-0">
-      <li
-        v-for="{ item, link } in cards"
-        :key="item._id"
-        class="md:row-span-2 md:grid md:grid-rows-subgrid"
-      >
-        <!-- The photo, the headline and "Read more" are three hit areas for one destination.
+		<ul class="mt-8 grid gap-10 md:grid-cols-3 md:grid-rows-[auto_auto] md:gap-y-0">
+			<li v-for="{ item, link } in cards" :key="item._id" class="md:row-span-2 md:grid md:grid-rows-subgrid">
+				<!-- The photo, the headline and "Read more" are three hit areas for one destination.
              Only the headline carries an accessible name: the photo link is hidden from
              assistive tech and skipped by the keyboard, so a screen reader hears one
              meaningful link per card rather than three.
 
              The wrapper is rendered even when there is no cover photo, so the card still
              occupies the thumbnail row and its headline stays on the shared line. -->
-        <component
-          :is="link.is"
-          v-bind="link"
-          tabindex="-1"
-          aria-hidden="true"
-          class="block md:self-start"
-        >
-          <SanityPhoto
-            v-if="item.coverPhoto"
-            :photo="item.coverPhoto"
-            sizes="(min-width: 768px) 33vw, 100vw"
-          />
-        </component>
+				<component :is="link.is" v-bind="link" tabindex="-1" aria-hidden="true" class="block md:self-start">
+					<!-- A third of the main column, not of the viewport — the shell caps at 1440px with
+               the sidenav beside it, so the column never exceeds ~1120px. -->
+					<SanityPhoto
+						v-if="item.coverPhoto"
+						:photo="item.coverPhoto"
+						sizes="(min-width: 1024px) 360px, (min-width: 768px) 33vw, 100vw"
+					/>
+				</component>
 
-        <!-- One grid row for the rest, flowing freely inside it. -->
-        <div>
-          <h3 class="mt-5 text-xl leading-snug sm:text-2xl">
-            <component :is="link.is" v-bind="link" class="transition-colors hover:text-accent">
-              {{ item.title }}
-            </component>
-          </h3>
+				<!-- One grid row for the rest, flowing freely inside it. -->
+				<div>
+					<h3 class="type-display-sm mt-5">
+						<component :is="link.is" v-bind="link" class="transition-opacity hover:opacity-60">
+							{{ item.title }}
+						</component>
+					</h3>
 
-          <!-- Back to `text-sm`, now carrying `font-medium`. It was bumped to `text-base` when
-               the only face available was Thin and 14px grey was unreadable in a 100-weight;
-               with the real family declared, 500 does that job without costing the size step
-               that separates this line from the summary below it. -->
-          <p class="mt-2 text-sm font-medium text-muted">
-            <!-- A link out names its publication; a post is on this site and does not need to
+					<p class="type-byline mt-1 text-muted">
+						<!-- A link out names its publication; a post is on this site and does not need to
                  say so. Both carry the date, which is what orders her writing everywhere. -->
-            <template v-if="item._type === 'article'">{{ item.publication }} &middot; </template>
-            <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt) }}</time>
-          </p>
+						<template v-if="item._type === 'article'">{{ item.publication }} &middot; </template>
+						<time :datetime="item.publishedAt">{{ formatDate(item.publishedAt) }}</time>
+					</p>
 
-          <p v-if="item.summary" class="mt-3 text-base leading-relaxed text-ink">
-            {{ item.summary }}
-          </p>
+					<p v-if="item.summary" class="type-body-serif-md mt-2 text-ink">
+						{{ item.summary }}
+					</p>
 
-          <!-- "Read more" is meaningless out of context, and a screen reader can pull links
-               out of context. The aria-label names the destination; the arrow is decorative. -->
-          <component
-            :is="link.is"
-            v-bind="link"
-            :aria-label="`Read more: ${item.title}`"
-            class="mt-3 inline-block text-base font-medium text-muted transition-colors hover:text-accent"
-          >
-            Read more <span aria-hidden="true">&rarr;</span>
-          </component>
-        </div>
-      </li>
-    </ul>
-  </section>
+					<!-- "Read more" is meaningless out of context, and a screen reader can pull links
+               out of context. The aria-label names the destination.
+
+               `body-sm-strong` in caps is also what /writing's row uses, so the two lists say
+               "read more" the same way. -->
+					<component
+						:is="link.is"
+						v-bind="link"
+						:aria-label="`Read more: ${item.title}`"
+						class="type-body-sm-strong mt-4 inline-block uppercase tracking-[0.12em] text-ink hover:underline"
+					>
+						Read more
+					</component>
+				</div>
+			</li>
+		</ul>
+	</section>
 </template>

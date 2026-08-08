@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type { PortableTextComponentProps } from '@portabletext/vue'
 import type { FunctionalComponent } from 'vue'
 import { BodyPhoto, ProseLink } from '#components'
 import type { POST_QUERY_RESULT } from '~~/sanity.types'
+
+type Body = NonNullable<POST_QUERY_RESULT>['body']
 
 /**
  * A body of prose with photographs in it, rendered. Shared by `post.body` and
@@ -29,7 +32,7 @@ import type { POST_QUERY_RESULT } from '~~/sanity.types'
  *
  * The style is *stored* as `h2` — that is the value in the schema, and Sanity's convention is
  * to name block styles after the element they resemble. It is not an instruction about depth.
- * On this site `SiteHeader` puts the wordmark in an `<h1>` on every page and the post's own
+ * On this site `SiteSidebar` puts the wordmark in an `<h1>` on every page and the post's own
  * title is the `<h2>`, so rendering a subheading as a literal `<h2>` would put it level with
  * the title of the piece it sits inside. `<h3>` is what the outline actually calls for.
  *
@@ -37,19 +40,74 @@ import type { POST_QUERY_RESULT } from '~~/sanity.types'
  * and without this they land on the element as junk attributes and warn on every render. Same
  * reason `ProseHeading` sets it.
  */
-defineProps<{ value: NonNullable<POST_QUERY_RESULT>['body'] }>()
+const props = defineProps<{ value: Body }>()
 
 const Subheading: FunctionalComponent = (_props, { slots }) =>
-  h('h3', { class: 'text-xl font-medium leading-snug sm:text-2xl' }, slots.default?.())
+  h('h3', { class: 'type-display-sm mt-12' }, slots.default?.())
 Subheading.inheritAttrs = false
 
+/**
+ * A hairline in the margin, which is the only elevation cue DESIGN.md gives — "surface contrast
+ * and hairline borders carry all visual hierarchy", and there are no shadows and no fills to
+ * reach for.
+ *
+ * The italic is a real one: Lora ships an italic face and it is loaded, so the browser is not
+ * shearing an upright into an oblique.
+ */
 const Quote: FunctionalComponent = (_props, { slots }) =>
   h(
     'blockquote',
-    { class: 'border-l-2 border-neutral-200 pl-5 italic text-muted' },
+    { class: 'border-l border-hairline pl-6 italic text-muted' },
     slots.default?.(),
   )
 Quote.inheritAttrs = false
+
+/**
+ * Which way each *wrapped* photograph floats, keyed by `_key`.
+ *
+ * The alternation used to be pure CSS — `md:[&>figure:nth-of-type(odd)]:float-right` and its
+ * even twin on the wrapper — and that stopped working the day a photograph could be full
+ * width. `nth-of-type` counts every figure, so a full-width one in the middle consumes a turn
+ * and the two wrapped photographs on either side of it both float the same way. There is no
+ * selector for "odd among those that are wrapped" that is safe at this project's browser floor,
+ * so the count moves here, where it can simply skip the ones that do not participate.
+ *
+ * It stays a *derived* value rather than a field: which side a photograph takes is a
+ * consequence of how many wrapped ones precede it, and Rule 2 keeps that out of her hands.
+ * `?? 'wrap'` matches `BodyPhoto` — a photograph placed before the field existed alternates
+ * exactly as it always did.
+ */
+const floatSides = computed(() => {
+  const sides = new Map<string, 'left' | 'right'>()
+  let wrapped = 0
+
+  for (const block of props.value ?? []) {
+    if (block._type === 'postPhoto' && (block.layout ?? 'wrap') === 'wrap') {
+      sides.set(block._key, wrapped % 2 === 0 ? 'right' : 'left')
+      wrapped++
+    }
+  }
+
+  return sides
+})
+
+/**
+ * `BodyPhoto` with the side it cannot work out for itself.
+ *
+ * A functional wrapper rather than provide/inject: the map is read during render, so Vue
+ * tracks the dependency and the `components` object below can stay a plain constant. Passing
+ * a prop also keeps `BodyPhoto` a component you can render in isolation with no ambient state.
+ */
+const BodyPhotoWithSide: FunctionalComponent<
+  PortableTextComponentProps<Extract<Body[number], { _type: 'postPhoto' }>>
+> = portableTextProps =>
+  // Spread rather than picking `value`: Portable Text also hands down `index`, `isInline` and
+  // `renderNode`, and `BodyPhoto`'s props type is `PortableTextComponentProps<…>` — so
+  // forwarding only `value` fails to typecheck against the component it is rendering.
+  h(BodyPhoto, {
+    ...portableTextProps,
+    side: floatSides.value.get(portableTextProps.value._key),
+  })
 
 const components = {
   block: {
@@ -60,7 +118,7 @@ const components = {
     hyperlink: ProseLink,
   },
   types: {
-    postPhoto: BodyPhoto,
+    postPhoto: BodyPhotoWithSide,
   },
 }
 </script>
@@ -70,27 +128,21 @@ const components = {
        page. `SanityContent` sets `inheritAttrs: false` and returns `PortableText` with no
        wrapper of its own, so a class passed to it is dropped on the floor — see ProseText.
 
-       ## The alternating float
+       ## The alternating float used to live here, in CSS
 
-       Photographs in a body sit in a 350px column that the prose wraps around, and they
-       alternate sides down the page — the arrangement her Squarespace posts already use,
-       where each image is a `span-6` float, half the text column, right then left.
+       It was `md:[&>figure:nth-of-type(odd)]:float-right` and an even twin, which worked
+       perfectly while every photograph was floated: `nth-of-type` counts figures among their
+       siblings and ignores the paragraphs between them, so the first went right, the second
+       left, however much prose separated them.
 
-       `nth-of-type` counts figures among their siblings, ignoring the paragraphs between
-       them, which is exactly the ordinal wanted: the first photograph in the post goes right,
-       the second left, however much prose separates them. Portable Text renders every block
-       as a direct child of this div, so the `>` combinator holds. Doing it in CSS is what
-       keeps `postPhoto` free of an alignment field — the side is a consequence of document
-       order, not something she sets. See the Rule 2 note in `objects/postPhoto.ts`.
+       A full-width photograph breaks that, and quietly. It is still a figure, so it still
+       consumes an ordinal, and the two wrapped photographs on either side of it both come out
+       on the same side. The count moved into the script above, where it can skip the ones that
+       do not participate; the float classes now sit on the figure itself. See `BodyPhoto.vue`.
 
-       The `after:` clearfix stops the last float escaping the bottom of the article. Below
-       `md` none of this applies: a 350px float in a phone viewport leaves an unreadable
-       ribbon of text beside it, so the figure goes full width and the floats are not set. -->
-  <div
-    class="space-y-6 after:block after:clear-both after:content-['']
-           md:[&>figure:nth-of-type(odd)]:float-right md:[&>figure:nth-of-type(odd)]:ml-8
-           md:[&>figure:nth-of-type(even)]:float-left md:[&>figure:nth-of-type(even)]:mr-8"
-  >
+       The `after:` clearfix stays and still earns its place — it stops the last float escaping
+       the bottom of the article. -->
+  <div class="space-y-6 after:block after:clear-both after:content-['']">
     <SanityContent :value="value" :components="components" />
   </div>
 </template>

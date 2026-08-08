@@ -4,11 +4,21 @@ import {defineArrayMember, defineField, defineType} from 'sanity'
 import {proseBlock} from '../objects/proseText'
 
 /**
- * /about — her bio: a few paragraphs with photographs among them.
+ * /about — her bio: an opening line, then a few paragraphs with photographs among them.
  *
- * Called "Bio" in the Studio and in the sidebar, because that is the word in her nav. The
- * type is still `aboutPage` and the route is still `/about`: renaming a document type is a
- * content migration, and the two names cost nothing as long as the one she reads is hers.
+ * Called "About" in the Studio and in the sidebar, because that is the word in her nav. It was
+ * "Bio" until the nav changed, and the rule behind both is the same: the label follows her
+ * word. The type is still `aboutPage` and the route is still `/about` — renaming a document
+ * type is a content migration, and the three names cost nothing as long as the one she reads
+ * is hers.
+ *
+ * ## The heading and introduction came from the front page
+ *
+ * `introHeading` and `intro` were `homePage`'s and opened the site; they now open this page
+ * instead. They are a *separate* field pair rather than the first two blocks of `body` on
+ * purpose: the intro is set larger and is not part of the running prose, and folding it into
+ * the body would mean the first paragraph rendering differently from the rest for reasons
+ * invisible in the editor.
  *
  * ## Why the body is the same shape as a writing post
  *
@@ -23,6 +33,12 @@ import {proseBlock} from '../objects/proseText'
  * knob CLAUDE.md says to delete rather than document. Nothing is lost: a photo first in the
  * body is a portrait at the top of the page.
  *
+ * That decision is also the reason the intro above arrived as two fields and a photograph did
+ * not. `/about` briefly rendered one below the body, read across from `homePage.introPhoto`
+ * because the front page had stopped showing it. That field and that cross-document read are
+ * both gone: photographs on this page come from the body, and there is nothing else to reach
+ * for. See the note in `queries/about.ts`.
+ *
  * ## One style, not three
  *
  * `post.body` allows a subheading and a pulled-out quote because her essays use them. A bio
@@ -35,7 +51,7 @@ import {proseBlock} from '../objects/proseText'
  */
 export default defineType({
   name: 'aboutPage',
-  title: 'Bio page',
+  title: 'About page',
   type: 'document',
   icon: UserIcon,
 
@@ -45,8 +61,24 @@ export default defineType({
       title: 'Browser tab title',
       type: 'string',
       description: 'Shown in the browser tab and in search results. Not shown on the page.',
-      initialValue: 'Bio — Joan Lebow',
+      initialValue: 'About — Joan Lebow',
       validation: (rule) => rule.required(),
+    }),
+
+    defineField({
+      name: 'introHeading',
+      title: 'Heading',
+      type: 'string',
+      description:
+        'Optional. The large line at the top of the page. Leave it empty and the ' +
+        'introduction simply starts on its own.',
+    }),
+
+    defineField({
+      name: 'intro',
+      title: 'Introduction',
+      type: 'proseText',
+      description: 'A few sentences under the heading, set larger than the writing below.',
     }),
 
     defineField({
@@ -73,6 +105,6 @@ export default defineType({
   ],
 
   preview: {
-    prepare: () => ({title: 'Bio page'}),
+    prepare: () => ({title: 'About page'}),
   },
 })

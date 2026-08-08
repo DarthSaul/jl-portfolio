@@ -28,7 +28,6 @@ import {PHOTO_TAGS} from './schemaTypes/documents/photo'
  */
 export const SINGLETON_TYPES = new Set([
   'homePage',
-  'shotsPage',
   'writingPage',
   'aboutPage',
   'contactPage',
@@ -66,18 +65,17 @@ export const structure: StructureResolver = (S) =>
             .title('Pages')
             .items([
               singleton(S, 'homePage', 'Home', HomeIcon),
-              singleton(S, 'shotsPage', 'Shots', ImagesIcon),
               singleton(S, 'writingPage', 'Writing', DocumentsIcon),
-              // "Bio", not "About" — it is the word in her nav. The type name stays
+              // The label follows her nav, which now says ABOUT. The type name stays
               // `aboutPage` because renaming one is a content migration; see aboutPage.ts.
-              singleton(S, 'aboutPage', 'Bio', UserIcon),
+              singleton(S, 'aboutPage', 'About', UserIcon),
               singleton(S, 'contactPage', 'Contact', EnvelopeIcon),
             ]),
         ),
 
       S.divider(),
 
-      S.documentTypeListItem('gallery').title('Galleries'),
+      S.documentTypeListItem('gallery').title('Galleries').icon(ImagesIcon),
 
       S.listItem()
         .title('Photos')

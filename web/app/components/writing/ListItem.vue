@@ -48,7 +48,15 @@ const link = computed(() =>
 </script>
 
 <template>
-  <article class="mx-auto flex max-w-[750px] items-start gap-5 px-5 sm:gap-7">
+  <!-- An `<li>`, because /writing wraps these in a `<ul>` — seven rows are a list and the
+       reading measure that used to be declared here now belongs to that list, not to each row
+       of it.
+
+       No divider. This carried DESIGN.md's `story-row` — a hairline under every entry — which
+       is the spec's own answer for a bylined list and read as heavier than this list wants to
+       be. Space separates the rows now, set on the list rather than here so one rule governs
+       the gaps between all of them instead of each row padding itself and doubling up. -->
+  <li class="flex items-start gap-5 sm:gap-7">
     <!-- Reserved whether or not there is a photo — see the note above. `shrink-0` keeps the
          circle circular when a long title tries to take the row's width. -->
     <div class="w-20 shrink-0 sm:w-32">
@@ -70,31 +78,31 @@ const link = computed(() =>
 
     <!-- `min-w-0` so a long unbroken title wraps instead of pushing the circle off the row. -->
     <div class="min-w-0 flex-1">
-      <h2 class="text-xl font-light leading-snug sm:text-2xl">
-        <component :is="link.is" v-bind="link" class="hover:text-accent transition-colors">
+      <h2 class="type-display-sm text-ink">
+        <component :is="link.is" v-bind="link" class="transition-opacity hover:opacity-60">
           {{ item.title }}
         </component>
       </h2>
 
-      <p v-if="item.summary" class="mt-2 text-base font-light leading-relaxed">
-        {{ item.summary }}
-      </p>
-
-      <p class="mt-2 text-sm text-muted">
+      <p class="type-byline text-muted">
         <!-- A link out names its publication; a post is on this site and does not need to say
              so. Both carry the date, which is what orders her writing everywhere. -->
         <template v-if="item._type === 'article'">{{ item.publication }} &middot; </template>
         <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt) }}</time>
       </p>
 
+      <p v-if="item.summary" class="type-body-serif-md mt-2">
+        {{ item.summary }}
+      </p>
+
       <component
         :is="link.is"
         v-bind="link"
         :aria-label="`Read more: ${item.title}`"
-        class="hover:text-accent mt-3 inline-block text-sm uppercase tracking-[0.2em] text-muted transition-colors"
+        class="type-body-sm-strong mt-4 inline-block uppercase tracking-[0.12em] text-ink hover:underline"
       >
         Read More
       </component>
     </div>
-  </article>
+  </li>
 </template>

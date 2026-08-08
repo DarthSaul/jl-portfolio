@@ -57,8 +57,20 @@ export default defineType({
       title: 'One-line summary',
       type: 'text',
       rows: 2,
-      description: 'Optional. Shown under the headline on the Writing page.',
-      validation: (rule) => rule.max(200).warning('A line or two reads best in a list.'),
+      description:
+        'Recommended. Shown under the headline on the Writing page — it is what tells ' +
+        'someone whether to follow the link.',
+      // Warning, never an error, and a `custom()` rather than `required().warning()` — the
+      // latter would make typegen type this field non-optional. The full reasoning is on the
+      // same field in `post.ts`; keep the two in step.
+      validation: (rule) => [
+        rule
+          .custom((value) =>
+            value ? true : 'Worth adding — without it a list entry is a headline and a date.',
+          )
+          .warning(),
+        rule.max(200).warning('A line or two reads best in a list.'),
+      ],
     }),
 
     defineField({
@@ -67,9 +79,10 @@ export default defineType({
       type: 'reference',
       to: [{type: 'photo'}],
       description:
-        'Optional. The small photo shown beside this link where it is listed — on the ' +
-        'front page, for instance. Leave it empty if none of your photos suit it; the ' +
-        'headline and date show on their own.',
+        'Optional, and a landscape (wide) photo works best — the Writing page crops it from ' +
+        'the centre, so a tall photo loses its top and bottom. Shown beside this link where ' +
+        'it is listed. Leave it empty if none of your photos suit it; the headline and date ' +
+        'show on their own.',
     }),
   ],
 

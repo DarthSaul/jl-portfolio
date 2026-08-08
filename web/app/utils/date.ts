@@ -19,3 +19,23 @@ export const formatDate = (iso: string) =>
     day: 'numeric',
     timeZone: 'UTC',
   })
+
+/**
+ * The same date with the day dropped — `Jul 2023`.
+ *
+ * For /writing's ledger, where the date sits in a 128px rail beside the headline rather than
+ * under it. At that width the day is precision nobody reads, and it is what pushes the line to
+ * wrap.
+ *
+ * THE TIMEZONE PIN MATTERS MORE HERE THAN ABOVE, for a second reason on top of the hydration
+ * mismatch. Dropping the day does not drop the risk of shifting one — it hides it. A
+ * `2019-01-01` read west of Greenwich is December 31st *of the previous year*, so an unpinned
+ * version of this function prints `Dec 2018` for a piece published in January 2019. Half of
+ * what this format says is the year, and that is the half it would get wrong.
+ */
+export const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })

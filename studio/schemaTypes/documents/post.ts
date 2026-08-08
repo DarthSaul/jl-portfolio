@@ -46,9 +46,29 @@ export default defineType({
       type: 'text',
       rows: 2,
       description:
-        'Optional. Shown under the headline on the post itself, and again wherever the ' +
-        'post is listed.',
-      validation: (rule) => rule.max(200).warning('A line or two reads best in a list.'),
+        'Recommended. Shown under the headline on the post itself, and again wherever the ' +
+        'post is listed — in a list it is what tells someone whether to open it.',
+      // Two warnings, never an error: a summary is recommended, not required. She gets an
+      // amber marker she can publish straight past, rather than a block on posting something
+      // she has already written.
+      //
+      // THE EMPTY CHECK IS A `custom()` AND NOT `required().warning()`, WHICH IS THE OBVIOUS
+      // SPELLING AND IS WRONG HERE. `enforceRequiredFields: true` in `sanity.cli.ts` makes
+      // typegen read any `required()` as non-optional, and it does not look at the level — so
+      // the warning form generates `summary: string` exactly as an error would. Verified: it
+      // flipped `summary` from `string | null` to `string` in all four query result types,
+      // while six of the seven documents in `development` have no summary at all. Every
+      // `v-if="item.summary"` would have been typed as a redundant check against a field that
+      // is null in real data. A custom function is opaque to typegen, so the field stays
+      // optional in the types and the marker still shows in the Studio.
+      validation: (rule) => [
+        rule
+          .custom((value) =>
+            value ? true : 'Worth adding — without it a list entry is a headline and a date.',
+          )
+          .warning(),
+        rule.max(200).warning('A line or two reads best in a list.'),
+      ],
     }),
 
     defineField({
@@ -57,9 +77,9 @@ export default defineType({
       type: 'reference',
       to: [{type: 'photo'}],
       description:
-        'Optional. The small photo shown beside this post where it is listed — on the ' +
-        'front page, for instance. Not shown on the post itself; put photos in the ' +
-        'writing below for that.',
+        'Optional, and a landscape (wide) photo works best — the Writing page crops it from ' +
+        'the centre, so a tall photo loses its top and bottom. Shown beside this post where ' +
+        'it is listed, not on the post itself; put photos in the writing below for that.',
     }),
 
     defineField({

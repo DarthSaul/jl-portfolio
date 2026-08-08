@@ -5,6 +5,16 @@ import { PHOTO_PROJECTION } from './photo'
 /**
  * /about — her bio.
  *
+ * One document, one projection. It briefly returned two — the page, plus a `portrait` read off
+ * `homePage.introPhoto` — because the photograph that used to open the front page needed
+ * somewhere to go and `aboutPage` deliberately has no photo field. That cross-document read is
+ * gone along with the field, and this is back to the shape it should have had: a route fetching
+ * its own document.
+ *
+ * Photographs on this page go **in the body**, as `postPhoto` members, where she places them by
+ * typing around them. That was always `aboutPage`'s design and the stopgap was the exception to
+ * it, not a hint that it needed a photo field.
+ *
  * The body projection is the same one `POST_QUERY` uses, and deliberately identical: the two
  * fields are the same shape in the schema, so they are the same shape here and render through
  * the same component. `...` keeps every field a text block came with — including the
@@ -13,38 +23,15 @@ import { PHOTO_PROJECTION } from './photo'
  *
  * That dereference is Rule 1 at the query layer. The object stores a reference and nothing
  * else; alt text and caption live on the photo and arrive with it.
- *
- * ## Why this route reads a field off `homePage`
- *
- * `portrait` is the photograph that used to open the front page — `homePage.introPhoto`. It now
- * sits under the bio instead, and `aboutPage` has no photo field of its own to hold it.
- *
- * **This is a stopgap and should not survive contact with the Studio.** Reading one page's
- * field to render another page's content is exactly the kind of hidden coupling that makes a
- * field's description a lie: `introPhoto` still tells her it is the photo on the front page,
- * and it is not any more. Nothing warns her, and moving it back is a code change rather than
- * an edit.
- *
- * The shaped fix is a `portrait` reference on `aboutPage`, which is a schema change — a new
- * field, a typegen run and a Studio deploy — and deliberately out of scope for a styling pass.
- * Until then this keeps the photograph on the page it was asked for, in one request, without
- * duplicating the image or copying its alt text. Both halves are separate top-level projections
- * because they come from two different documents; GROQ returns them as one object.
- *
- * Note the two are allowed to fail independently. `aboutPage` missing is a broken dataset and
- * the route throws. A missing `homePage` — or a `homePage` whose `introPhoto` is unset — costs
- * a photograph and nothing else, so `portrait` comes back `null` and the page renders without
- * it.
  */
 export const ABOUT_QUERY = defineQuery(`
-  {
-    "page": *[_type == "aboutPage"][0]{
-      title,
-      body[]{
-        ...,
-        _type == "postPhoto" => { photo->{ ${PHOTO_PROJECTION} } }
-      }
-    },
-    "portrait": *[_type == "homePage"][0].introPhoto->{ ${PHOTO_PROJECTION} }
+  *[_type == "aboutPage"][0]{
+    title,
+    introHeading,
+    intro,
+    body[]{
+      ...,
+      _type == "postPhoto" => { photo->{ ${PHOTO_PROJECTION} } }
+    }
   }
 `)

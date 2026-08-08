@@ -40,10 +40,11 @@ useHead(
          `mx-auto max-w-[750px] px-5` per row. Seven rows are one list, so the measure belongs
          to the list.
 
-         No `space-y`. Each row is a `story-row` with a hairline beneath it, and that border is
-         what carries the rhythm — a gap on top of it would read as seven separated things
-         rather than one list. `border-t` closes the top of the first row. -->
-    <ul class="border-t border-hairline">
+         The hairlines under each row are gone, so space is the only thing separating them now
+         and it has to do that job alone: `space-y-12` is wider than the gap a divider needed,
+         because a rule can hold two rows apart at a distance that would otherwise read as one
+         run-on block. Each row's own thumbnail is what anchors it. -->
+    <ul class="space-y-12">
       <WritingListItem v-for="item in writing.items" :key="item._id" :item="item" />
     </ul>
   </div>

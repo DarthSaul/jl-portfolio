@@ -58,6 +58,19 @@ export type Link = {
   url: string;
 };
 
+export type GalleryReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "gallery";
+};
+
+export type FeaturedPhoto = {
+  _type: "featuredPhoto";
+  photo: PhotoReference;
+  gallery?: GalleryReference;
+};
+
 export type SiteSettings = {
   _id: string;
   _type: "siteSettings";
@@ -92,6 +105,8 @@ export type AboutPage = {
   _updatedAt: string;
   _rev: string;
   title: string;
+  introHeading?: string;
+  intro?: ProseText;
   body: Array<
     | {
         children?: Array<{
@@ -127,33 +142,6 @@ export type WritingPage = {
   intro?: string;
 };
 
-export type GalleryReference = {
-  _ref: string;
-  _type: "reference";
-  _weak?: boolean;
-  [internalGroqTypeReferenceTo]?: "gallery";
-};
-
-export type ShotsPage = {
-  _id: string;
-  _type: "shotsPage";
-  _createdAt: string;
-  _updatedAt: string;
-  _rev: string;
-  title: string;
-  intro?: string;
-  photos: Array<
-    {
-      _key: string;
-    } & PhotoReference
-  >;
-  galleries?: Array<
-    {
-      _key: string;
-    } & GalleryReference
-  >;
-};
-
 export type PostReference = {
   _ref: string;
   _type: "reference";
@@ -175,9 +163,6 @@ export type HomePage = {
   _updatedAt: string;
   _rev: string;
   title: string;
-  introHeading?: string;
-  introPhoto: PhotoReference;
-  intro: ProseText;
   blurb: ProseText;
   featuredWriting: ArrayOf<PostReference | ArticleReference>;
   featuredTitle: ProseText;
@@ -185,7 +170,7 @@ export type HomePage = {
   featuredPhotos: Array<
     {
       _key: string;
-    } & PhotoReference
+    } & FeaturedPhoto
   >;
 };
 
@@ -255,7 +240,19 @@ export type Gallery = {
   slug: Slug;
   description?: string;
   preset: "grid" | "stack";
-  photos: Array<
+  tag?:
+    | "street"
+    | "portrait"
+    | "landscape"
+    | "architecture"
+    | "water"
+    | "night"
+    | "mexico-2022"
+    | "chile-2021"
+    | "usa-2020"
+    | "south-africa"
+    | "life";
+  photos?: Array<
     {
       _key: string;
     } & PhotoReference
@@ -287,8 +284,19 @@ export type Photo = {
   place?: string;
   dateTaken?: string;
   tags?: Array<
-    "street" | "portrait" | "landscape" | "architecture" | "water" | "night"
+    | "street"
+    | "portrait"
+    | "landscape"
+    | "architecture"
+    | "water"
+    | "night"
+    | "mexico-2022"
+    | "chile-2021"
+    | "usa-2020"
+    | "south-africa"
+    | "life"
   >;
+  excludeFromIndex?: boolean;
 };
 
 export type SanityImageCrop = {
@@ -409,12 +417,12 @@ export type AllSanitySchemaTypes =
   | PhotoReference
   | PostPhoto
   | Link
+  | GalleryReference
+  | FeaturedPhoto
   | SiteSettings
   | ContactPage
   | AboutPage
   | WritingPage
-  | GalleryReference
-  | ShotsPage
   | PostReference
   | ArticleReference
   | HomePage
@@ -437,47 +445,53 @@ export type AllSanitySchemaTypes =
 
 // Source: ../web/app/queries/about.ts
 // Variable: ABOUT_QUERY
-// Query: {    "page": *[_type == "aboutPage"][0]{      title,      body[]{        ...,        _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }      }    },    "portrait": *[_type == "homePage"][0].introPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
+// Query: *[_type == "aboutPage"][0]{    title,    introHeading,    intro,    body[]{      ...,      _type == "postPhoto" => { photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } } }    }  }
 export type ABOUT_QUERY_RESULT = {
-  page: {
-    title: string;
-    body: Array<
-      | {
-          children?: Array<{
-            marks?: Array<string>;
-            text?: string;
-            _type: "span";
-            _key: string;
-          }>;
-          style?: "normal";
-          listItem?: never;
-          markDefs?: Array<{
+  title: string;
+  introHeading: string | null;
+  intro: ProseText | null;
+  body: Array<
+    | {
+        children?: Array<{
+          marks?: Array<string>;
+          text?: string;
+          _type: "span";
+          _key: string;
+        }>;
+        style?: "normal";
+        listItem?: never;
+        markDefs?: Array<{
+          url: string;
+          _type: "hyperlink";
+          _key: string;
+        }>;
+        level?: number;
+        _type: "block";
+        _key: string;
+      }
+    | {
+        _key: string;
+        _type: "postPhoto";
+        photo: {
+          _id: string;
+          alt: string;
+          caption: string | null;
+          asset: {
             url: string;
-            _type: "hyperlink";
-            _key: string;
-          }>;
-          level?: number;
-          _type: "block";
-          _key: string;
-        }
-      | {
-          _key: string;
-          _type: "postPhoto";
-          photo: {
-            _id: string;
-            alt: string;
-            caption: string | null;
-            asset: {
-              url: string;
-              lqip: string | null;
-              width: number | null;
-              height: number | null;
-            };
+            lqip: string | null;
+            width: number | null;
+            height: number | null;
           };
-        }
-    >;
-  } | null;
-  portrait: {
+        };
+      }
+  >;
+} | null;
+
+// Source: ../web/app/queries/everything.ts
+// Variable: EVERYTHING_QUERY
+// Query: {    "photos": *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]      | order(dateTaken desc, _createdAt desc)[$offset...$limit]{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },    "total": count(*[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]),    "tagsInUse": array::unique(      *[_type == "photo" && excludeFromIndex != true && count(tags) > 0].tags[]    )  }
+export type EVERYTHING_QUERY_RESULT = {
+  photos: Array<{
     _id: string;
     alt: string;
     caption: string | null;
@@ -487,16 +501,44 @@ export type ABOUT_QUERY_RESULT = {
       width: number | null;
       height: number | null;
     };
-  } | null;
+  }>;
+  total: number;
+  tagsInUse: Array<
+    | "architecture"
+    | "chile-2021"
+    | "landscape"
+    | "life"
+    | "mexico-2022"
+    | "night"
+    | "portrait"
+    | "south-africa"
+    | "street"
+    | "usa-2020"
+    | "water"
+    | null
+  >;
 };
+
+// Source: ../web/app/queries/everything.ts
+// Variable: MORE_PHOTOS_QUERY
+// Query: *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]    | order(dateTaken desc, _createdAt desc)[$offset...$limit]{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }
+export type MORE_PHOTOS_QUERY_RESULT = Array<{
+  _id: string;
+  alt: string;
+  caption: string | null;
+  asset: {
+    url: string;
+    lqip: string | null;
+    width: number | null;
+    height: number | null;
+  };
+}>;
 
 // Source: ../web/app/queries/home.ts
 // Variable: HOME_QUERY
-// Query: *[_type == "homePage"][0]{    title,    introHeading,    intro,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }  }
+// Query: *[_type == "homePage"][0]{    title,    blurb,    featuredWriting[]->{      _id,      _type,      title,      publishedAt,      summary,      coverPhoto->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      _type == "article" => { url, publication },      _type == "post" => { "slug": slug.current }    },    featuredTitle,    featuredSubtitle,    featuredPhotos[]{      _key,      photo->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      "gallery": gallery->{ title, "slug": slug.current }    }  }
 export type HOME_QUERY_RESULT = {
   title: string;
-  introHeading: string | null;
-  intro: ProseText;
   blurb: ProseText;
   featuredWriting: Array<
     | {
@@ -542,6 +584,55 @@ export type HOME_QUERY_RESULT = {
   featuredTitle: ProseText;
   featuredSubtitle: ProseText;
   featuredPhotos: Array<{
+    _key: string;
+    photo: {
+      _id: string;
+      alt: string;
+      caption: string | null;
+      asset: {
+        url: string;
+        lqip: string | null;
+        width: number | null;
+        height: number | null;
+      };
+    };
+    gallery: {
+      title: string;
+      slug: string;
+    } | null;
+  }>;
+} | null;
+
+// Source: ../web/app/queries/nav.ts
+// Variable: NAV_QUERY
+// Query: *[_type == "gallery" && defined(slug.current)] | order(title asc){    _id,    title,    "slug": slug.current  }
+export type NAV_QUERY_RESULT = Array<{
+  _id: string;
+  title: string;
+  slug: string;
+}>;
+
+// Source: ../web/app/queries/shots.ts
+// Variable: GALLERY_QUERY
+// Query: *[_type == "gallery" && slug.current == $slug][0]{    title,    description,    preset,    tag,    "photos": select(      defined(tag) => *[_type == "photo" && ^.tag in tags]        | order(dateTaken desc, _createdAt desc){   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } },      photos[]->{   _id,  alt,  caption,  "asset": image.asset->{    url,    "lqip": metadata.lqip,    "width": metadata.dimensions.width,    "height": metadata.dimensions.height  } }    )  }
+export type GALLERY_QUERY_RESULT = {
+  title: string;
+  description: string | null;
+  preset: "grid" | "stack";
+  tag:
+    | "architecture"
+    | "chile-2021"
+    | "landscape"
+    | "life"
+    | "mexico-2022"
+    | "night"
+    | "portrait"
+    | "south-africa"
+    | "street"
+    | "usa-2020"
+    | "water"
+    | null;
+  photos: Array<{
     _id: string;
     alt: string;
     caption: string | null;
@@ -551,7 +642,7 @@ export type HOME_QUERY_RESULT = {
       width: number | null;
       height: number | null;
     };
-  }>;
+  }> | null;
 } | null;
 
 // Source: ../web/app/queries/writing.ts
@@ -654,8 +745,12 @@ export type POST_QUERY_RESULT = {
 import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
-    '\n  {\n    "page": *[_type == "aboutPage"][0]{\n      title,\n      body[]{\n        ...,\n        _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n      }\n    },\n    "portrait": *[_type == "homePage"][0].introPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': ABOUT_QUERY_RESULT;
-    '\n  *[_type == "homePage"][0]{\n    title,\n    introHeading,\n    intro,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n  }\n': HOME_QUERY_RESULT;
+    '\n  *[_type == "aboutPage"][0]{\n    title,\n    introHeading,\n    intro,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': ABOUT_QUERY_RESULT;
+    '\n  {\n    "photos": *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]\n      | order(dateTaken desc, _createdAt desc)[$offset...$limit]{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n\n    "total": count(*[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]),\n\n    "tagsInUse": array::unique(\n      *[_type == "photo" && excludeFromIndex != true && count(tags) > 0].tags[]\n    )\n  }\n': EVERYTHING_QUERY_RESULT;
+    '\n  *[_type == "photo" && excludeFromIndex != true && ($filterTag == "" || $filterTag in tags)]\n    | order(dateTaken desc, _createdAt desc)[$offset...$limit]{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n': MORE_PHOTOS_QUERY_RESULT;
+    '\n  *[_type == "homePage"][0]{\n    title,\n    blurb,\n    featuredWriting[]->{\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    },\n    featuredTitle,\n    featuredSubtitle,\n    featuredPhotos[]{\n      _key,\n      photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      "gallery": gallery->{ title, "slug": slug.current }\n    }\n  }\n': HOME_QUERY_RESULT;
+    '\n  *[_type == "gallery" && defined(slug.current)] | order(title asc){\n    _id,\n    title,\n    "slug": slug.current\n  }\n': NAV_QUERY_RESULT;
+    '\n  *[_type == "gallery" && slug.current == $slug][0]{\n    title,\n    description,\n    preset,\n    tag,\n    "photos": select(\n      defined(tag) => *[_type == "photo" && ^.tag in tags]\n        | order(dateTaken desc, _createdAt desc){ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      photos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n    )\n  }\n': GALLERY_QUERY_RESULT;
     '\n  {\n    "page": *[_type == "writingPage"][0]{ title, intro },\n    "items": *[_type in ["post", "article"]] | order(publishedAt desc){\n      _id,\n      _type,\n      title,\n      publishedAt,\n      summary,\n      coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n      _type == "article" => { url, publication },\n      _type == "post" => { "slug": slug.current }\n    }\n  }\n': WRITING_QUERY_RESULT;
     '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    publishedAt,\n    summary,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': POST_QUERY_RESULT;
   }

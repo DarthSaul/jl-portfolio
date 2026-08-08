@@ -94,11 +94,7 @@ useHead({ title: home.value.title, titleTemplate: '%s' });
 		<!-- :title="home.featuredTitle" :subtitle="home.featuredSubtitle"  -->
 		<HomePhotoStrip :photos="home.featuredPhotos" />
 
-		<HomeHero :heading="home.introHeading" :intro="home.intro" />
-
-		<!-- Slot 5. Parked, not deleted — `blurb` is still fetched by HOME_QUERY. Tokens updated
-		     with the rest of the page so this drops back in working: `text-body` was a Clay
-		     colour and no longer resolves to anything.
+		<!-- Slot 5. Parked, not deleted — `blurb` is still fetched by HOME_QUERY.
 		<ProseText :value="home.blurb" class="type-body-serif-lg max-w-read" /> -->
 
 		<HomeFeaturedWriting :items="home.featuredWriting" />

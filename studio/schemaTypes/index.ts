@@ -7,9 +7,9 @@ import gallery from './documents/gallery'
 import homePage from './documents/homePage'
 import photo from './documents/photo'
 import post from './documents/post'
-import shotsPage from './documents/shotsPage'
 import siteSettings from './documents/siteSettings'
 import writingPage from './documents/writingPage'
+import featuredPhoto from './objects/featuredPhoto'
 import link from './objects/link'
 import postPhoto from './objects/postPhoto'
 import proseText from './objects/proseText'
@@ -24,13 +24,13 @@ export const schemaTypes = [
   // One per route, exactly one document each. studio/structure.ts pins their ids and
   // sanity.config.ts keeps them out of the Create menu.
   homePage,
-  shotsPage,
   writingPage,
   aboutPage,
   contactPage,
   siteSettings,
 
   // Objects
+  featuredPhoto,
   link,
   postPhoto,
   proseText,

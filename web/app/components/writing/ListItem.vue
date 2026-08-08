@@ -52,10 +52,11 @@ const link = computed(() =>
        reading measure that used to be declared here now belongs to that list, not to each row
        of it.
 
-       `story-row` is DESIGN.md's row for exactly this: a hairline under each entry, which is
-       what separates them. It is the only line the spec allows and the only one the site
-       uses — "surface contrast and hairline borders carry all visual hierarchy". -->
-  <li class="story-row flex items-start gap-5 sm:gap-7">
+       No divider. This carried DESIGN.md's `story-row` — a hairline under every entry — which
+       is the spec's own answer for a bylined list and read as heavier than this list wants to
+       be. Space separates the rows now, set on the list rather than here so one rule governs
+       the gaps between all of them instead of each row padding itself and doubling up. -->
+  <li class="flex items-start gap-5 sm:gap-7">
     <!-- Reserved whether or not there is a photo — see the note above. `shrink-0` keeps the
          circle circular when a long title tries to take the row's width. -->
     <div class="w-20 shrink-0 sm:w-32">

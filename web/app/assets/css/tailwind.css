@@ -452,10 +452,8 @@
 }
 
 /*
- * DESIGN.md's `story-row` — the bylined row in a list of writing, separated by the site's only
- * line. This is what carries the rhythm on /writing; the list needs no gap of its own.
+ * DESIGN.md's `story-row` — a hairline under each entry in a list of writing — is deliberately
+ * not implemented. /writing was built on it and the dividers read as heavier than that page
+ * wants; space separates the rows instead. Re-add it here if a list ever needs the rule back,
+ * rather than writing the border at a call site.
  */
-@utility story-row {
-  border-block-end: 1px solid var(--color-hairline);
-  padding-block: 1.5rem;
-}

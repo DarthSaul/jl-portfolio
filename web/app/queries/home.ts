@@ -18,21 +18,30 @@ import { PHOTO_PROJECTION } from './photo'
  * `coverPhoto` is optional on both types and comes back `null` when unset — the card drops
  * its photo and keeps its headline.
  *
- * ## `introPhoto` is deliberately not fetched here
+ * `featuredPhotos` is projected with `[]{ }` and not `[]->{ }`. Each member is a
+ * `featuredPhoto` object rather than a bare reference now, so there is nothing to dereference
+ * at the member level — the `->` is one level in, on `photo` and on `gallery`. Getting this
+ * wrong is not subtle in the types and is invisible on the page: `featuredPhotos[]->` against
+ * an array of objects types as `Array<null>`, which is how this was caught.
  *
- * The field still exists on `homePage` and is still required by the schema — nothing about the
- * content model changed. It is the front-page hero that no longer shows a photograph: slot 4 is
- * now a text band, per DESIGN.md's `hero-band`, and the photograph moved to the bio page.
+ * `gallery` resolves to a title and a slug rather than a stored path, so renaming a gallery's
+ * address updates every front-page link to it with no edit. It comes back `null` when the slot
+ * has no link, and the photograph renders unlinked.
  *
- * It is read there, out of this same `homePage` document, by `ABOUT_QUERY`. That is a stopgap
- * and the comment in `about.ts` says why it has to be. Fetching it here as well would leave the
- * front page carrying an image request it never renders.
+ * ## The whole introduction has left this page
+ *
+ * `introHeading` and `intro` are `aboutPage`'s fields now and are rendered there; `introPhoto`
+ * still lives on `homePage` but is rendered by `/about` too. None of the three is fetched here,
+ * because none of them appears on the front page — which now opens with the photo grid and goes
+ * straight to the featured writing.
+ *
+ * `introPhoto` staying on `homePage` is the one loose end, and `queries/about.ts` explains why
+ * it did not simply follow the text. Fetching it here would leave the front page carrying an
+ * image request it never renders.
  */
 export const HOME_QUERY = defineQuery(`
   *[_type == "homePage"][0]{
     title,
-    introHeading,
-    intro,
     blurb,
     featuredWriting[]->{
       _id,
@@ -46,6 +55,10 @@ export const HOME_QUERY = defineQuery(`
     },
     featuredTitle,
     featuredSubtitle,
-    featuredPhotos[]->{ ${PHOTO_PROJECTION} }
+    featuredPhotos[]{
+      _key,
+      photo->{ ${PHOTO_PROJECTION} },
+      "gallery": gallery->{ title, "slug": slug.current }
+    }
   }
 `)

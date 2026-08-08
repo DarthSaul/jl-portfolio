@@ -356,7 +356,7 @@ is a map, not a spec.
 | `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
 | `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
 | `link` | label, url | Object. Used only by `siteSettings.links`. |
-| `postPhoto` | photo → ref | Object. A photo between paragraphs of any body — `post` or `aboutPage`. |
+| `postPhoto` | photo → ref, layout | Object. A photo between paragraphs of any body — `post` or `aboutPage`. `layout` is a two-value **preset**, not a positioning control — see below. |
 | `featuredPhoto` | photo → ref, gallery → ref (optional) | Object. One slot in the front-page grid, and where it links. |
 | `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro`, `.blurb`, `.featuredTitle` and `.featuredSubtitle`. |
 
@@ -529,6 +529,24 @@ Things worth knowing before changing any of it:
     keeps validating and silently guards nothing — the same line, quietly weakened. That is
     why `featuredSubtitle`'s length guard is a hand-written `rule.custom` that walks down to
     the spans, where the text actually lives.
+  - **`postPhoto.layout` is a preset, and it is the one place that distinction has been
+    tested.** The object's own comment used to end "do not add a width, a size, an alignment or
+    a 'full bleed' toggle to it", and a full-width option looks exactly like the last of those.
+    The line Rule 2 actually draws: it forbids *positioning* — a width, a column count, a crop
+    offset, a breakpoint, numbers she sets per photograph — and explicitly permits *presets*,
+    "components that guarantee the result works at every width". `layout` is a fixed list of
+    two, carries no numbers, and both branches are responsive on their own terms, so it is the
+    second thing. What must still never appear there: a width, a percentage, an alignment, or
+    anything that only makes sense at one screen size.
+
+    Two consequences worth knowing before touching it. The class map in `BodyPhoto.vue` is
+    `satisfies Record<Layout, string>` over the schema's union, so a third value without a
+    branch is a typecheck failure — the same pairing guarantee `PRESETS` gives for galleries.
+    And **the alternating float had to leave CSS**: it was `nth-of-type(odd/even)` on the
+    figures, which counts full-width photographs too, so one in the middle silently put the
+    wrapped photographs on either side of it on the same side. `ProseBody` now counts only the
+    wrapped ones and passes the side down. The field is deliberately optional — every
+    photograph placed before it existed reads as `wrap`, so nothing already published moved.
   - **A photo inside a body is a `postPhoto` object wrapping a reference, not a bare or
     named `reference` member.** A *named* reference member looks like the tidier answer and
     is a trap: typegen extracts it as `_type: "reference"` while the editor writes the

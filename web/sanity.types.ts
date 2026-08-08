@@ -50,6 +50,7 @@ export type PhotoReference = {
 export type PostPhoto = {
   _type: "postPhoto";
   photo: PhotoReference;
+  layout?: "wrap" | "full";
 };
 
 export type Link = {
@@ -483,6 +484,7 @@ export type ABOUT_QUERY_RESULT = {
             height: number | null;
           };
         };
+        layout?: "full" | "wrap";
       }
   >;
 } | null;
@@ -737,6 +739,7 @@ export type POST_QUERY_RESULT = {
             height: number | null;
           };
         };
+        layout?: "full" | "wrap";
       }
   >;
 } | null;

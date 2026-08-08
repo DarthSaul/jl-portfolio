@@ -59,16 +59,42 @@ defineProps<{
           v-if="photos[index]?.gallery"
           :to="`/shots/${photos[index].gallery.slug}`"
           :aria-label="`${photos[index].gallery.title} — see the photos`"
-          class="group block"
+          class="group relative block"
         >
-          <!-- The only hover affordance on a photograph anywhere on the site. DESIGN.md has no
-               hover state to borrow and says not to invent chrome, so it is a slight lift in
-               opacity rather than a caption card or a zoom — the latter would be a crop. -->
           <SanityPhoto
             :photo="photo"
-            class="transition-opacity group-hover:opacity-85"
             sizes="(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw"
           />
+
+          <!--
+            The band that names where this photograph goes.
+
+            `bg-ink/70` rather than a gradient or a solid fill: DESIGN.md has no overlay
+            component to borrow and tells us not to invent chrome, so this is the ink it already
+            uses at an opacity that keeps the photograph readable underneath. Square, like
+            everything else. The type is `body-sm-strong` in caps — the same treatment the nav
+            and READ MORE get, so a label appearing over a photo still reads as this site.
+
+            **`group-focus-visible` is not optional.** A keyboard user tabs to this link and gets
+            no hover, so without it the band is a mouse-only affordance and they are told nothing
+            about where they are about to go.
+
+            **`[@media(hover:none)]:opacity-100` is the other half.** Tailwind compiles `hover:`
+            inside `@media (hover: hover)`, so on a touch screen `group-hover` never fires and the
+            band would never appear at all — on the devices most of her visitors are using. There
+            it is simply always visible, which is what the reference site does at every width.
+
+            `aria-hidden`, because the link already carries an `aria-label` naming the same
+            gallery; without it a screen reader announces the destination twice.
+          -->
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-x-0 bottom-0 bg-ink/70 px-4 py-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <span class="type-body-sm-strong uppercase tracking-[0.12em] text-canvas">
+              {{ photos[index].gallery.title }}
+            </span>
+          </div>
         </NuxtLink>
 
         <SanityPhoto

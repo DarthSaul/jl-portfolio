@@ -89,8 +89,9 @@ const WIDTHS = [400, 800, 1200, 1600, 2000]
 /**
  * `auto=format` negotiates AVIF/WebP per browser and is on either path.
  *
- * At reading size the URL carries only `w`: the CDN's default fit preserves the aspect ratio,
- * so the no-crop rule holds at the URL level and not just by convention. Which is also why a
+ * At reading size the URL carries a width, a format and a quality, and nothing that selects a
+ * region — no `fit`, no `rect`, no `crop`. The CDN's default fit preserves the aspect ratio, so
+ * the no-crop rule holds at the URL level and not just by convention. Which is also why a
  * crop is done *here* rather than with `object-cover` at a call site — a CSS crop would leave
  * the URL claiming a framing the page does not use, and would make the browser download the
  * hidden pixels to throw them away.
@@ -117,7 +118,12 @@ const natural = computed(() => {
   const { width, height } = props.photo.asset
   const c = crop.value
   if (c) {
-    const limit = Math.min(width ?? Infinity, ((height ?? Infinity) * c.w) / c.h)
+    // Floored, because the ratio divides: a 3000×1001 asset bounds a 3:2 crop at 1501.5. That
+    // is normally hidden by the ladder cap, but an asset smaller than the ladder's bottom rung
+    // makes `srcset` fall back to this number directly — `w=250.5` in the URL and a `250.5w`
+    // descriptor, which is not a valid width. `Math.floor(Infinity)` is still Infinity, so the
+    // no-dimensions branch below is unaffected.
+    const limit = Math.floor(Math.min(width ?? Infinity, ((height ?? Infinity) * c.w) / c.h))
     return Number.isFinite(limit) ? limit : c.widths[c.widths.length - 1]!
   }
   return width ?? WIDTHS[WIDTHS.length - 1]!

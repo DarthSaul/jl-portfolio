@@ -545,8 +545,9 @@ Things worth knowing before changing any of it:
     decision, not a component one.
 
     **Everywhere else the photograph keeps its own proportions.** A gallery, a post body, the
-    front-page intro: no `crop`, and the CDN URL carries only `w` and `auto=format`, so the
-    no-crop default holds at the URL and not merely by convention.
+    front-page intro: no `crop`, and the CDN URL carries nothing that selects a region — a
+    width, a format and a quality, but no `fit` and no `rect` — so the no-crop default holds at
+    the URL and not merely by convention.
     `grep -rn "crop=" web/app/components/` should stay a short list, and every hit should be a
     thumbnail or the /writing lead.
   - The front page's introduction used to be this rule's worked example, and **the photograph
@@ -908,8 +909,8 @@ the exception is for, and the one that went was a photograph wearing a radius.
 
 Worth keeping straight across spec swaps, because the previous one was built on generous radii:
 **a corner radius is not a crop.** It is a surface treatment — `SanityPhoto` reads the box from
-the asset's own metadata and the CDN URL carries only `w` and `auto=format`, with no `fit` and
-no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
+the asset's own metadata and the CDN URL carries a width, a format and a quality, with no `fit`
+and no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
 `rounded-*` on a photograph is a design question, free to come and go with the spec;
 `object-cover` on one is a Rule 2 question and is not.
 
@@ -1011,14 +1012,15 @@ or a bare CDN URL anywhere in the app is a bug.
 It takes a whole photo projection and **not** an `alt`, an aspect ratio, a size, or a crop
 offset. Passing `alt` per call site is how one photograph ends up described two ways; passing
 a shape is a framing control, which is Rule 2's whole subject. By default the box is the
-photograph's own proportions, read from the asset metadata, and the CDN URL carries only `w`
-and `auto=format` — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
+photograph's own proportions, read from the asset metadata, and the CDN URL carries a width, a
+format and a quality — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
 by convention.
 
-The one exception is the boolean `square` prop, which switches to a centred square crop for
-preview thumbnails and its own much shorter srcset ladder. It takes no dimensions and no
-offset — on or off — so a call site still cannot invent a framing. See the thumbnail note in
-*The content model* for why it exists and what it costs.
+The one exception is the `crop` prop, which selects one of the named presets in `CROPS` —
+`crop="square"` for preview thumbnails, `crop="lead"` for the /writing lead — each with its own
+centred framing and its own much shorter srcset ladder. It takes a name and never dimensions or
+an offset, so a call site still cannot invent a framing. See the thumbnail note in *The content
+model* for why the list exists and what each entry costs.
 
 **There is exactly one `<img>` in the app, and `grep -rn "<img" web/app` is the check.** It
 was briefly two: `SitePhoto` and `RichParagraph` were static twins of `SanityPhoto` and

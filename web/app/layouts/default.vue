@@ -7,7 +7,7 @@
  * It used to live in each page, because the home page's photo strip had to escape it and
  * constraining everything at this level would have needed a negative-margin escape hatch. Six
  * files carried their own `mx-auto max-w-[…] px-5` as a result — five pages and
- * `writing/ListItem.vue`.
+ * `writing/Row.vue`.
  *
  * The sidenav settles it. The strip no longer has to escape the *viewport*, only the main
  * column, and the `bleed` utility does exactly that by reading back the `--gutter` that

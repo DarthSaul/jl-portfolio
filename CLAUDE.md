@@ -378,7 +378,7 @@ A preset value that has no matching component must be impossible.
 | `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
 | `/shots/everything` | Every photo she has uploaded except those flagged `excludeFromIndex`. Tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `everything` because of it. |
 | `/shots/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
-| `/writing` | Her own posts and links out to others, newest first, interleaved |
+| `/writing` | Her own posts and links out to others, newest first, interleaved. The newest one leads; the rest are a ledger. The lead is picked by date, never by a flag on the document |
 | `/writing/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
 | `/about` | Her bio — prose with photographs in it. Same body shape as a `post`. |
 | `/contact` | Text and links only — see non-goals |
@@ -498,35 +498,58 @@ Things worth knowing before changing any of it:
 - **One image field, total.** `grep -rn "type: 'image'" studio/schemaTypes/` must return
   exactly one line — the one in `photo.ts`. A second hit means Rule 1 has been broken.
   Everything else that shows a photograph holds a reference.
-- **No `hotspot`, and no crop on a photograph. Preview thumbnails are the one exception.**
-  Sanity's usual advice is `hotspot: true` on every image; here it is a per-photo framing
-  control, which Rule 2 forbids. That decision only stays coherent if **every preset
-  preserves the native aspect ratio**, and it still does. If a preset ever wants uniform
-  tiles, that reopens Rule 2 — it does not get decided inside a component.
-  - **The exception is a preview thumbnail, and it is deliberately narrow.** `/writing` lists
-    each piece behind a small circular avatar of its cover photo, matching the site this
-    replaces. A circle is a square crop, so `SanityPhoto` has a `square` prop that asks the
-    CDN for `fit=crop&crop=center`.
+- **No `hotspot`, and no crop on a photograph except a named one.** Sanity's usual advice is
+  `hotspot: true` on every image; here it is a per-photo framing control, which Rule 2 forbids.
+  That decision stays coherent only because **no framing is ever chosen per photo** — not in the
+  Studio, and not at a call site. Every gallery preset still preserves the native aspect ratio.
+  If a preset ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
+  component.
+  - **The exceptions live in one closed list, `CROPS` in `SanityPhoto.vue`.** A caller passes
+    `crop="square"` or `crop="lead"` — a name, never numbers — so the set of framings that exist
+    on this site is that object, and a value with no entry is a type error. It is the same move
+    `LAYOUT_PRESETS` makes in the gallery schema, one layer down: she picks a preset, never a
+    measurement. **Adding an entry is a Rule 2 decision**, which means an argument and a written
+    cost, not a convenience.
 
-    What keeps it inside Rule 2 is that nothing about it is a choice: the size is fixed by the
-    component, the crop is always centred, and **she has no control over any of it** — no knob
-    in the Studio, none at the call site. It is a preset that happens to crop. The prop is a
-    boolean rather than a shape for exactly that reason; the moment it takes dimensions or an
-    offset it has become the thing Rule 2 exists to prevent.
+    There are two today. `square` is /writing's ledger thumbnail. `lead` is the 300×200 cover of
+    the lead story on the same page, and it is the first crop applied to a photograph at
+    *reading* size rather than to a preview — it was declined once in favour of bounding the
+    photo instead, and reversed when that left the column half empty. See `writing/Lead.vue`.
 
-    It also earns its place on weight, which is what prompted it. The row used to render a
+    What keeps these inside Rule 2 is that nothing about either is a choice: the shape is fixed
+    by its `CROPS` entry, the crop is always centred, and **she has no control over any of it** —
+    no knob in the Studio, none at the call site. They are presets that happen to crop. The prop
+    takes a name rather than a shape for exactly that reason; the moment it accepts dimensions or
+    an offset it has become the thing Rule 2 exists to prevent.
+
+    `square` also earns its place on weight, which is what prompted it. The row used to render a
     full-width cover at native proportions and let CSS shrink it, so the page shipped seven
-    ~1200px JPEGs to fill what is now a 128px circle.
+    ~1200px JPEGs to fill what is now a 92px thumbnail. **That is also why a crop belongs in the
+    CDN URL and not in an `object-cover` at a call site** — a CSS crop downloads the hidden
+    pixels to throw them away, and leaves the URL claiming a framing the page does not use.
 
-    **The cost is real and lands on her.** With no hotspot the crop is centred, so a cover
-    whose subject sits near an edge loses it in the thumbnail, and the only remedy is choosing
-    a different photo. If that starts to bite, the conversation is `hotspot` on `photo.image`
-    — a Rule 2 decision, not a component one.
+    **It was a circle until the ledger redesign, and the change was a radius rather than a
+    crop.** The old row put the cover behind a `rounded-full` avatar matching the Squarespace
+    site being replaced; the design that replaced *that* asked for rectangles, on the grounds
+    that the rest of the site is rectangular photography and the seven circles were the one
+    place it was not. Only the radius went. Worth knowing because the mock's own rectangle was
+    92×68, and **that** would have been a new crop shape and therefore a Rule 2 decision, not a
+    component one — a square was already sanctioned and needed no argument. Square also keeps
+    the ledger's rows an even height, which native proportions would not: a portrait cover in a
+    92px column is 138px tall and a landscape one is 60px.
 
-    **The photograph itself is never cropped.** `square` is for previews only; a photo at
-    reading size — a gallery, a post body, the front-page intro — keeps its own proportions.
-    `grep -rn "square" web/app/components/` should stay a short list, and every hit should be
-    a thumbnail.
+    **The cost is real and lands on her, and `lead` is where it bites hardest.** With no hotspot
+    the crop is centred, so a cover whose subject sits near an edge loses it — survivable in a
+    92px thumbnail, much more visible in a 300×200 lead. Her only remedy is choosing a different
+    photo. If that starts to bite, the conversation is `hotspot` on `photo.image` — a Rule 2
+    decision, not a component one.
+
+    **Everywhere else the photograph keeps its own proportions.** A gallery, a post body, the
+    front-page intro: no `crop`, and the CDN URL carries nothing that selects a region — a
+    width, a format and a quality, but no `fit` and no `rect` — so the no-crop default holds at
+    the URL and not merely by convention.
+    `grep -rn "crop=" web/app/components/` should stay a short list, and every hit should be a
+    thumbnail or the /writing lead.
   - The front page's introduction used to be this rule's worked example, and **the photograph
     it was built around no longer exists in the schema at all.** The argument is worth keeping
     even though the demonstration is gone, because it is what any future hero has to answer to:
@@ -695,10 +718,12 @@ CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
 DESIGN.md                   ✎ The design spec — colours, type scale, radius, component
                               chrome. Currently Wired-derived: three type faces, square
                               corners, hairline dividers, no chromatic accent. Implemented in
-                              web/app/assets/css/tailwind.css, with ONE deliberate departure
-                              (the canvas is cream, not white). It has been swapped twice
-                              already — see "The design system" in Conventions for what a swap
-                              is and is not allowed to move.
+                              web/app/assets/css/tailwind.css, with TWO deliberate departures:
+                              the canvas is cream, not white, and --color-accent exists at all
+                              (a deep maroon; the spec forbids a chromatic accent outright).
+                              Both are argued in the CSS beside the token. It has been swapped
+                              twice already — see "The design system" in Conventions for what a
+                              swap is and is not allowed to move.
 .env.example                ✎ Root env, for scripts/ only
 .worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
 
@@ -748,7 +773,7 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
                               PhotoStrip no longer owns a layout: it uses the `grid` preset
                               through its slot so each photo can become a link. The name is
                               now a lie worth fixing the next time that file is opened.
-      writing/              ✎ ListItem — one row of the WRITING list
+      writing/              ✎ Lead — the newest piece; Row — one row of the ledger under it
       shots/                ✎ FilterBar — the tag filters on /shots/everything, built from
                               DESIGN.md's button-outline / button-primary pair. Links, not
                               buttons, so the filter is in the URL and shareable.
@@ -756,7 +781,7 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
                               typecheck — see the PRESETS map in pages/shots/[slug].vue.
                               GalleryGrid (wrap-and-fill rows, also used by the front page)
                               and GalleryStack (full-measure column).
-    utils/                  ✎ date.ts — formatDate, auto-imported. See the UTC note in it.
+    utils/                  ✎ date.ts — formatDate/formatShortDate, auto-imported. UTC note in it.
     queries/                ✎ GROQ, one file per route
       photo.ts              ✎ The shared photo projection. Not a route — see below.
       nav.ts                ✎ NAV_QUERY — the galleries listed under START. Not a route
@@ -777,6 +802,7 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
       site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
                               content. (Was "footer links" — there is no footer any more.)
     composables/            ✎ useNavDrawer.ts — open/closed state for the mobile nav.
+                              useWritingLink.ts — post vs article destination, one place.
                               State and actions only: it is called from two components, so a
                               lifecycle hook in it would register two Escape listeners. Every
                               effect lives in SiteSidebar.vue.
@@ -852,10 +878,14 @@ text it changes. The failure when this is forgotten is quiet and looks like a bu
 a token whose tracking assumes capitals renders as wide-spaced lowercase.
 
 **Removing a colour token is silent, so the grep is the check.** Verified against
-tailwindcss@4.3.3: with a token absent, `hover:text-accent` emits zero rules — no warning, no
-error, the class simply stays in the markup doing nothing. After any palette change, grep the
-old token names across `web/app` and expect hits only in prose. That is the only thing standing
-between a deleted token and a stale class that looks fine in review.
+tailwindcss@4.3.3: with a token absent, a class like `hover:text-brand` emits zero rules — no
+warning, no error, the class simply stays in the markup doing nothing. After any palette change,
+grep the old token names across `web/app` and expect hits only in prose. That is the only thing
+standing between a deleted token and a stale class that looks fine in review.
+
+(This example used to be written with `text-accent`, which was safely fictional at the time and
+is not any more — `--color-accent` exists. Pick a name for the next demonstration that nothing
+could plausibly add.)
 
 **Fonts are hotlinked from `fonts.gstatic.com`, not vendored.** Playfair Display, Lora and
 Inter — DESIGN.md's own named substitutes for its three proprietary faces. Google rotates the
@@ -870,16 +900,36 @@ comment. Re-check it if the face set ever changes; the answer is not the same fo
 **The radius scale is `{rounded.none}` — Tailwind's named steps are unset in `@theme`.** The
 spec calls square corners non-negotiable, so `rounded-md` and friends resolve to nothing rather
 than sitting there to be reached for. `rounded-full` survives deliberately and is the one
-exception the spec allows, "circular icon containers only": exactly two call sites, the
-thumbnails on /writing and the social links in the sidebar. `grep -rn "rounded-" web/app`
-should return those two and nothing else.
+exception the spec allows, "circular icon containers only": exactly one call site, the social
+links in the sidebar. `grep -rn "rounded-" web/app` should return that one and nothing else.
+
+It was two until /writing's rows became a ledger and their circular thumbnails became squares.
+Nothing about the rule changed — the surviving call site is an icon container, which is what
+the exception is for, and the one that went was a photograph wearing a radius.
 
 Worth keeping straight across spec swaps, because the previous one was built on generous radii:
 **a corner radius is not a crop.** It is a surface treatment — `SanityPhoto` reads the box from
-the asset's own metadata and the CDN URL carries only `w` and `auto=format`, with no `fit` and
-no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
+the asset's own metadata and the CDN URL carries a width, a format and a quality, with no `fit`
+and no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
 `rounded-*` on a photograph is a design question, free to come and go with the spec;
 `object-cover` on one is a Rule 2 question and is not.
+
+**A bound is not a crop either, and the difference is whether the ratio survives.** A `max-*`
+shrinks the photograph and loses nothing, so it is a layout decision; a fixed `w`/`h` pair or an
+`object-cover` selects part of it, which is framing and belongs to Rule 2.
+
+The distinction is worth keeping even though the case that prompted it went the other way, and
+the history is the useful half. /writing's lead photo was first *bounded* — `md:max-h-[200px]
+md:w-auto md:max-w-full`, so a 2500×3333 cover rendered 150×200 with its proportions intact and
+a 3000×1000 panorama rendered 300×100 instead of overrunning its track. It behaved exactly as
+described and it looked wrong: the 300px column sat half empty and the block's right edge moved
+with whatever she uploaded. It is now `crop="lead"`, a real 300×200.
+
+So the rule is not "bounding good, cropping bad". It is that **a crop is a decision with a named
+owner and a written cost, and a bound is not.** Reach for the bound when the shape genuinely does
+not matter. When it does, make the crop a `CROPS` entry with the argument written down, rather
+than a class at a call site — a `max-h-*` on a photo is a design choice, an `object-cover` on one
+is a conversation.
 
 **GROQ lives in `web/app/queries/`, one file per route. Never inline in a component.**
 A query is the contract between a route and the content model. Keeping them in one directory
@@ -962,14 +1012,15 @@ or a bare CDN URL anywhere in the app is a bug.
 It takes a whole photo projection and **not** an `alt`, an aspect ratio, a size, or a crop
 offset. Passing `alt` per call site is how one photograph ends up described two ways; passing
 a shape is a framing control, which is Rule 2's whole subject. By default the box is the
-photograph's own proportions, read from the asset metadata, and the CDN URL carries only `w`
-and `auto=format` — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
+photograph's own proportions, read from the asset metadata, and the CDN URL carries a width, a
+format and a quality — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
 by convention.
 
-The one exception is the boolean `square` prop, which switches to a centred square crop for
-preview thumbnails and its own much shorter srcset ladder. It takes no dimensions and no
-offset — on or off — so a call site still cannot invent a framing. See the thumbnail note in
-*The content model* for why it exists and what it costs.
+The one exception is the `crop` prop, which selects one of the named presets in `CROPS` —
+`crop="square"` for preview thumbnails, `crop="lead"` for the /writing lead — each with its own
+centred framing and its own much shorter srcset ladder. It takes a name and never dimensions or
+an offset, so a call site still cannot invent a framing. See the thumbnail note in *The content
+model* for why the list exists and what each entry costs.
 
 **There is exactly one `<img>` in the app, and `grep -rn "<img" web/app` is the check.** It
 was briefly two: `SitePhoto` and `RichParagraph` were static twins of `SanityPhoto` and
@@ -1039,6 +1090,22 @@ contract. Vercel builds `web/` and never runs typegen, so the file has to be in 
   missing under a preview perspective. That does not apply while the app reads published
   content over the CDN with no preview token. **Revisit this flag the day Presentation or
   visual editing lands.**
+
+  **It does not look at the validation level, and that makes `rule.required().warning()` a
+  trap.** The warning form is the obvious way to spell "recommended, not required" — it shows
+  an amber marker she can publish straight past — but typegen reads the `required()` and types
+  the field as though it were mandatory. Verified on `post.summary` and `article.summary`:
+  adding it flipped `summary` from `string | null` to `string` in all four query result types,
+  while six of the seven documents in `development` have no summary at all. Nothing errors. The
+  types simply start claiming a field is always there, every `v-if="item.summary"` becomes a
+  redundant check as far as the compiler is concerned, and the first code that trusts the type
+  crashes on real content.
+
+  **So a recommended-but-optional field checks for emptiness with `rule.custom(...).warning()`
+  instead.** A custom function is opaque to schema extraction, so the field stays optional in
+  the types and the Studio still shows the marker. Both summary fields do this; keep them in
+  step, and keep the comment explaining why, because the shorter spelling will look like an
+  obvious simplification to whoever reads it next.
 
 Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
 the repo root. It stays there rather than joining `promote.mjs` in `studio/` because the two

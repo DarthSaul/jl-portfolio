@@ -202,6 +202,35 @@
   --color-link: #057dbc; /* {colors.link} — inline body links ONLY, never nav or buttons */
 
   /*
+   * A deep maroon, and **a deliberate reversal of DESIGN.md**, which is worth stating plainly
+   * because the spec could not be more explicit against it. Line 493: "Don't introduce a
+   * chromatic brand accent. The link blue is reserved for inline body links inside articles
+   * only." Its Brand & Accent section names ink black as "the brand's only 'accent'". The
+   * palette it ships has exactly one chromatic value in it, and that one is spoken for.
+   *
+   * So this is not an oversight being corrected, it is a spec being overruled — which CLAUDE.md
+   * allows, since DESIGN.md is the replaceable half. Recorded rather than quietly added.
+   *
+   * ## Where it may appear
+   *
+   * The READ MORE affordance on /writing, and nothing else yet. It is an accent in the strict
+   * sense: a colour that marks one small recurring thing, not a second brand colour to
+   * distribute. Reach for `ink` first every time; adding a third call site is a design decision
+   * and should look like one.
+   *
+   * ## Why this shade
+   *
+   * Picked on measured contrast rather than by eye, against `canvas` #fffaf0:
+   *   - 9.4:1 — past AA for small text (4.5) and past AAA (7), which matters because the one
+   *     place it is used renders at 12px.
+   *   - 2.15:1 against `ink`. That is the number that stops it being a pointlessly dark red:
+   *     deeper candidates measured 1.6-1.9 against black, where at 12px they simply read as a
+   *     slightly-off ink rather than as a colour.
+   * Both hold on `canvas-soft` too (8.6:1).
+   */
+  --color-accent: #7b2436; /* NOT from DESIGN.md — see above */
+
+  /*
    * The two departures. `canvas-soft` is derived rather than picked: DESIGN.md steps
    * #ffffff -> #f5f5f5, which is a ~96% multiplier per channel, and the same multiplier
    * against #fffaf0 gives #f5f0e7. Keeping the step means the pair stays as related as the
@@ -430,7 +459,7 @@
 /*
  * The gutter, set once on <main> and on the sidebar's own strips.
  *
- * Before the sidenav, five pages and `writing/ListItem.vue` each declared their own
+ * Before the sidenav, five pages and `writing/Row.vue` each declared their own
  * `mx-auto max-w-[…] px-5` — six places to keep in step — and the front page's photo row
  * escaped them by simply not being inside one. Now the shell owns the horizontal padding and
  * pages own only vertical rhythm and, for prose, `max-w-read`.
@@ -459,8 +488,22 @@
 }
 
 /*
- * DESIGN.md's `story-row` — a hairline under each entry in a list of writing — is deliberately
- * not implemented. /writing was built on it and the dividers read as heavier than that page
- * wants; space separates the rows instead. Re-add it here if a list ever needs the rule back,
- * rather than writing the border at a call site.
+ * DESIGN.md's `story-row` — a hairline under each entry in a list of writing, and the spec's
+ * only elevation cue for one.
+ *
+ * This was deliberately unimplemented for a while, and the reasoning was sound at the time:
+ * /writing had been built on the rule, seven identical rows separated by seven identical
+ * hairlines read as heavier than that page wanted, and space alone did the job better. What
+ * changed is the page, not the verdict. /writing now leads with one story and lists the rest
+ * beneath it, so the rows are a ledger under a heavier 2px rule rather than the whole page —
+ * and a ledger wants the tighter rhythm a divider allows. Space alone at ledger spacing reads
+ * as one run-on block.
+ *
+ * Border and padding only, no typography. DESIGN.md pairs `story-row` with `body-md-strong`,
+ * but type on this site is set by a `type-*` utility at the call site, and baking a family and
+ * a size into a layout utility would put two of them on the same element fighting over it.
  */
+@utility story-row {
+  padding-block: 1rem; /* {spacing.lg} 16px — DESIGN.md's story-row padding */
+  border-bottom: 1px solid var(--color-hairline);
+}

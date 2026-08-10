@@ -207,17 +207,29 @@ useHead(() => ({
         no photo document to read one off. Both are things `SanityPhoto` would have done.
 
         `max-h` rather than a fixed `h`/`w` pair, per CLAUDE.md's bound-vs-crop line — the
-        image's own square survives, so the cap is the only number here and the width follows
-        it, inside a 176px column. The `width`/`height` pair has to keep matching the file: it
-        is square now and was 2:3 before, and a stale pair reserves the wrong box and shifts
-        everything below it as the image loads.
+        image's own proportions survive, so the cap is the only number decided here and the
+        width follows from it: 196×250 renders ~98px wide inside a 176px column.
+
+        **`width`/`height` must be re-measured from the file every time it changes, not
+        carried over.** They have been wrong once already — they said 1254×1254 against an
+        848×1082 file, because the image was swapped and the old square was assumed rather
+        than checked. A stale pair reserves the wrong box and shifts the socials and the
+        copyright as the portrait loads, and nothing errors to say so.
+
+        The file is stored at 250px on its long side, twice the cap, so it is sharp on a 2×
+        screen and not a pixel wider. Nothing in `web/public/` is processed at build time — no
+        srcset, no format negotiation, no resizing — so the file on disk is exactly what every
+        visitor downloads, and it is the only place that size can be decided. Raising the cap
+        means re-exporting the source, not editing this line. Resize with `sips -Z 250`, which
+        fits within the bound; lowercase `-z` takes an exact width and height and will happily
+        squash the picture to reach them.
       -->
 			<div class="mt-12 lg:mt-auto lg:pt-12">
 				<img
 					src="/joan-animated.png"
 					alt="Illustrated portrait of Joan Lebow"
-					width="1254"
-					height="1254"
+					width="196"
+					height="250"
 					class="max-h-[125px] w-auto"
 				/>
 			</div>

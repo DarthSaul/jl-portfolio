@@ -2,13 +2,19 @@
 import type { PhotoProjection } from '~/queries/photo'
 
 /**
- * The only <img> in the app.
+ * The only <img> in the app that renders a photograph.
  *
  * CLAUDE.md requires every photograph on the site to render through one component, so that
  * srcset, lazy loading, the blur-up placeholder and aspect-ratio reservation are decided in a
  * single place for ~250 photos on a phone connection. This is that place, and now the whole of
  * it — `SitePhoto`, the static stand-in that served /writing while it was on Unsplash
- * placeholders, died with that page's query. `grep -rn "<img" web/app` finds one tag, here.
+ * placeholders, died with that page's query.
+ *
+ * `grep -rn "<img" web/app` finds **two** tags: this one, and the illustrated portrait in
+ * `SiteSidebar.vue`. The second is chrome shipped as a static file in `web/public/`, with no
+ * Sanity asset behind it and therefore nothing for any of the four features above to read. The
+ * rejected alternative — teaching this component to also accept a bare URL — is written up at
+ * that call site. A third hit that *is* a photograph is a bug.
  *
  * Two things a caller deliberately cannot do:
  *

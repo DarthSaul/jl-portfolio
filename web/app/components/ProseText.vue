@@ -8,7 +8,7 @@ import type { ProseText } from '~~/sanity.types'
  * The rendering is delegated to `SanityContent`, which `@nuxtjs/sanity` bundles and
  * auto-registers. That is not a new dependency and not a step towards long-form writing in the
  * CMS: `proseText` allows one style, two decorators and one annotation, and CLAUDE.md's ban is
- * on rich-text *article bodies*, which is what /writing links out to other sites for.
+ * on rich-text *article bodies*, which is what /copy links out to other sites for.
  *
  * It is worth saying why this is not hand-rolled, given how small the allowed subset is. Marks
  * in Portable Text are a flat array of ids on each span, and turning that back into correctly

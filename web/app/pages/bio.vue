@@ -23,7 +23,7 @@ import { ABOUT_QUERY } from '~/queries/about';
  * `aboutPage` is a singleton the Studio will not let her delete, so a missing document means
  * the dataset is wrong — the wrong name, or one never seeded. It throws rather than rendering
  * an empty page, the same call `pages/index.vue` makes and for the same reason. That is the
- * difference from /writing, where the missing singleton only costs an optional intro.
+ * difference from /copy, where the missing singleton only costs an optional intro.
  */
 const { data: about, error } = await useSanityQuery(ABOUT_QUERY);
 
@@ -37,7 +37,8 @@ const { data: about, error } = await useSanityQuery(ABOUT_QUERY);
 if (error.value) {
 	throw createError({
 		statusCode: 502,
-		statusMessage:
+		statusMessage: 'Bad Gateway',
+		message:
 			'Could not reach Sanity — see the logged cause. If this appears only after ' +
 			"navigating between pages, this origin is missing from the project's CORS allowlist.",
 		fatal: true,

@@ -10,14 +10,22 @@ import {SINGLETON_TYPES, structure} from './structure'
 const SINGLETON_BLOCKED_ACTIONS = new Set(['delete', 'duplicate', 'unpublish'])
 
 /**
- * Rule 1: one photograph is one record with one alt text. Duplicating a photo makes two
- * records for the same photograph, and their alt texts drift apart the first time she
- * fixes a typo in one of them.
+ * Types whose whole job is to be *the* record for one thing, so a second copy is never what
+ * she meant. Duplicate is removed from both.
  *
- * Deleting a photo that a gallery references is already blocked by Sanity, so reference
- * integrity needs nothing extra here.
+ * `photo` is Rule 1: one photograph is one record with one alt text, and two records for the
+ * same photograph drift apart the first time she fixes a typo in one of them.
+ *
+ * `tag` is the same shape of mistake with a different symptom. Duplicate copies the slug
+ * verbatim, so two tag documents end up claiming one web address: the filter row on /shots/all
+ * shows the same word twice, each showing half the photographs, and **nothing errors** — the
+ * slug's uniqueness check runs on the document she is editing, not on the copy Duplicate made
+ * for her. A tag is cheap to create from scratch and there is nothing on one worth copying.
+ *
+ * Deleting a photo or a tag that something references is already blocked by Sanity, so
+ * reference integrity needs nothing extra here.
  */
-const NO_DUPLICATE_TYPES = new Set(['photo'])
+const NO_DUPLICATE_TYPES = new Set(['photo', 'tag'])
 
 export default defineConfig({
   name: 'default',

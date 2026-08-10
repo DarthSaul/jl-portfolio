@@ -4,7 +4,7 @@ import type { ABOUT_QUERY_RESULT } from '~~/sanity.types'
 type AboutPage = NonNullable<ABOUT_QUERY_RESULT>
 
 /**
- * The heading and introduction at the top of /about. DESIGN.md's `hero-band`.
+ * The heading and introduction at the top of /bio. DESIGN.md's `hero-band`.
  *
  * The headline in `display-hero` — Playfair at 64px, the spec's most-recognisable typographic
  * signature — and the introduction in the serif body face beneath it, one step larger than the

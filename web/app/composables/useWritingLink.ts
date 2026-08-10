@@ -16,7 +16,7 @@ export type WritingItem = WRITING_QUERY_RESULT['items'][number]
  * It returns the props for a `<component :is>` rather than a URL, because the two destinations
  * are not the same element — an internal route wants `NuxtLink` and its client-side navigation,
  * an external one wants a plain `<a>` with `rel="noopener"`. A single `href` string would have
- * given /writing full page loads.
+ * given /copy full page loads.
  *
  * The union is discriminated on `_type` because `WRITING_QUERY` projects `slug` or `url`
  * conditionally beside it: `url` and `publication` exist only on an `article`, `slug` only on a
@@ -25,13 +25,17 @@ export type WritingItem = WRITING_QUERY_RESULT['items'][number]
  * Lived inside `writing/ListItem.vue` until the redesign split that row into `writing/Lead.vue`
  * and `writing/Row.vue` and both needed it. `components/home/FeaturedWriting.vue` still carries
  * its own copy — it renders the same union on the front page and should adopt this, but that is
- * a change to the front page and did not ride along with /writing.
+ * a change to the front page and did not ride along with /copy.
+ *
+ * The route is `/copy` now, not `/writing`. The document types are still `post` and `article`
+ * and this file is still `useWritingLink` — only her words and the addresses moved, and
+ * renaming a Sanity document type is a content migration bought with nothing.
  */
 export function useWritingLink(item: MaybeRefOrGetter<WritingItem>) {
   return computed(() => {
     const value = toValue(item)
     return value._type === 'article'
       ? { is: 'a', href: value.url, target: '_blank', rel: 'noopener' }
-      : { is: NuxtLink, to: `/writing/${value.slug}` }
+      : { is: NuxtLink, to: `/copy/${value.slug}` }
   })
 }

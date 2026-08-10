@@ -3,7 +3,8 @@ import { defineQuery } from 'groq'
 import { PHOTO_PROJECTION } from './photo'
 
 /**
- * /writing — the COPY tab, in one request.
+ * /copy — the COPY tab, in one request. The route and her word for it are `copy`; the document
+ * types behind it are still `post`, `article` and `writingPage`.
  *
  * Two things come back: the optional page wrapper, and the list itself.
  *
@@ -27,18 +28,48 @@ import { PHOTO_PROJECTION } from './photo'
  * page, so the route falls back rather than failing. It does not currently exist in
  * `development`.
  */
+/**
+ * One entry in her writing, wherever it is listed.
+ *
+ * Extracted for the reason `PHOTO_PROJECTION` was: it now appears three times — the ledger
+ * below, the featured piece beside it, and `featuredWriting` on the front page — and three
+ * copies of a conditional projection is how a list and a card start disagreeing about whether
+ * an article carries its publication. The comment this replaces said the front page's copy was
+ * "deliberately the same shape, and a difference between them would be a difference to maintain
+ * rather than a decision"; that was true and the honest conclusion is that it should not have
+ * been a copy.
+ *
+ * The `_type ==` conditionals are what makes the result a discriminated union: `url` and
+ * `publication` exist only on an `article`, `slug` only on a `post`, so `useWritingLink` can
+ * decide the destination from `_type` and reading either off the wrong branch is a type error.
+ */
+export const WRITING_ITEM_PROJECTION = `
+  _id,
+  _type,
+  title,
+  publishedAt,
+  summary,
+  coverPhoto->{ ${PHOTO_PROJECTION} },
+  _type == "article" => { url, publication },
+  _type == "post" => { "slug": slug.current }
+`
+
+/**
+ * `featured` is dereferenced into the same shape as an item, so the page can hand either to
+ * `writing/Lead.vue` without a branch. It is optional in the schema, so this is `null` whenever
+ * she has not chosen one — and null is what the page falls back to `items[0]` on. `writingPage`
+ * itself being absent produces the same null by a different route, which is why no third case
+ * is needed.
+ */
 export const WRITING_QUERY = defineQuery(`
   {
-    "page": *[_type == "writingPage"][0]{ title, intro },
-    "items": *[_type in ["post", "article"]] | order(publishedAt desc){
-      _id,
-      _type,
+    "page": *[_type == "writingPage"][0]{
       title,
-      publishedAt,
-      summary,
-      coverPhoto->{ ${PHOTO_PROJECTION} },
-      _type == "article" => { url, publication },
-      _type == "post" => { "slug": slug.current }
+      intro,
+      featured->{ ${WRITING_ITEM_PROJECTION} }
+    },
+    "items": *[_type in ["post", "article"]] | order(publishedAt desc){
+      ${WRITING_ITEM_PROJECTION}
     }
   }
 `)

@@ -2,7 +2,6 @@ import {ImagesIcon} from '@sanity/icons/Images'
 import {defineArrayMember, defineField, defineType} from 'sanity'
 
 import {excludeAlreadyChosen} from '../photoPicker'
-import {PHOTO_TAGS} from './photo'
 
 /**
  * RULE 2. Every value here must have a matching component in
@@ -42,7 +41,10 @@ export default defineType({
 
   validation: (rule) =>
     rule.custom((doc) => {
-      const hasTag = Boolean(doc?.tag)
+      // `._ref`, not the field itself. `tag` is a reference now, and a half-cleared reference
+      // is an empty object — `Boolean({})` is `true`, so testing the field would report a tag
+      // on a gallery that has none and refuse to let her save the photo list she just picked.
+      const hasTag = Boolean((doc?.tag as {_ref?: string} | undefined)?._ref)
       const hasPhotos = Array.isArray(doc?.photos) && doc.photos.length > 0
 
       if (hasTag && hasPhotos) {
@@ -78,13 +80,13 @@ export default defineType({
       options: {source: 'title', maxLength: 96},
       validation: (rule) => [
         rule.required(),
-        // `/shots/everything` is a real page in the app — the index of everything she has
+        // `/shots/all` is a real page in the app — the index of everything she has
         // uploaded — and a static route beats a dynamic one, so a gallery claiming this slug
         // would build fine, publish fine, and then be permanently unreachable with nothing
         // anywhere saying why. Caught here because this is the only place it is knowable.
         rule.custom((slug) =>
-          slug?.current === 'everything'
-            ? '“everything” is used by another page on the site. Try another address.'
+          slug?.current === 'all'
+            ? '“all” is used by another page on the site. Try another address.'
             : true,
         ),
       ],
@@ -115,14 +117,20 @@ export default defineType({
     defineField({
       name: 'tag',
       title: 'Fill from a tag',
-      type: 'string',
+      type: 'reference',
+      to: [{type: 'tag'}],
       description:
         'Optional. Pick a tag and this gallery shows every photo carrying it, newest first — ' +
         'tag a new photo and it appears here on its own, with nothing to update. ' +
         'Leave this empty to choose the photos yourself instead.',
-      // A dropdown rather than the radio list `preset` uses: eleven tags is too many for a
-      // radio column, and unlike a preset this one legitimately has an empty state.
-      options: {list: PHOTO_TAGS},
+      // A reference rather than a value from a fixed list, since the vocabulary is hers now.
+      // It also removes a failure mode rather than just moving one: a string field could hold
+      // `""`, which the Studio treated as empty while GROQ's `defined("")` reported `true`, so
+      // `queries/shots.ts` needed a two-term guard to reconcile them. A reference is either set
+      // or unset. See the note there.
+      //
+      // No `excludeAlreadyChosen`: that filter reads its `parent` as a surrounding array, and
+      // this is a single field. There is nothing to exclude anyway.
     }),
 
     defineField({
@@ -135,7 +143,10 @@ export default defineType({
       options: {layout: 'grid'},
       // The mode switch. Hidden rather than disabled, so there is one visible answer to
       // "where do the photos come from" instead of two fields and a rule to remember.
-      hidden: ({parent}) => Boolean(parent?.tag),
+      // `._ref` for the reason the document-level rule above uses it: a half-cleared reference
+      // is `{}`, and `Boolean({})` is `true`, which would hide the photo list on a gallery that
+      // has no tag and leave her with neither field on screen.
+      hidden: ({parent}) => Boolean((parent?.tag as {_ref?: string} | undefined)?._ref),
       of: [
         defineArrayMember({
           type: 'reference',
@@ -167,16 +178,17 @@ export default defineType({
     select: {
       title: 'title',
       preset: 'preset',
-      tag: 'tag',
+      // preview.select follows references, so this reads the name straight off the tag
+      // document. It used to be `tag: 'tag'` plus a `PHOTO_TAGS.find` below to turn the stored
+      // value into a label — with the vocabulary in documents there is nothing to look up.
+      tagTitle: 'tag.title',
       photos: 'photos',
-      // preview.select follows references, so this resolves the first referenced photo
-      // document and reads its image off it. Rule 1 holds: the gallery still stores
-      // nothing but references.
+      // The same dereference, resolving the first referenced photo document and reading its
+      // image off it. Rule 1 holds: the gallery still stores nothing but references.
       media: 'photos.0.image',
     },
-    prepare({title, preset, tag, photos, media}) {
+    prepare({title, preset, tagTitle, photos, media}) {
       const presetTitle = LAYOUT_PRESETS.find((option) => option.value === preset)?.title
-      const tagTitle = PHOTO_TAGS.find((option) => option.value === tag)?.title
 
       // A tag-filled gallery cannot show a count or a cover here. `preview.select` reads
       // fields off this one document and cannot run a query, so the photographs it will
@@ -190,7 +202,7 @@ export default defineType({
       return {
         title,
         subtitle: [source, presetTitle?.split(' — ')[0]].filter(Boolean).join(' · '),
-        media: tag ? undefined : media,
+        media: tagTitle ? undefined : media,
       }
     },
   },

@@ -56,11 +56,11 @@ const cards = computed(() =>
 		link:
 			item._type === 'article'
 				? { is: 'a', href: item.url, target: '_blank', rel: 'noopener' }
-				: { is: NuxtLink, to: `/writing/${item.slug}` },
+				: { is: NuxtLink, to: `/copy/${item.slug}` },
 	})),
 );
 
-// `formatDate` is auto-imported from `~/utils/date` — /writing needs the same formatting, and
+// `formatDate` is auto-imported from `~/utils/date` — /copy needs the same formatting, and
 // the UTC pin it carries is the reason it is shared rather than repeated.
 </script>
 
@@ -116,7 +116,7 @@ const cards = computed(() =>
 					<!-- "Read more" is meaningless out of context, and a screen reader can pull links
                out of context. The aria-label names the destination.
 
-               `body-sm-strong` in caps is also what /writing's row uses, so the two lists say
+               `body-sm-strong` in caps is also what /copy's row uses, so the two lists say
                "read more" the same way. -->
 					<component
 						:is="link.is"

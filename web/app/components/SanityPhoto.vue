@@ -2,13 +2,19 @@
 import type { PhotoProjection } from '~/queries/photo'
 
 /**
- * The only <img> in the app.
+ * The only <img> in the app that renders a photograph.
  *
  * CLAUDE.md requires every photograph on the site to render through one component, so that
  * srcset, lazy loading, the blur-up placeholder and aspect-ratio reservation are decided in a
  * single place for ~250 photos on a phone connection. This is that place, and now the whole of
- * it — `SitePhoto`, the static stand-in that served /writing while it was on Unsplash
- * placeholders, died with that page's query. `grep -rn "<img" web/app` finds one tag, here.
+ * it — `SitePhoto`, the static stand-in that served /copy while it was on Unsplash
+ * placeholders, died with that page's query.
+ *
+ * `grep -rn "<img" web/app` finds **two** tags: this one, and the illustrated portrait in
+ * `SiteSidebar.vue`. The second is chrome shipped as a static file in `web/public/`, with no
+ * Sanity asset behind it and therefore nothing for any of the four features above to read. The
+ * rejected alternative — teaching this component to also accept a bare URL — is written up at
+ * that call site. A third hit that *is* a photograph is a bug.
  *
  * Two things a caller deliberately cannot do:
  *
@@ -47,11 +53,11 @@ import type { PhotoProjection } from '~/queries/photo'
  * known, so offering the full-size ladder would quietly hand a phone a 2000px file to paint a
  * 92px square.
  *
- *  - **`square`** — preview thumbnails. /writing's ledger lists each piece behind one at 72px
+ *  - **`square`** — preview thumbnails. /copy's ledger lists each piece behind one at 72px
  *    on a phone and 92px above it, so the largest worth sending is a 384px square, a 3x phone.
  *    The bottom rung sits a little above the 1x phone size rather than on it, deliberately:
  *    adding a rung per call site is how one ladder becomes several.
- *  - **`lead`** — the cover of the lead story on /writing, 300×200 in its column. The ladder
+ *  - **`lead`** — the cover of the lead story on /copy, 300×200 in its column. The ladder
  *    runs well past 300 because this is the one crop that goes full-width on a phone, where
  *    `sizes` resolves to 100vw and a 3x device wants ~1300px.
  */

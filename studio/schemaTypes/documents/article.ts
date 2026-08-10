@@ -9,12 +9,12 @@ import {defineField, defineType} from 'sanity'
  * site that published it — the New York Times, HuffPost — and copying that text here
  * would be republishing someone else's page. `post` is for writing that lives here.
  *
- * Called "Writing link" in the Studio so it reads as what it is: a link, not an essay
+ * Called "Copy link" in the Studio so it reads as what it is: a link, not an essay
  * she is expected to write here.
  */
 export default defineType({
   name: 'article',
-  title: 'Writing link',
+  title: 'Copy link',
   type: 'document',
   icon: LinkIcon,
 
@@ -47,7 +47,7 @@ export default defineType({
       name: 'publishedAt',
       title: 'Date published',
       type: 'date',
-      description: 'The Writing page lists the newest first, so this decides the order.',
+      description: 'The Copy page lists the newest first, so this decides the order.',
       initialValue: () => new Date().toISOString().slice(0, 10),
       validation: (rule) => rule.required(),
     }),
@@ -58,7 +58,7 @@ export default defineType({
       type: 'text',
       rows: 2,
       description:
-        'Recommended. Shown under the headline on the Writing page — it is what tells ' +
+        'Recommended. Shown under the headline on the Copy page — it is what tells ' +
         'someone whether to follow the link.',
       // Warning, never an error, and a `custom()` rather than `required().warning()` — the
       // latter would make typegen type this field non-optional. The full reasoning is on the
@@ -79,7 +79,7 @@ export default defineType({
       type: 'reference',
       to: [{type: 'photo'}],
       description:
-        'Optional, and a landscape (wide) photo works best — the Writing page crops it from ' +
+        'Optional, and a landscape (wide) photo works best — the Copy page crops it from ' +
         'the centre, so a tall photo loses its top and bottom. Shown beside this link where ' +
         'it is listed. Leave it empty if none of your photos suit it; the headline and date ' +
         'show on their own.',

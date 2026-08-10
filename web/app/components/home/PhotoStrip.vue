@@ -65,8 +65,12 @@ const slots = computed(() => props.photos.filter(slot => slot.photo))
 
 <template>
   <section>
-    <PresetsGalleryGrid :photos="slots.map(slot => slot.photo)">
-      <template #default="{ photo, index }">
+    <!-- `:captions="false"` is the one opt-out on the site. The grid captions photographs by
+         default because a gallery shows what she wrote about them; here it is borrowed as a
+         layout for five links into her galleries, and a caption under each would compete with
+         the featured writing directly below. The band on hover already names the destination. -->
+    <PresetsGalleryGrid :photos="slots.map(slot => slot.photo)" :captions="false">
+      <template #default="{ photo, index, sizes }">
         <!-- `slots[index]` rather than a lookup by `_id`: the grid renders the array it was
              given, in order, so the index is exact and a photograph appearing twice could not
              be told apart by id anyway. The schema forbids that duplication, but the index is
@@ -77,10 +81,7 @@ const slots = computed(() => props.photos.filter(slot => slot.photo))
           :aria-label="`${slots[index].gallery.title} — see the photos`"
           class="group relative block"
         >
-          <SanityPhoto
-            :photo="photo"
-            sizes="(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw"
-          />
+          <SanityPhoto :photo="photo" :sizes="sizes" />
 
           <!--
             The band that names where this photograph goes.
@@ -113,11 +114,7 @@ const slots = computed(() => props.photos.filter(slot => slot.photo))
           </div>
         </NuxtLink>
 
-        <SanityPhoto
-          v-else
-          :photo="photo"
-          sizes="(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw"
-        />
+        <SanityPhoto v-else :photo="photo" :sizes="sizes" />
       </template>
     </PresetsGalleryGrid>
   </section>

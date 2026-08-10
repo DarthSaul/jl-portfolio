@@ -14,7 +14,7 @@ import { GALLERY_QUERY } from '~/queries/shots'
  *
  * The title is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`.
  *
- * A slug with no gallery is a genuine 404, like `/writing/[slug]`. Nothing guarantees this
+ * A slug with no gallery is a genuine 404, like `/copy/[slug]`. Nothing guarantees this
  * document exists — the address may be one she changed, and the schema warns her that changing
  * a slug breaks links already shared.
  */
@@ -32,7 +32,8 @@ const { data: gallery, error } = await useSanityQuery(GALLERY_QUERY, {
 if (error.value) {
   throw createError({
     statusCode: 502,
-    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
+    statusMessage: 'Bad Gateway',
+    message: 'Could not reach Sanity — see the logged cause. If this appears only after '
       + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
     fatal: true,
     cause: error.value,
@@ -61,27 +62,79 @@ const PRESETS = {
   stack: PresetsGalleryStack,
 } satisfies Record<NonNullable<typeof doc>['preset'], unknown>
 
-useHead({ title: doc.title })
+/**
+ * The showcase — one photograph, alone, at `?photo=<_id>`.
+ *
+ * A gallery needs no second query for it. `GALLERY_QUERY` returns the whole `photos` array in
+ * both fill modes, unpaged, so the id always resolves out of the list already on the page and
+ * previous/next are simply its neighbours. `/shots/all` is the one that has to fetch, because
+ * it pages.
+ *
+ * `photos` is a `computed` rather than `gallery.value.photos` directly, because the composable
+ * takes a ref and reads it on every navigation.
+ */
+const photos = computed(() => gallery.value?.photos ?? [])
+const showcase = usePhotoShowcase(photos)
+
+useHead({
+  // A showcased photograph titles the page, so a link someone shares says what it is rather
+  // than repeating the gallery. `caption || alt` is the fallback chain `photo.ts`'s Studio
+  // preview already uses, so no new naming rule is invented here.
+  title: computed(() =>
+    showcase.inList.value
+      ? showcase.inList.value.caption || showcase.inList.value.alt
+      : doc.title,
+  ),
+})
 
 // `description` is the share blurb, which the schema tells her is not shown on the page.
-useSeoMeta({ description: doc.description || undefined })
+useSeoMeta({
+  description: doc.description || undefined,
+  // The same photograph is showcasable from every gallery it appears in and from the index, so
+  // indexing them would be a set of near-duplicates competing with each other. Same reason
+  // `/shots/all` noindexes its filtered views.
+  robots: computed(() => (showcase.isOpen.value ? 'noindex, follow' : null)),
+})
 </script>
 
 <template>
   <div v-if="gallery" class="space-y-10">
+    <!-- The heading stays above the showcase, so the outline is the same whether one photograph
+         is open or all of them are. `tabindex="-1"` is not decoration: it is where focus lands
+         when the showcase closes and the tile that opened it cannot be found. -->
     <header class="max-w-read">
-      <h2 class="type-display-lg text-ink">
+      <h2 tabindex="-1" class="type-display-lg text-ink outline-none">
         {{ gallery.title }}
       </h2>
     </header>
 
-    <component :is="PRESETS[gallery.preset]" :photos="gallery.photos ?? []" />
+    <!-- `v-if`/`v-else`, so "all other photos hidden" means what it says. A `v-show` would leave
+         the whole gallery in the DOM behind `display: none`, and the scroll position it collapses
+         is restored by the composable either way. -->
+    <ShotsPhotoShowcase
+      v-if="showcase.isOpen.value"
+      :photo="showcase.inList.value"
+      :close-to="showcase.closeTo.value"
+      :previous-to="showcase.previous.value ? showcase.openTo(showcase.previous.value._id) : null"
+      :next-to="showcase.next.value ? showcase.openTo(showcase.next.value._id) : null"
+    />
 
-    <!-- A gallery pointed at a tag nothing carries yet is a real and temporary state — she can
-         make the page before she has tagged the photographs for it. Saying so beats a heading
-         floating over nothing, and it is not an error. -->
-    <p v-if="!gallery.photos?.length" class="type-body-serif-lg max-w-read text-muted">
-      No photos here yet.
-    </p>
+    <template v-else>
+      <!-- One slot for either preset — both declare it, which is what makes `<component :is>`
+           safe here. Each photograph becomes a link to itself; the caption the preset renders
+           stays outside that link. -->
+      <component :is="PRESETS[gallery.preset]" :photos="photos">
+        <template #default="{ photo, sizes }">
+          <ShotsPhotoLink :photo="photo" :sizes="sizes" :to="showcase.openTo(photo._id)" />
+        </template>
+      </component>
+
+      <!-- A gallery pointed at a tag nothing carries yet is a real and temporary state — she can
+           make the page before she has tagged the photographs for it. Saying so beats a heading
+           floating over nothing, and it is not an error. -->
+      <p v-if="!photos.length" class="type-body-serif-lg max-w-read text-muted">
+        No photos here yet.
+      </p>
+    </template>
   </div>
 </template>

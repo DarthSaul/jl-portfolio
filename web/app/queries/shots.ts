@@ -28,27 +28,33 @@ import { PHOTO_PROJECTION } from './photo'
  * up: with a hand-picked list she drags photos into the order she wants, and with a tag the
  * order is computed. That is the trade the mode makes, not an oversight.
  *
- * ## `defined(tag)` alone is not the test, and an empty string is why
+ * ## The empty-string trap is gone, and it went with the string
  *
- * `defined("")` is true — verified against the live dataset — so a `tag` cleared to an empty
- * string rather than unset takes the tag branch, and `"" in tags` is false for every photo. The
- * page comes out empty, which is indistinguishable from a tag nothing carries yet.
+ * This test used to be `defined(tag) && tag != ""`, and the second term was load-bearing:
+ * `defined("")` is true, so a `tag` cleared to an empty string rather than unset took the tag
+ * branch and matched no photograph, producing a page indistinguishable from a tag nothing
+ * carried yet. Worse, the Studio read the same value the opposite way — it hid the photo list
+ * on `Boolean(parent?.tag)`, which is false at `""` — so the form showed her photographs and
+ * the site showed none, with nothing anywhere saying why.
  *
- * The Studio has already made its own decision about that value and it is the opposite one:
- * `gallery.ts` hides the photo list on `Boolean(parent?.tag)` and validates on `Boolean(doc?.tag)`,
- * so at `""` it shows her the hand-picked list and raises nothing. Without the second term here
- * the two halves disagree — she sees her photos in the form and an empty page on the site, with
- * nothing anywhere saying why. `tag != ""` is what keeps the query reading the field the same
- * way the Studio does.
+ * `tag` is a reference now, and a reference has no empty-string state: clearing it unsets the
+ * field. So `defined(tag._ref)` is exact on its own, and the Studio's `Boolean(parent?.tag._ref)`
+ * and this test read the field the same way **by construction** rather than by two workarounds
+ * that happen to agree. The history is kept because the shape of that bug — two halves of the
+ * system disagreeing about what "empty" means, silently — is the thing to watch for next time,
+ * not the specific string.
+ *
+ * `references(^.tag._ref)` replaces `^.tag in tags` and is index-backed. `tag` is dropped from
+ * the projection: nothing on the page rendered it, and as a reference it would come back as
+ * `{_ref, _type}` rather than anything useful.
  */
 export const GALLERY_QUERY = defineQuery(`
   *[_type == "gallery" && slug.current == $slug][0]{
     title,
     description,
     preset,
-    tag,
     "photos": select(
-      defined(tag) && tag != "" => *[_type == "photo" && ^.tag in tags]
+      defined(tag._ref) => *[_type == "photo" && references(^.tag._ref)]
         | order(dateTaken desc, _createdAt desc){ ${PHOTO_PROJECTION} },
       photos[]->{ ${PHOTO_PROJECTION} }
     )

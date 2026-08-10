@@ -13,8 +13,8 @@ import { NAV_QUERY } from '~/queries/nav'
  * ## Active state, and the bug this fixes
  *
  * This used to be `aria-[current=page]:text-accent` and nothing else, leaning on NuxtLink to
- * set `aria-current`. It does — but only on an *exact* path match. `/writing/:slug()` is a
- * sibling route record rather than a child of `/writing`, so on a post page **no nav item was
+ * set `aria-current`. It does — but only on an *exact* path match. `/copy/:slug()` is a
+ * sibling route record rather than a child of `/copy`, so on a post page **no nav item was
  * highlighted at all**. Under a centred horizontal bar that was easy to miss; under a sidenav
  * that sits beside the reader the whole time, it reads as broken.
  *
@@ -32,7 +32,7 @@ const route = useRoute()
 /**
  * Prefix matching, with `/` as the one exception.
  *
- * The general rule exists because `/writing/<slug>` should light WRITING — vue-router only sets
+ * The general rule exists because `/copy/<slug>` should light COPY — vue-router only sets
  * `aria-current` on an exact match, so a post page would otherwise highlight nothing.
  *
  * `/` is exact for the obvious reason: every path starts with it.
@@ -85,8 +85,8 @@ const PINNED_FIRST = 'life'
 /**
  * The sub-nav under START: the pinned gallery, then the rest, then the index.
  *
- * EVERYTHING is added in code rather than fetched, because it is a route we ship and not
- * content she made — the same reason the four top-level items live in `content/site.ts`. It is
+ * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not
+ * content she made — the same reason the top-level items live in `content/site.ts`. It is
  * also why it survives a Sanity outage along with them: `data` failing empties the galleries
  * and leaves this one standing.
  *
@@ -116,7 +116,7 @@ const subNav = computed(() => {
   return [
     ...pinned,
     ...rest,
-    { key: 'everything', title: 'Everything', to: '/shots/everything', slug: 'everything' },
+    { key: 'all', title: 'All Shots', to: '/shots/all', slug: 'all' },
   ]
 })
 

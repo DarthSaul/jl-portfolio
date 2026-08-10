@@ -11,12 +11,12 @@ import {proseBlock} from '../objects/proseText'
  * Her Squarespace site holds about fifteen of these, and they die with it — there is no
  * other site to link to, which is why this type exists at all.
  *
- * Called "Writing post" in the Studio so it sits next to "Writing link" and the difference
+ * Called "Copy post" in the Studio so it sits next to "Copy link" and the difference
  * reads as what it is: lives here, or lives elsewhere.
  */
 export default defineType({
   name: 'post',
-  title: 'Writing post',
+  title: 'Copy post',
   type: 'document',
   icon: DocumentTextIcon,
 
@@ -33,7 +33,7 @@ export default defineType({
       title: 'Web address',
       type: 'slug',
       description:
-        'The end of this post’s address, e.g. “sweet-15” makes /writing/sweet-15. ' +
+        'The end of this post’s address, e.g. “sweet-15” makes /copy/sweet-15. ' +
         'Press Generate to make one from the headline. Changing it later breaks any link ' +
         'someone has already shared.',
       options: {source: 'title', maxLength: 96},
@@ -77,7 +77,7 @@ export default defineType({
       type: 'reference',
       to: [{type: 'photo'}],
       description:
-        'Optional, and a landscape (wide) photo works best — the Writing page crops it from ' +
+        'Optional, and a landscape (wide) photo works best — the Copy page crops it from ' +
         'the centre, so a tall photo loses its top and bottom. Shown beside this post where ' +
         'it is listed, not on the post itself; put photos in the writing below for that.',
     }),
@@ -86,7 +86,7 @@ export default defineType({
       name: 'publishedAt',
       title: 'Date published',
       type: 'date',
-      description: 'Writing is listed newest first, so this decides the order.',
+      description: 'Copy is listed newest first, so this decides the order.',
       initialValue: () => new Date().toISOString().slice(0, 10),
       validation: (rule) => rule.required(),
     }),

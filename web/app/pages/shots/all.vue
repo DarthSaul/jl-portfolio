@@ -96,7 +96,8 @@ const { data, error } = await useSanityQuery(ALL_SHOTS_QUERY, params)
 if (error.value) {
   throw createError({
     statusCode: 502,
-    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
+    statusMessage: 'Bad Gateway',
+    message: 'Could not reach Sanity — see the logged cause. If this appears only after '
       + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
     fatal: true,
     cause: error.value,

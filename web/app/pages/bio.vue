@@ -37,7 +37,8 @@ const { data: about, error } = await useSanityQuery(ABOUT_QUERY);
 if (error.value) {
 	throw createError({
 		statusCode: 502,
-		statusMessage:
+		statusMessage: 'Bad Gateway',
+		message:
 			'Could not reach Sanity — see the logged cause. If this appears only after ' +
 			"navigating between pages, this origin is missing from the project's CORS allowlist.",
 		fatal: true,

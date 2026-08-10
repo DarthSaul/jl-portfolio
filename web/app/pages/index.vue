@@ -41,11 +41,33 @@ const { data: home, error } = await useSanityQuery(HOME_QUERY);
  * Vercel. A failure on client-side navigation never touches the server, so it is in the
  * browser console instead — and since that is exactly the CORS case above, it is the console
  * to open first when the message mentions the allowlist.
+ *
+ * **The diagnostic is `message`, and `statusMessage` is the two-word reason phrase.** That split
+ * is not stylistic: `statusMessage` becomes the HTTP status line, which h3 sanitises against
+ * `/[^	 -~]/g` — so the em dash above was being silently stripped, leaving
+ * "Could not reach Sanity  see the logged cause" on the wire, and h3 logged a warning asking
+ * for `message` instead. All six routes that throw this carry the identical block; keep them
+ * identical, and keep anything longer than a reason phrase out of `statusMessage`.
+ *
+ * **Know what that costs, because it changes where to look in production.** Nuxt hardens 5xx
+ * responses by replacing `message` with "Server Error" and forwarding `statusMessage` verbatim
+ * — measured against a production build, whose JSON came back
+ * `{statusCode: 502, statusMessage: "Bad Gateway", message: "Server Error"}`. So the sentence
+ * below no longer reaches a production error *page*; it reaches the dev overlay, the server log
+ * (with `cause`, verified above), and the browser console on the client-side navigation case,
+ * which is the one it was written for. That is a fair trade in both directions: the hint is
+ * still in front of whoever is debugging, and a public 502 has stopped announcing which
+ * allowlist we forgot to update.
+ *
+ * `statusCode` is deliberately *not* `status`. On h3 1.x `statusCode` is the field on `H3Error`
+ * and `status` is only an alias `createError` accepts on its input, so the swap would rename
+ * this away from the canonical name for nothing. That deprecation is an h3 2.x change.
  */
 if (error.value) {
 	throw createError({
 		statusCode: 502,
-		statusMessage:
+		statusMessage: 'Bad Gateway',
+		message:
 			'Could not reach Sanity — see the logged cause. If this appears only after ' +
 			"navigating between pages, this origin is missing from the project's CORS allowlist.",
 		fatal: true,

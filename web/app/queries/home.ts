@@ -1,6 +1,7 @@
 import { defineQuery } from 'groq'
 
 import { PHOTO_PROJECTION } from './photo'
+import { WRITING_ITEM_PROJECTION } from './writing'
 
 /**
  * The front page, in one request.
@@ -10,10 +11,10 @@ import { PHOTO_PROJECTION } from './photo'
  * on `siteSettings` and the third is assembled in `queries/nav.ts`.
  *
  * Everything a photograph needs comes back dereferenced. `featuredWriting` resolves to a
- * mixed list of posts and links out, so the projection is conditional on `_type`: an
- * `article` carries the address someone else published it at, a `post` carries the slug of
- * its page here. The shared fields are projected once, above the conditionals, because GROQ
- * merges the two halves into one object.
+ * mixed list of posts and links out through `WRITING_ITEM_PROJECTION`, which /copy's ledger and
+ * its featured piece also use — the three lists render the same union, and this file used to
+ * carry its own copy of the projection with a comment saying the identical shape was deliberate.
+ * It is shared now rather than deliberately duplicated, for the reason `PHOTO_PROJECTION` is.
  *
  * `coverPhoto` is optional on both types and comes back `null` when unset — the card drops
  * its photo and keeps its headline.
@@ -40,16 +41,7 @@ export const HOME_QUERY = defineQuery(`
   *[_type == "homePage"][0]{
     title,
     blurb,
-    featuredWriting[]->{
-      _id,
-      _type,
-      title,
-      publishedAt,
-      summary,
-      coverPhoto->{ ${PHOTO_PROJECTION} },
-      _type == "article" => { url, publication },
-      _type == "post" => { "slug": slug.current }
-    },
+    featuredWriting[]->{ ${WRITING_ITEM_PROJECTION} },
     featuredTitle,
     featuredSubtitle,
     featuredPhotos[]{

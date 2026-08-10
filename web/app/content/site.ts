@@ -28,18 +28,19 @@ export const SITE = {
 		'reporter with a taste for the wry side of real life.',
 
 	/**
-	 * Her labels, our routes.
+	 * Her labels, and now her words.
 	 *
-	 * These were her Squarespace words — HOME, COPY, BIO, SHOTS — and they are not any more.
-	 * START, WRITING and ABOUT say the same things in words a first-time visitor already knows,
-	 * and the paths were already `/`, `/writing` and `/about`, so the labels and the routes now
-	 * agree instead of needing translation.
+	 * This used to read START / WRITING / ABOUT, on the grounds that those said the same things
+	 * in words a first-time visitor already knows. She asked for her own back: COPY and BIO are
+	 * what her Squarespace site called them, and they are what she calls them. The routes moved
+	 * with the labels — `/copy` and `/bio` — so a label and its path still agree instead of
+	 * needing translation. `web/nuxt.config.ts` redirects the old two.
 	 *
-	 * SHOTS is gone rather than renamed. Its page was a stub, and the photographs are reached
-	 * through the galleries listed under START — which is a real list of her work rather than a
-	 * heading with nothing behind it.
+	 * START has not moved and is not SHOTS yet. Renaming it was asked for and then deferred, so
+	 * the top-level item still says START and still points at `/`. The galleries and ALL SHOTS
+	 * hang under it, in `SiteNav`.
 	 *
-	 * Stored in sentence case and uppercased in CSS so that assistive tech reads "Writing"
+	 * Stored in sentence case and uppercased in CSS so that assistive tech reads "Copy"
 	 * rather than spelling it out. Keep the stored value in sentence case whatever the design
 	 * does — a spec that stops uppercasing them costs nothing, and one that stores them shouting
 	 * cannot be undone from a stylesheet.
@@ -49,8 +50,8 @@ export const SITE = {
 	 */
 	nav: [
 		{ label: 'Start', to: '/' },
-		{ label: 'Writing', to: '/writing' },
-		{ label: 'About', to: '/about' },
+		{ label: 'Copy', to: '/copy' },
+		{ label: 'Bio', to: '/bio' },
 	] satisfies NavItem[],
 
 	/** Her links, with the two `http://` ones upgraded to `https://`. */

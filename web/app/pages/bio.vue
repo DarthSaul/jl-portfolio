@@ -23,7 +23,7 @@ import { ABOUT_QUERY } from '~/queries/about';
  * `aboutPage` is a singleton the Studio will not let her delete, so a missing document means
  * the dataset is wrong — the wrong name, or one never seeded. It throws rather than rendering
  * an empty page, the same call `pages/index.vue` makes and for the same reason. That is the
- * difference from /writing, where the missing singleton only costs an optional intro.
+ * difference from /copy, where the missing singleton only costs an optional intro.
  */
 const { data: about, error } = await useSanityQuery(ABOUT_QUERY);
 

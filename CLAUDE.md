@@ -260,6 +260,37 @@ the way in, so the result is a genuine copy rather than one dataset pointing at 
 assets, and it does *not* mint new `_id`s — asset ids are content hashes and document ids carry
 over verbatim, which is what makes the subset check meaningful in the first place.
 
+#### Content migrations
+
+`npx sanity migrations run <id>`, from `studio/`, against `studio/migrations/<id>/index.ts`.
+The `tag` refactor is the first use — see `create-tag-documents` and `tags-to-references`.
+
+Four things about the runner, all read out of `studio/node_modules` or measured on a real run
+rather than assumed, and each of which fails in a way that does not name itself:
+
+- **It authenticates as the logged-in CLI user**, like `dataset export`/`import`. No
+  `SANITY_WRITE_TOKEN`, which is why migrations live in `studio/` next to `promote.mjs` rather
+  than in `scripts/`.
+- **Dry run is the default.** `--no-dry-run` executes. `--confirm` prompts unless
+  `--no-confirm`. `--project` and `--dataset` must be given together or not at all — supplying
+  one alone is an error that names the flags rather than the reason.
+- **Transactions are submitted concurrently**, six at a time. So a `createIfNotExists` for a
+  document and a patch writing a *strong reference* to it **cannot share a run**: they can land
+  in different in-flight transactions and the patch fails on reference integrity, halfway,
+  leaving the dataset half-converted. That is why the tag work is two migrations run in order,
+  and the pattern to copy for any future reference-introducing migration.
+- **Drafts are included by default and must stay that way.** The runner streams
+  `/data/export/<dataset>` without `drafts=false`, and `documentTypes` matches on `_type`,
+  which a draft shares with its published twin. `development` held `drafts.gallery-mexico-2022`
+  and the dry run showed it. A draft left holding the old shape renders as a broken field in
+  the Studio, and the next `npm run promote` carries it into `production` unchanged.
+
+Write migrations so a second run is a no-op — convert only values still in the old shape — and
+so an unmappable value **throws by name** rather than being patched in as a dangling reference.
+Both fire during the dry run, before anything is written. Take a `dataset export` first
+regardless; that tarball is the rollback, and import never deletes, so documents the migration
+*created* survive a rollback and need removing by hand.
+
 #### Stock content is cleaned in `development`, not in `production`
 
 `production` was first seeded on 2026-08-03 from `development`, because the Vercel deployment
@@ -270,8 +301,8 @@ afterwards. **The Vercel app is at `jl-portfolio-seven.vercel.app` and `joanatst
 pointed at it**, so `production` is a staging dataset wearing the production name until DNS is
 connected.
 
-That first promote is also what `/about` was waiting on. `aboutPage` existed only in
-`development`, so the live route returned a 500 while `/` and `/writing` returned 200 — a
+That first promote is also what `/bio` was waiting on. `aboutPage` existed only in
+`development`, so the live route returned a 500 while `/` and `/copy` returned 200 — a
 reminder that **a missing singleton fails per-route, not visibly at the dataset level**. Adding
 a route that queries a singleton adds a way for `production` to be wrong without anything
 saying so.
@@ -345,7 +376,7 @@ Galleries hold an **array of references** to photo documents.
 Never embed an image inside a gallery document. Never inline an image field into a gallery
 array item. Never copy alt text or caption onto the reference.
 
-The same photograph appears on `/shots/everything` and on a gallery page. It must be **one record with one
+The same photograph appears on `/shots/all` and on a gallery page. It must be **one record with one
 alt text**, or the two copies drift apart the first time she fixes a typo in one of them.
 
 If a caption genuinely needs to differ by context, that is a discussion to have — not
@@ -376,11 +407,59 @@ A preset value that has no matching component must be impossible.
 | Route | Contents |
 | --- | --- |
 | `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
-| `/shots/everything` | Every photo she has uploaded except those flagged `excludeFromIndex`. Tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `everything` because of it. |
+| `/shots/all` | Every photo she has uploaded except those flagged `excludeFromIndex`. Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
 | `/shots/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
-| `/writing` | Her own posts and links out to others, newest first, interleaved. The newest one leads; the rest are a ledger. The lead is picked by date, never by a flag on the document |
-| `/writing/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
-| `/about` | Her bio — prose with photographs in it. Same body shape as a `post`. |
+| `/shots/*?photo=<_id>` | Not a route — the **showcase**. One photograph, alone and centred, on either page above. See *The showcase* below. |
+| `/copy` | Her own posts and links out to others, newest first, interleaved. One leads; the rest are a ledger. The lead is the newest **unless she sets `writingPage.featured`** |
+| `/copy/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
+| `/bio` | Her bio — prose with photographs in it. Same body shape as a `post`. |
+
+**Her words, our internals.** `/copy` and `/bio` were `/writing` and `/about` until she asked
+for the Squarespace vocabulary back. Only the labels and the addresses moved: the document
+types are still `post`, `article`, `writingPage` and `aboutPage`, the queries are still
+`WRITING_QUERY` and `ABOUT_QUERY`, and the components are still `components/writing/`. Renaming
+a Sanity document type is a content migration bought with nothing, and the Studio labels carry
+her words instead (*Copy page*, *Copy post*, *Copy link*, *Bio*). `nuxt.config.ts` `routeRules`
+302s the old three addresses, including `/shots/everything`.
+
+The `Start` nav item was going to become `Shots` in the same pass and was deferred. It still
+says START and still points at `/`; only the sub-item under it changed, from EVERYTHING to
+ALL SHOTS.
+
+## The showcase
+
+Clicking any photograph on `/shots/all` or `/shots/<slug>` opens it alone and centred, at
+`?photo=<_id>` on the page you were already on. The front page is the exception — its
+photographs are links into galleries, and `home/PhotoStrip.vue` keeps its own slot.
+
+**It is a query parameter and not a route, and the reason is measured rather than aesthetic.**
+Nuxt keys a page by its *interpolated path*, not `fullPath`, so a query-only navigation reuses
+the component instance and does not re-run `setup`. On `/shots/all` that is the whole feature
+working for free: `appended` — every photograph loaded past the first page — and the
+`IntersectionObserver` both survive an open and close, and no request fires. A nested route
+would unmount the index and mean lifting the accumulator into `useState` plus hand-rolled scroll
+restoration, for a prettier address. It also composes: `?tag=life&photo=X` closes back to the
+filter you came from.
+
+- **It is not a preset**, and must never join `LAYOUT_PRESETS` or the `PRESETS` map. She never
+  chooses it; it is a behaviour of every photograph on `/shots/*`, like the filter row.
+- **Sizing is a bound, not a crop.** `--showcase-h` (an `@utility` in `tailwind.css`) times the
+  photograph's own `--ar` gives a `max-width`, so the photograph fills whichever dimension runs
+  out first with its ratio intact. No `crop`, no `CROPS` entry, no `object-cover`, no new
+  srcset ladder — and the wrapper carries the bound so `SanityPhoto`'s `w-full` is untouched.
+  Putting `max-h-*` + `w-auto` on the image instead would pit `w-auto` against `w-full`, which
+  Tailwind v4 resolves by emitted-CSS order rather than class-list order.
+- **`/shots/[slug]` needs no query for it** — `GALLERY_QUERY` returns the whole array, so the id
+  resolves with a `find`. `/shots/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`, gated by
+  `immediate` so a deep link server-renders and an ordinary load costs nothing. That query
+  **restates `excludeFromIndex != true`**: the flag is a rule about the index, and this is how a
+  photograph is reached *through* the index, so ignoring it would be a hole in the flag.
+- **The index is hidden with `v-if`, which destroys the sentinel** — so the observer watches the
+  template ref rather than attaching once at mount. Without that, infinite scroll silently stops
+  working for the rest of the session after the first showcase closes, while the Load more
+  button keeps working and nothing looks broken.
+- A bad or hidden id renders a message and a way back, **never a `createError`**. A query
+  parameter must not be able to replace a working gallery with an error screen.
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
 
@@ -389,7 +468,7 @@ A preset value that has no matching component must be impossible.
 **The numbered slots are gone, and this section is kept because what replaced them is
 smaller.** The page began as seven fixed slots mirroring the Squarespace site it replaces,
 numbered 1–7 in `homePage`'s field order. Slots 1–3 became site chrome on every page; slot 4
-moved to `/about`; and two more are parked. Numbering three surviving fields against a scheme
+moved to `/bio`; and two more are parked. Numbering three surviving fields against a scheme
 that no longer describes the page was costing more than it explained.
 
 What the front page renders today, in the order it renders it:
@@ -411,7 +490,7 @@ opens with photographs instead of closing with them. Do not delete the fields or
 lines to tidy up — that is a content decision, not a cleanup.
 
 **The whole introduction left this page.** `introHeading` and `intro` are `aboutPage`'s fields
-now and open `/about`; the component that renders them moved with them, from `home/Hero.vue` to
+now and open `/bio`; the component that renders them moved with them, from `home/Hero.vue` to
 `about/Intro.vue`. `introPhoto` was deleted outright rather than following them — `aboutPage`
 has no photo field by design, and photographs on that page come from the body. Nothing on the
 front page shows a photograph of her any more, which is the intended end state rather than a
@@ -428,7 +507,7 @@ to state flatly.** It said the nav was frontend-only by design and stayed there,
 while every route was known at build time. It stopped holding the moment she could create a
 gallery and expect a page to exist for it: the route table is now partly hers.
 
-The reversal is deliberately partial, and the split is the thing to preserve. The four
+The reversal is deliberately partial, and the split is the thing to preserve. The three
 top-level items are still hardcoded in `content/site.ts`, because they are the shape of the
 site. Only the gallery sub-items under START come from Sanity, via `queries/nav.ts`. One
 consequence worth knowing: `SiteNav` is the only place on the site that **swallows a query
@@ -439,7 +518,7 @@ navigable rather than taking down every route at once.
 Three things about that sub-list, all in `SiteNav.vue`:
 
 - **Its order is not the query's.** `NAV_QUERY` returns title A–Z; the component then pins one
-  gallery to the top by slug (`PINNED_FIRST`, currently `life`) and appends EVERYTHING at the
+  gallery to the top by slug (`PINNED_FIRST`, currently `life`) and appends ALL SHOTS at the
   bottom. So app code names one of her documents — deliberately, and it fails soft in every
   direction: renaming the gallery keeps the pin, changing its slug or deleting it just drops
   the pin and leaves the rest alone. If the order ever needs to be hers, that is an ordering
@@ -468,17 +547,18 @@ launch blocker in *Open questions*. Everything else on the front page is her rea
 
 ## The content model
 
-Twelve types. The schema files in `studio/schemaTypes/` are the source of truth; this table
+Thirteen types. The schema files in `studio/schemaTypes/` are the source of truth; this table
 is a map, not a spec.
 
 | Type | Shape | Notes |
 | --- | --- | --- |
-| `photo` | image, alt (required), caption, place, dateTaken, tags, **excludeFromIndex** | Rule 1's anchor. No title field. A tag can now drive a page — see below. |
-| `gallery` | title, slug, description, preset, **tag**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. |
+| `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
+| `gallery` | title, slug, description, preset, **tag → ref**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. |
+| `tag` | title, slug | **Hers to add, rename and remove.** Two fields, and it should keep two. Replaced the hardcoded `PHOTO_TAGS` array. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
 | `homePage` | title, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → `featuredPhoto` objects | Singleton. See *The front page*. The whole introduction — heading, text and photo — has left this document. |
-| `writingPage` | title, intro | Singleton. Posts and articles are queried, not listed by hand. |
+| `writingPage` | title, intro, **featured → ref** | Singleton. Posts and articles are queried, not listed by hand. `featured` is optional; empty means the newest leads. |
 | `aboutPage` | title, introHeading, intro, body | Singleton. Body is prose + `postPhoto`, like `post`. The heading and intro came from `homePage`. Called **About** in the Studio. |
 | `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
 | `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
@@ -511,7 +591,7 @@ Things worth knowing before changing any of it:
     measurement. **Adding an entry is a Rule 2 decision**, which means an argument and a written
     cost, not a convenience.
 
-    There are two today. `square` is /writing's ledger thumbnail. `lead` is the 300×200 cover of
+    There are two today. `square` is /copy's ledger thumbnail. `lead` is the 300×200 cover of
     the lead story on the same page, and it is the first crop applied to a photograph at
     *reading* size rather than to a preview — it was declined once in favour of bounding the
     photo instead, and reversed when that left the column half empty. See `writing/Lead.vue`.
@@ -545,11 +625,17 @@ Things worth knowing before changing any of it:
     decision, not a component one.
 
     **Everywhere else the photograph keeps its own proportions.** A gallery, a post body, the
-    front-page intro: no `crop`, and the CDN URL carries nothing that selects a region — a
-    width, a format and a quality, but no `fit` and no `rect` — so the no-crop default holds at
-    the URL and not merely by convention.
+    showcase: no `crop`, and the CDN URL carries nothing that selects a region — a width, a
+    format and a quality, but no `fit` and no `rect` — so the no-crop default holds at the URL
+    and not merely by convention.
     `grep -rn "crop=" web/app/components/` should stay a short list, and every hit should be a
-    thumbnail or the /writing lead.
+    thumbnail or the /copy lead.
+
+    **The showcase is the case that most looks like it wants a crop and does not get one.** It
+    shows one photograph at the largest size on the site, and it sizes by a *bound* —
+    `--showcase-h` times the photograph's own ratio, as a `max-width` — so the ratio survives
+    and nothing is selected. That is the bound-versus-crop distinction below, applied to the
+    hardest case rather than the easy one.
   - The front page's introduction used to be this rule's worked example, and **the photograph
     it was built around no longer exists in the schema at all.** The argument is worth keeping
     even though the demonstration is gone, because it is what any future hero has to answer to:
@@ -578,23 +664,44 @@ Things worth knowing before changing any of it:
   silently breaks the blur-up placeholder for every photo uploaded afterwards. `exif` is
   in; `location` is out, because it is GPS and the production dataset is readable by
   anyone with the project id.
-- **Adding a tag to `PHOTO_TAGS` is free. Renaming or removing one is not** — the old
-  string stays on every photo already using it, no longer matches the list, and its
-  checkbox quietly disappears. Adding a tag also adds its browse list in the sidebar,
-  because `structure.ts` maps over the same array.
-  - **A tag `value` is now load-bearing in a second place, and that doubles the cost of
-    changing one.** A `gallery` can point at a tag, in which case every photo carrying it
-    appears on that gallery's page. Renaming a value used by a gallery breaks two things at
-    once, in different places, and neither says so: the photos keep the old string and drop
-    out of the list, and the gallery's `tag` matches nothing so its page goes *empty rather
-    than erroring*. The `title` is only ever a Studio label and is free to change whenever.
-    Change titles; leave values alone. The values are slug-shaped (`mexico-2022`) for the same
-    reason.
+- **A tag is a document, and the vocabulary is hers.** `PHOTO_TAGS` — a hardcoded array in
+  `photo.ts` — is gone. `photo.tags` is an array of references to `tag` documents and
+  `gallery.tag` is a single one. She adds, renames and removes them under *Tags* in the Studio.
+  Nothing about that touches Rule 2: a tag is a topic, not a layout and not a measurement.
+
+  **This inverts the warning that used to live here**, which said adding a tag was free and
+  renaming or removing one was not, because the old string stayed on every photo, stopped
+  matching the list, and its checkbox quietly disappeared. Both halves flipped:
+
+  - **Renaming is free now.** The name is on one document and every photo points at it.
+  - **Removing is blocked rather than silent.** These are strong references, so Sanity refuses
+    to delete a tag in use and names the documents using it. That guardrail is the single
+    biggest thing the change buys, and it is why the references are not weak.
+
+  What still costs something is the **slug**, which is the `?tag=` in a shared address and what
+  `/shots/all` filters on. Change names freely; leave addresses alone.
+
+  **The cost, which is real and lands on her:** a reference array cannot render as a checkbox
+  grid, so tagging a photograph is now "Add item → search → pick" rather than one tick. Weighed
+  and accepted — with a vocabulary this size the picker lists every tag at once. If it bites
+  across ~250 photographs the shaped fix is a custom input component on that field which reads
+  the tag documents and draws the grid back. **Not a plugin**, and not without asking.
   - **Nothing marks which tags are "project" tags and which are browse-only**, and that is
     deliberate. "Does this tag have a page" is answered by whether a gallery points at it —
     one fact in one place, rather than a flag on the tag that could disagree with reality.
+    `tag` has exactly two fields and should keep them: no colour, no description, no
+    "show in the filter row" toggle, no ordering field.
+  - **`structure.ts` has two entries, not one.** *Tags* at the top level is where she edits;
+    *Browse by tag*, under Photos, drills into a tag's photographs. They are separate because
+    the browse list overrides its child pane to show photographs, which leaves no way in to the
+    tag document itself. `PLACED_TYPES` must include `'tag'`, or the safety net at the bottom
+    of the file grows a duplicate list at the root.
+  - **`tag` is in `NO_DUPLICATE_TYPES`.** Duplicate copies the slug verbatim, so two tags claim
+    one address: the filter row shows the same word twice, each showing half the photographs,
+    and nothing errors — the slug uniqueness check runs on the document she is editing, not on
+    the copy Duplicate made.
 - **`excludeFromIndex` is a boolean on `photo`, deliberately not a tag.** It hides a photograph
-  from `/shots/everything` and from nowhere else — she asked for it so an article's cover photo
+  from `/shots/all` and from nowhere else — she asked for it so an article's cover photo
   need not appear among her photography. It was very nearly an "Exclude" *tag*, and the reason
   it is not is what tags have become: a tag is a topic, it generates a browse list, and a
   gallery can be pointed at one. An "Exclude" value sitting between "Mexico 2022" and "Street"
@@ -603,12 +710,17 @@ Things worth knowing before changing any of it:
   Its scope is narrow on purpose. A flagged photograph still appears wherever she placed it by
   hand — an article cover, a body of prose, a gallery, the front page — because a flag that
   silently emptied those would be a worse surprise than the one it prevents.
-- **`web/app/content/tags.ts` is a second copy of the tag vocabulary, and the compiler is what
-  keeps it honest.** The app cannot import `PHOTO_TAGS` — separate packages, separate installs
-  — but it needs the human-readable titles for the filter row. `TAG_LABELS` is typed
-  `Record<PhotoTag, string>` where `PhotoTag` comes from typegen, so adding a tag to the schema
-  and not adding a label here is a compile error naming the missing one. Same trick as the
-  `PRESETS` map: duplication that cannot drift is a different thing from duplication.
+- ~~**`web/app/content/tags.ts` is a second copy of the tag vocabulary.**~~ **The file is
+  deleted, and the copy does not exist any more.** It held `TAG_LABELS`, typed
+  `Record<PhotoTag, string>` against the generated tag union, because the app could not import
+  `PHOTO_TAGS` across the package boundary and still needed the human-readable titles for the
+  filter row. That was duplication the compiler kept honest, which is a real and useful trick —
+  the `PRESETS` map still uses it. But a tag's name is *content* now and arrives with the query,
+  so there is nothing to copy. Prefer this outcome to the trick when the choice is available:
+  the best-protected duplication is still worse than none.
+
+  `FilterBar`'s prop is `TagOption`, read off `ALL_SHOTS_QUERY_RESULT['tagsInUse']` — a
+  generated shape, never hand-written, exactly as `PhotoProjection` is.
 - **Two ways a gallery fills itself, and exactly one is visible at a time.** Set `tag` and the
   page shows every photo carrying it, newest first, growing on its own as she tags more. Leave
   `tag` empty and she picks the photos by hand and drags them into order. Setting a tag
@@ -621,6 +733,17 @@ Things worth knowing before changing any of it:
 
   Both modes resolve to one `photos` array in `queries/shots.ts`, so `/shots/[slug]` never
   branches and the presets only ever see photographs.
+
+  **The empty-string trap that used to sit here is gone, and it went with the string.** The
+  query's guard was `defined(tag) && tag != ""`, and the second term was load-bearing:
+  `defined("")` is true, so a `tag` cleared to an empty string took the tag branch and matched
+  nothing, while the Studio read the same value the opposite way and showed her the photo list.
+  Form full, page empty, nothing anywhere saying why. A reference has no empty-string state, so
+  `defined(tag._ref)` is exact and the two halves agree *by construction*. Both the schema's
+  guards and the validation test `._ref` and not the field — `Boolean({})` is `true`, and a
+  half-cleared reference would otherwise read as "has a tag". Keep the shape of that bug in
+  mind rather than the string: two halves of the system disagreeing, silently, about what
+  "empty" means.
 
   **The reachable-but-broken state is both at once**, and it takes two steps: pick photos, then
   set a tag. Nothing in the form stops it and the photo list is hidden by then, so a
@@ -739,14 +862,16 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
     layouts/                ✎ default.vue
     pages/
       index.vue             ✎ LIVE — the photo grid and featured writing, from Sanity
-      shots/everything.vue  ✎ LIVE — the index of every photo, filters + infinite scroll.
-                              STATIC, so it shadows [slug] — gallery.ts refuses that slug.
+      shots/all.vue         ✎ LIVE — the index of every photo, multi-select filters +
+                              infinite scroll. STATIC, so it shadows [slug] — gallery.ts
+                              refuses that slug. Also hosts the showcase.
       shots/[slug].vue      ✎ LIVE — one gallery, through its preset. No shots/index.vue:
                               /shots itself was a stub and is gone, so it 404s while its
-                              children do not.
-      writing/index.vue     ✎ LIVE — posts and links out, newest first, from Sanity
-      writing/[slug].vue    ✎ LIVE — one post, body and all
-      about.vue             ✎ LIVE — intro and body. Every photograph on it comes from the
+                              children do not. Also hosts the showcase.
+      copy/index.vue        ✎ LIVE — posts and links out, newest first, from Sanity.
+                              Was writing/index.vue; only the address moved.
+      copy/[slug].vue       ✎ LIVE — one post, body and all
+      bio.vue               ✎ LIVE — intro and body. Every photograph on it comes from the
                               body, as postPhoto members; there is no photo field.
       contact.vue
     components/
@@ -767,41 +892,54 @@ web/                        ✎ The Nuxt app. Vercel's root directory.
                               --color-link.
       ProseBody.vue         ✎ A body of prose with photos in it — post.body and aboutPage.body
       BodyPhoto.vue         ✎ The postPhoto member of one, floated and wrapped by the text
-      about/                ✎ Intro — the heading and introduction at the top of /about.
+      about/                ✎ Intro — the heading and introduction at the top of /bio.
                               Was `home/Hero.vue`; moved with the fields it renders.
       home/                 ✎ FeaturedWriting, PhotoStrip — slots 6 and 7.
                               PhotoStrip no longer owns a layout: it uses the `grid` preset
                               through its slot so each photo can become a link. The name is
                               now a lie worth fixing the next time that file is opened.
-      writing/              ✎ Lead — the newest piece; Row — one row of the ledger under it
-      shots/                ✎ FilterBar — the tag filters on /shots/everything, built from
+      writing/              ✎ Lead — the leading piece, with the eyebrow passed in as a prop
+                              because LATEST is a claim about the date and stops being true
+                              when she features something older; Row — one ledger row.
+                              Named `writing/` still: only the route said /writing.
+      shots/                ✎ FilterBar — the tag filters on /shots/all, built from
                               DESIGN.md's button-outline / button-primary pair. Links, not
-                              buttons, so the filter is in the URL and shareable.
+                              buttons, so the filter is in the URL and shareable. Multi-select
+                              with a CLEAR that appears only when something is selected;
+                              there is no ALL chip.
+                              PhotoShowcase — one photograph alone, and every effect that
+                              goes with it. PhotoLink — the clickable wrapper both gallery
+                              pages drop into a preset's slot.
       presets/              ✎ One component per layout preset, and the list is exhaustive by
                               typecheck — see the PRESETS map in pages/shots/[slug].vue.
                               GalleryGrid (wrap-and-fill rows, also used by the front page)
                               and GalleryStack (full-measure column).
     utils/                  ✎ date.ts — formatDate/formatShortDate, auto-imported. UTC note in it.
+                              photo.ts — photoRatio(), shared by GalleryGrid and the showcase.
     queries/                ✎ GROQ, one file per route
-      photo.ts              ✎ The shared photo projection. Not a route — see below.
+      photo.ts              ✎ The shared photo projection, and PHOTO_BY_ID_QUERY for the
+                              showcase's deep links. Not a route — see below.
       nav.ts                ✎ NAV_QUERY — the galleries listed under START. Not a route
                               either: it is chrome, read on every page.
-      everything.ts         ✎ EVERYTHING_QUERY (first page, total, tags in use) and
-                              MORE_PHOTOS_QUERY (one further slice). Filters on $filterTag,
-                              NOT $tag — see the reserved-key note in Conventions.
+      allShots.ts           ✎ ALL_SHOTS_QUERY (first page, total, tags in use) and
+                              MORE_PHOTOS_QUERY (one further slice). Filters on $filterTags —
+                              an array of slugs, union semantics — and NOT $tag; see the
+                              reserved-key note in Conventions. Exports TagOption.
       home.ts               ✎
       shots.ts              ✎ GALLERY_QUERY — one gallery, both fill modes resolved to one
                               `photos` array. Read the `^` scoping notes before editing it.
-      writing.ts            ✎ WRITING_QUERY (the list) and POST_QUERY (one post)
+      writing.ts            ✎ WRITING_QUERY (the list, plus the featured piece) and
+                              POST_QUERY (one post). Owns WRITING_ITEM_PROJECTION, which
+                              home.ts imports — the front page's cards are the same union.
       about.ts              ✎ ABOUT_QUERY — the bio, body dereferenced
       contact.ts
-    content/                ✎ Site chrome only, now the placeholders are gone.
-      tags.ts               ✎ TAG_LABELS — the tag vocabulary's titles, for the filter row.
-                              Exhaustive over the generated tag union, so it cannot drift
-                              from the schema without failing typecheck.
+    content/                ✎ Site chrome only. tags.ts is gone — a tag's name is content
+                              now and arrives with the query.
       site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
                               content. (Was "footer links" — there is no footer any more.)
-    composables/            ✎ useNavDrawer.ts — open/closed state for the mobile nav.
+    composables/            ✎ usePhotoShowcase.ts — the showcase's route state, scroll
+                              save/restore and prev/next. No fetching, no lifecycle hooks.
+                              useNavDrawer.ts — open/closed state for the mobile nav.
                               useWritingLink.ts — post vs article destination, one place.
                               State and actions only: it is called from two components, so a
                               lifecycle hook in it would register two Escape listeners. Every
@@ -818,17 +956,24 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   sanity.config.ts          ✎ Schema registry, structure, singleton locking. No basePath
                               — the deployed Studio is served at its own host's root.
   sanity.cli.ts             ✎ projectId, autoUpdates, schemaExtraction, typegen paths
-  structure.ts              ✎ Sidebar shape + SINGLETON_TYPES
+  structure.ts              ✎ Sidebar shape + SINGLETON_TYPES + PLACED_TYPES
   dataset.ts                ✎ requireDataset() — throws when unset, never defaults
   promote.mjs               ✎ development → production. Here, not scripts/, because it
                               authenticates as the CLI user and needs no write token.
   .env.example              ✎ SANITY_STUDIO_DATASET only
   .promote/                   GENERATED — dataset tarballs and backups, gitignored
   schema.json                 GENERATED — typegen intermediate, gitignored
+  migrations/               ✎ CLI content migrations. Authenticate as the logged-in CLI
+                              user, so no SANITY_WRITE_TOKEN — same reason promote.mjs
+                              lives here rather than in scripts/.
+                              create-tag-documents, then tags-to-references. TWO runs, in
+                              that order, and never merged: `migrations run` submits
+                              transactions concurrently, so a reference written in the same
+                              run that creates its target fails on integrity partway through.
   schemaTypes/
     index.ts                ✎ Schema registry
     photoPicker.ts          ✎ excludeAlreadyChosen — shared reference-picker filter
-    documents/              ✎ photo, gallery, post, article,
+    documents/              ✎ photo, gallery, tag, post, article,
                               homePage, writingPage, aboutPage,
                               contactPage, siteSettings
     objects/                ✎ link, postPhoto, proseText, featuredPhoto
@@ -903,7 +1048,7 @@ than sitting there to be reached for. `rounded-full` survives deliberately and i
 exception the spec allows, "circular icon containers only": exactly one call site, the social
 links in the sidebar. `grep -rn "rounded-" web/app` should return that one and nothing else.
 
-It was two until /writing's rows became a ledger and their circular thumbnails became squares.
+It was two until /copy's rows became a ledger and their circular thumbnails became squares.
 Nothing about the rule changed — the surviving call site is an icon container, which is what
 the exception is for, and the one that went was a photograph wearing a radius.
 
@@ -919,7 +1064,7 @@ shrinks the photograph and loses nothing, so it is a layout decision; a fixed `w
 `object-cover` selects part of it, which is framing and belongs to Rule 2.
 
 The distinction is worth keeping even though the case that prompted it went the other way, and
-the history is the useful half. /writing's lead photo was first *bounded* — `md:max-h-[200px]
+the history is the useful half. /copy's lead photo was first *bounded* — `md:max-h-[200px]
 md:w-auto md:max-w-full`, so a 2500×3333 cover rendered 150×200 with its proportions intact and
 a 3000×1000 panorama rendered 300×100 instead of overrunning its track. It behaved exactly as
 described and it looked wrong: the 300px column sat half empty and the block's right edge moved
@@ -974,7 +1119,7 @@ that.** `QueryParams` in `@sanity/client` declares a list of keys as `never` —
 on the grounds that passing one as a GROQ parameter is nearly always a mistake. `tag` is
 Sanity's request tagging. A parameter named `$tag` therefore fails with **"Type 'string' is not
 assignable to type 'undefined'"**, which names the overload the call fell through to and says
-nothing about the collision. `/shots/everything` filters on `$filterTag` for exactly this
+nothing about the collision. `/shots/all` filters on `$filterTags` for exactly this
 reason. Check that list before naming a parameter after anything that sounds like a request
 setting.
 
@@ -1017,17 +1162,22 @@ format and a quality — no `fit`, no `rect` — so the no-crop rule holds at th
 by convention.
 
 The one exception is the `crop` prop, which selects one of the named presets in `CROPS` —
-`crop="square"` for preview thumbnails, `crop="lead"` for the /writing lead — each with its own
+`crop="square"` for preview thumbnails, `crop="lead"` for the /copy lead — each with its own
 centred framing and its own much shorter srcset ladder. It takes a name and never dimensions or
 an offset, so a call site still cannot invent a framing. See the thumbnail note in *The content
 model* for why the list exists and what each entry costs.
 
-**There is exactly one `<img>` in the app, and `grep -rn "<img" web/app` is the check.** It
-was briefly two: `SitePhoto` and `RichParagraph` were static twins of `SanityPhoto` and
-`ProseText` serving /writing while that page was on Unsplash placeholders. All three — both
-twins and `~/content/writing` — died when /writing got its query. The alternative considered
-at the time, teaching `SanityPhoto` to also accept bare URLs, would have put a permanent hole
-in the rule to paper over a temporary one.
+**Every *photograph* renders through one `<img>`, and `grep -rn "<img" web/app` is the check.**
+It finds two tags, and the count is the thing to read rather than the number: `SanityPhoto`,
+and the illustrated portrait in `SiteSidebar` — a static asset that is site chrome rather than
+one of her photographs, so it has no photo document, no alt from Sanity and nothing to
+dereference. A third hit is a bug until argued otherwise.
+
+It was briefly two for a much worse reason: `SitePhoto` and `RichParagraph` were static twins
+of `SanityPhoto` and `ProseText` serving /copy while that page was on Unsplash placeholders.
+All three — both twins and `~/content/writing` — died when /copy got its query. The
+alternative considered at the time, teaching `SanityPhoto` to also accept bare URLs, would have
+put a permanent hole in the rule to paper over a temporary one.
 
 **Sanity schema files are the source of truth for the content model.** Not this document,
 not the generated types, not the GROQ queries. Schema changes flow outward:
@@ -1062,6 +1212,8 @@ From **`studio/`** — the Sanity Studio:
 | `npm run promote` | Mirror `development` onto `production`. `-- --dry-run` first. | ✎ works |
 | `npm run typegen` | `sanity schemas extract --force` then `sanity typegen generate` | ✎ works |
 | `npx sanity schemas validate` | Check the schema for problems. Touches no data. | ✎ works |
+| `npx sanity documents validate --dataset <ds>` | Check the *content* against the schema. Read-only. Run it after any migration. | ✎ works |
+| `npx sanity migrations run <id> --project c3808h1v --dataset <ds>` | A content migration, dry by default. `--no-dry-run` executes. Both `--project` and `--dataset` or neither. | ✎ works |
 
 `deploy` and `promote` are the two commands that reach `production`, and they are not
 substitutes: `deploy` ships the Studio bundle and no content, `promote` ships content and no
@@ -1255,7 +1407,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 - **The copyright is only visible on a phone with the nav drawer open.** It sits at the bottom
   of the sidebar. If that turns out to matter, the fix is to *move* the single node into a slim
   `<footer>` at the end of `<main>` — never to duplicate it into both.
-- ~~**`/about` reads `homePage.introPhoto`.**~~ **Settled: the field is gone and so is the
+- ~~**`/bio` reads `homePage.introPhoto`.**~~ **Settled: the field is gone and so is the
   cross-document read.** `ABOUT_QUERY` is one document and one projection again. The rule that
   survives it is `aboutPage`'s: photographs on that page come from the body, as `postPhoto`
   members she places by typing around them, and there is no photo field to reach for instead.
@@ -1271,23 +1423,36 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   proportional to each one's aspect ratio; `K` (the `22rem` in the basis) sets roughly how tall
   a row wants to be before wrapping, and at the current content it produces a 3-then-2 split on
   a wide screen. Different photographs will pack differently — that is the mechanism working,
-  not breaking. The `sm:max-w-[55%]` beside it is a guard so a leftover single photograph
-  cannot grow to fill a whole row; measured, it was reaching 765px tall at tablet widths
-  without it. Both are properties of the grid, never of a photograph, so neither is a Rule 2
-  control — but re-measure them if `featuredPhotos` ever stops being exactly five.
+  not breaking. Both `K` and the growth cap beside it are properties of the grid, never of a
+  photograph, so neither is a Rule 2 control — but re-measure them if `featuredPhotos` ever
+  stops being exactly five.
+
+  **The cap is `max-w-[calc(var(--r)*var(--k)*1.5)]` and used to be `sm:max-w-[55%]`.** Both
+  exist for the degenerate case — a row left holding one photograph, which `flex-grow` stretches
+  to the full column; a portrait at full width measured 765px tall before any cap existed. The
+  percentage was still letting a lone photograph reach ~600px on a ~1100px column, which reads
+  as a mistake rather than as a varying grid, so the cap now says what it is actually about:
+  how much larger than its neighbours a photograph may get. **The cost is that it applies to
+  every row, not only the last** — a row whose items all hit the cap leaves a ragged right edge
+  instead of stretching to fill. `1.5` is the one number to turn.
 - ~~**The preset set itself.**~~ **Settled: both are built.** `GalleryGrid` packs rows where
   every photo shares a height and takes a width from its own shape; `GalleryStack` gives each
   the full reading measure down a column. Neither crops. What is *not* settled is whether two
   is the right number — a third would be a component plus a `LAYOUT_PRESETS` line, always
   together, and the `PRESETS` map in `pages/shots/[slug].vue` now makes that pairing a
   typecheck failure rather than a convention.
-- **The tag vocabulary is real now, but only half-decided.** The six original placeholders
-  (Street, Portrait, …) are still there alongside the five she asked for. That was a
-  deliberate call — she may want both trip tags and visual-category tags — but it means eleven
-  checkboxes on every photo, six of which nobody has chosen on purpose. Worth revisiting with
-  her before the Studio ships, and cheap only until she starts using them: adding is free
-  afterwards, renaming and removing are not, and a value is now a page as well as a tag.
-- **Infinite scroll on /shots/everything gives up one thing that was not recoverable.** The
+- ~~**The tag vocabulary is real now, but only half-decided.**~~ **Settled, in the direction
+  the evidence pointed.** The six placeholders (Street, Portrait, Landscape, Architecture,
+  Water, Night) sat on zero photographs and existed only because the vocabulary was hardcoded
+  and adding to it was a code change. They were not migrated. Only the five she actually used —
+  South Africa, Life, Mexico 2022, USA 2020, Chile 2021 — became `tag` documents. Dropping them
+  is safe in a way it never was before: she can add any of them back in two clicks, which is
+  the point of the change.
+- **The tagging ergonomics got worse, and that is the open question the tag change leaves.**
+  She trades a checkbox grid for a reference picker — see the tag bullets in *The content
+  model*. Watch it across a real upload session. The no-dependency fix is a custom input
+  component on `photo.tags`; reaching for a plugin instead is a dependency and needs asking.
+- **Infinite scroll on /shots/all gives up one thing that was not recoverable.** The
   filter lives in the URL and is shareable; scroll depth does not, so a refresh returns you to
   the first 24. Recording depth in the URL was considered and dropped, because restoring it
   means fetching every photograph up to that point in one request — the exact cost the paging
@@ -1307,7 +1472,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   a mistyped tag looks like, and the two are indistinguishable from the page. If that bites, the
   fix is in the Studio rather than the app: a warning on `gallery.tag` when nothing carries it.
 - ~~**`@portabletext/vue` is approved but not installed.**~~ **Settled: it is never installed
-  directly.** `/writing/[slug]` renders `post.body` — the first route to read one — and needed
+  directly.** `/copy/[slug]` renders `post.body` — the first route to read one — and needed
   nothing added. `SanityContent` ships with `@nuxtjs/sanity`, already renders Portable Text for
   `proseText`, and takes the same `components` map for a body: `block` for the styles, `marks`
   for the `hyperlink` annotation, `types` for `postPhoto`. `@portabletext/vue` still arrives

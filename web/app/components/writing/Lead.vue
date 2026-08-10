@@ -2,15 +2,22 @@
 import { useWritingLink, type WritingItem } from '~/composables/useWritingLink'
 
 /**
- * The newest piece, given the front page of /writing.
+ * The newest piece, given the front page of /copy.
  *
- * ## Why "Latest" and not "Featured"
+ * ## The eyebrow is a prop, because it is a claim
  *
- * The lead is `items[0]` — whatever she published most recently, chosen by date in GROQ. There
- * is no flag on `post` or `article` for this and there should not be one: a featured-piece
- * toggle is a second thing to remember every time she publishes, and the failure mode is a
- * "featured" essay from four years ago sitting above six newer ones. Sorting by date cannot go
- * stale. The eyebrow says LATEST because that is the honest description of the rule.
+ * This file used to argue that the lead should always be `items[0]` and the eyebrow always say
+ * LATEST: a featured-piece toggle is a second thing to remember every time she publishes, and
+ * its failure mode is a "featured" essay from four years ago sitting above six newer ones,
+ * where sorting by date cannot go stale.
+ *
+ * She has since asked to be able to choose, and `writingPage.featured` gives her that — one
+ * optional reference, empty meaning automatic, so the default the old argument was defending is
+ * exactly what an untouched Studio still does. What the old argument correctly identified is
+ * why the word cannot be hardcoded: LATEST is a *claim about the date*, and it becomes a lie
+ * the moment she picks something older. So the page passes FEATURED when she has chosen and
+ * LATEST when the date chose, and the eyebrow stays an honest description of the rule that
+ * produced the piece under it.
  *
  * ## The photo is cropped, and that was a decision rather than a default
  *
@@ -47,7 +54,14 @@ import { useWritingLink, type WritingItem } from '~/composables/useWritingLink'
  * hit areas with two of them hidden from assistive tech to stop a screen reader announcing the
  * same destination three times.
  */
-const props = defineProps<{ item: WritingItem }>()
+const props = withDefaults(
+  defineProps<{
+    item: WritingItem
+    /** The eyebrow. `Latest` when the date picked this, `Featured` when she did. */
+    label?: string
+  }>(),
+  { label: 'Latest' },
+)
 
 const link = useWritingLink(() => props.item)
 </script>
@@ -73,9 +87,9 @@ const link = useWritingLink(() => props.item)
     :class="item.coverPhoto ? 'md:grid-cols-[1fr_300px]' : ''"
   >
     <div>
-      <p class="type-body-sm-strong uppercase tracking-[0.18em] text-ink">Latest</p>
+      <p class="type-body-sm-strong uppercase tracking-[0.18em] text-ink">{{ label }}</p>
 
-      <!-- An `<h3>`: the sidebar's wordmark is the page's `<h1>` and /writing's own heading is
+      <!-- An `<h3>`: the sidebar's wordmark is the page's `<h1>` and /copy's own heading is
            the `<h2>`, so a piece's title is a level below both. -->
       <h3 class="type-display-md mt-3 text-ink">
         {{ item.title }}

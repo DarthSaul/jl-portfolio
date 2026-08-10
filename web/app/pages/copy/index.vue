@@ -10,21 +10,27 @@ import { WRITING_QUERY } from '~/queries/writing'
  *
  * ## The heading came back
  *
- * This file used to argue against one: the nav already says WRITING, so a second "Writing"
+ * This file used to argue against one: the nav already says COPY, so a second "Copy"
  * directly under it repeats the tab you just clicked. That is still true and it is no longer the
  * deciding fact. The page is now a composition rather than a stack — a lead story, a heavy rule,
  * a ledger — and a composition needs something to start at. Without the heading the eyebrow
  * LATEST is the first thing on the page, which reads as a label floating above nothing.
- * `shots/everything.vue` sets the same precedent for the same reason.
+ * `shots/all.vue` sets the same precedent for the same reason.
  *
  * It is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`, so a piece's own
  * title is an `<h3>` below this.
  *
- * ## The lead is chosen by date, not by a flag
+ * ## The lead is hers to choose, and by default it is the newest
  *
- * `items[0]` is whatever she published most recently. There is deliberately no featured-piece
- * toggle in the Studio — see the note in `writing/Lead.vue` for why a flag is the wrong shape
- * for this.
+ * `page.featured` if she has set one, `items[0]` — the most recently published — otherwise.
+ * This file used to say the lead was chosen by date and that there was deliberately no toggle;
+ * she asked for the choice, and `writingPage.featured` is it. The default did not move, and
+ * that is what makes the reversal safe: an empty field *means* automatic, so there is no mode
+ * to set inconsistently and nothing new to remember on a publish.
+ *
+ * The lead is filtered out of the ledger by `_id` rather than by position, because a featured
+ * piece can sit anywhere in the list. `items[0]` and `page.featured` project to the same shape
+ * through `WRITING_ITEM_PROJECTION`, so `writing/Lead.vue` takes either without a branch.
  *
  * ## `writingPage` is allowed to be missing
  *
@@ -33,7 +39,7 @@ import { WRITING_QUERY } from '~/queries/writing'
  * page. It does not exist in `development` today.
  *
  * When it does exist, its `title` is used bare — `titleTemplate: '%s'`, the same override
- * `pages/index.vue` uses — because the field's initial value is already "Writing — Joan Lebow"
+ * `pages/index.vue` uses — because the field's initial value is already "Copy — Joan Lebow"
  * and the default template would append her name to it a second time.
  */
 const { data: writing, error } = await useSanityQuery(WRITING_QUERY)
@@ -59,24 +65,33 @@ if (error.value) {
   })
 }
 
-const lead = computed(() => writing.value?.items[0])
-const ledger = computed(() => writing.value?.items.slice(1) ?? [])
+const lead = computed(() => writing.value?.page?.featured ?? writing.value?.items[0])
+
+const ledger = computed(() =>
+  (writing.value?.items ?? []).filter(item => item._id !== lead.value?._id),
+)
+
+/**
+ * What the lead calls itself. LATEST is a claim about the date and stops being true the moment
+ * she picks something older, so the word follows the reason rather than the position.
+ */
+const leadLabel = computed(() => (writing.value?.page?.featured ? 'Featured' : 'Latest'))
 
 useHead(
   computed(() =>
     writing.value?.page
       ? { title: writing.value.page.title, titleTemplate: '%s' }
-      : { title: 'Writing' },
+      : { title: 'Copy' },
   ),
 )
 </script>
 
 <template>
   <!-- `max-w-read` and not the full column: the design's own measure is ~740px, which is what
-       this token already is, and it keeps /writing in step with `writing/[slug].vue` and
-       /about. -->
+       this token already is, and it keeps /copy in step with `writing/[slug].vue` and
+       /bio. -->
   <div v-if="writing" class="max-w-read">
-    <h2 class="type-display-lg text-ink">Writing</h2>
+    <h2 class="type-display-lg text-ink">Copy</h2>
 
     <!-- Subordinate to the lead's summary on purpose — `body-serif-md` against its
          `body-serif-lg`. The design has no intro line here, but the field is hers and editable,
@@ -86,7 +101,7 @@ useHead(
       {{ writing.page.intro }}
     </p>
 
-    <WritingLead v-if="lead" :item="lead" class="mt-8" />
+    <WritingLead v-if="lead" :item="lead" :label="leadLabel" class="mt-8" />
 
     <!-- No `space-y`. `story-row` gives each row its own padding and the hairline that separates
          it from the next, so a gap set here would double up against the padding and pull the

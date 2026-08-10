@@ -1,7 +1,7 @@
 /**
  * How every date on the site is written.
  *
- * Lived inside `components/home/FeaturedWriting.vue` until /writing needed the same thing in
+ * Lived inside `components/home/FeaturedWriting.vue` until /copy needed the same thing in
  * two more places. Nuxt auto-imports `app/utils/`, so there is nothing to import at the call
  * site — the same arrangement as the components next door.
  *
@@ -23,7 +23,7 @@ export const formatDate = (iso: string) =>
 /**
  * The same date with the day dropped — `Jul 2023`.
  *
- * For /writing's ledger, where the date sits in a 128px rail beside the headline rather than
+ * For /copy's ledger, where the date sits in a 128px rail beside the headline rather than
  * under it. At that width the day is precision nobody reads, and it is what pushes the line to
  * wrap.
  *

@@ -26,13 +26,43 @@ import type { PhotoProjection } from '~/queries/photo'
  * therefore `h = w/r = K + free/Σr` — the same number for every item on the line. The browser
  * decides how many fit; the row heights fall out. No breakpoints, no JS, no measurement.
  *
- * `K` (the `22rem`) sets roughly how tall a row wants to be before wrapping. `sm:max-w-[55%]`
- * is a guard for the degenerate case: a row left with one item grows it to the full width, and
- * a portrait at full width was measured at 765px tall before this was added.
+ * `K` (the `22rem`) sets roughly how tall a row wants to be before wrapping.
  *
- * The last row is shorter or taller than the ones above it depending on what is left over.
- * That is inherent to filling rows without cropping, and it reads as part of the varying-size
- * grid rather than as a mistake.
+ * ## The growth cap, and what it trades away
+ *
+ * `max-w-[calc(var(--r)*var(--k)*1.5)]` caps how far the justification above may stretch any
+ * one item: 1.5× its natural width, which is the same as 1.5× the row height it was sized for.
+ *
+ * The case it was added for is the degenerate one — a row left holding a single photograph,
+ * which `flex-grow` stretches to the full width of the column. That used to be capped at
+ * `sm:max-w-[55%]`, and 55% of a ~1100px column is still a 600px photograph sitting alone on a
+ * row of otherwise 300px tiles, which reads as a mistake rather than as a varying grid.
+ *
+ * The cap is stated against the item's own basis rather than as a percentage of the viewport
+ * because that is what it is actually about: how much larger than its neighbours a photograph
+ * may get. A percentage moves with the screen and says nothing about the row.
+ *
+ * **What it costs is real and applies to every row, not only the last.** A row whose items all
+ * hit the cap cannot absorb the remaining space, so its right edge is ragged instead of flush.
+ * That is the honest trade for never seeing one photograph balloon, and `1.5` is the one number
+ * to turn if the balance is wrong. Both numbers are properties of the grid and apply to every
+ * photograph in it equally, so neither is a Rule 2 control.
+ *
+ * The last row is still shorter or taller than the ones above it depending on what is left
+ * over. That is inherent to filling rows without cropping.
+ *
+ * ## Captions
+ *
+ * Off by default, on for the gallery pages. `GalleryStack` used to be the only preset that
+ * showed them, and the argument was that a caption in a packed row sits in a column narrower
+ * than the sentence. That is still true and it is no longer the deciding fact: an uncaptioned
+ * photograph on a photography site is missing the thing its photographer wrote about it, and a
+ * narrow column wraps. The front page does not set it — a caption under each of five featured
+ * photographs would compete with the writing directly below them.
+ *
+ * The caption is rendered by the grid rather than inside the slot, so a caller that overrides
+ * the slot to make each photograph a link — which the showcase does — does not have to
+ * re-implement it, and the caption stays outside the link where it belongs.
  *
  * ## The slot
  *
@@ -52,12 +82,27 @@ const props = withDefaults(
      * A boolean and not a number, for the reason `SanityPhoto.square` is a boolean: on or off
      * cannot become a per-photo dimension, and a `rowHeight` prop could. It changes `K` — how
      * tall a row wants to be before wrapping — which is a property of the grid and applies to
-     * every photograph in it equally. /shots/everything sets it because ~200 photographs at
+     * every photograph in it equally. /shots/all sets it because ~200 photographs at
      * reading size is a very long page; a gallery of fifty does not.
      */
     compact?: boolean
+    /**
+     * Show each photograph's caption beneath it. On by default.
+     *
+     * A boolean for the same reason `compact` is one: on or off is a property of the page, and
+     * nothing about it can become a per-photograph setting. A photograph with no caption
+     * renders none — there is no placeholder and no empty row, so a half-captioned gallery
+     * simply has captions where she wrote them.
+     *
+     * The default is `true` rather than `false` because this is a gallery preset and a gallery
+     * shows what she wrote about the photographs. It also keeps `pages/shots/[slug].vue` from
+     * having to pass it: that page renders `<component :is="PRESETS[preset]">`, and a prop only
+     * one of the two presets declares would fall through to the other as a stray attribute on
+     * its `<ul>`. The front page is the one caller that opts out.
+     */
+    captions?: boolean
   }>(),
-  { sizes: undefined, compact: false },
+  { sizes: undefined, compact: false, captions: true },
 )
 
 /**
@@ -74,16 +119,19 @@ const resolvedSizes = computed(
 )
 
 /**
- * The photograph's shape as a bare number, for the flex maths above.
+ * Declared rather than left implicit, and `sizes` is handed down with the photograph.
  *
- * Falls back to 3:2 when an asset has no dimensions — Sanity computes metadata at upload and
- * never backfills it, so anything imported around the Studio could be missing it. A wrong-ish
- * width beats a zero-width column.
+ * `GalleryStack` declares the same slot, which is what lets `pages/shots/[slug].vue` render
+ * `<component :is="PRESETS[preset]">` with one template that works for either — the exhaustive
+ * `PRESETS` map guarantees a component exists, and this guarantees it takes the slot.
+ *
+ * `sizes` is in the scope because the ladder is the grid's decision, not the caller's: a caller
+ * that overrides the slot to wrap each photograph in a link would otherwise have to restate the
+ * `compact` breakpoints, which is exactly the number that must not exist twice.
  */
-const ratio = (photo: PhotoProjection) => {
-  const { width, height } = photo.asset
-  return width && height ? width / height : 1.5
-}
+defineSlots<{
+  default?: (props: { photo: PhotoProjection, index: number, sizes: string }) => unknown
+}>()
 </script>
 
 <template>
@@ -94,16 +142,27 @@ const ratio = (photo: PhotoProjection) => {
     <li
       v-for="(photo, index) in photos"
       :key="photo._id"
-      :style="{ '--r': ratio(photo), '--k': compact ? '13rem' : '22rem' }"
-      class="grow-[var(--r)] basis-[calc(var(--r)*var(--k))] sm:min-w-0 sm:max-w-[55%]"
+      :style="{ '--r': photoRatio(photo), '--k': compact ? '13rem' : '22rem' }"
+      class="grow-[var(--r)] basis-[calc(var(--r)*var(--k))] sm:min-w-0 sm:max-w-[calc(var(--r)*var(--k)*1.5)]"
       :class="compact ? 'min-w-[46%]' : 'min-w-full'"
     >
       <!-- Below `sm` a reading grid gives each photograph the full width, where two landscapes
            side by side would be too small to be worth showing. A compact grid keeps two up
-           even on a phone — that is what makes it an index you can scan rather than scroll. -->
-      <slot :photo="photo" :index="index">
-        <SanityPhoto :photo="photo" :sizes="resolvedSizes" />
-      </slot>
+           even on a phone — that is what makes it an index you can scan rather than scroll.
+           The cap above is `sm:` for the same reason `min-w-0` is: below it a `min-width` wins
+           over a `max-width` anyway, so stating it there would be a rule that never applies. -->
+      <figure>
+        <slot :photo="photo" :index="index" :sizes="resolvedSizes">
+          <SanityPhoto :photo="photo" :sizes="resolvedSizes" />
+        </slot>
+
+        <!-- Outside the slot, so a caller that makes the photograph a link does not put the
+             caption inside it — a link whose accessible name is the alt text *and* the caption
+             reads twice as long for no gain. -->
+        <figcaption v-if="captions && photo.caption" class="type-caption mt-2 text-muted">
+          {{ photo.caption }}
+        </figcaption>
+      </figure>
     </li>
   </ul>
 </template>

@@ -3,7 +3,7 @@ import { defineQuery } from 'groq'
 import { PHOTO_PROJECTION } from './photo'
 
 /**
- * /about — her bio.
+ * /bio — her bio.
  *
  * One document, one projection. It briefly returned two — the page, plus a `portrait` read off
  * `homePage.introPhoto` — because the photograph that used to open the front page needed

@@ -1,46 +1,7 @@
 import {ImageIcon} from '@sanity/icons/Image'
 import {defineArrayMember, defineField, defineType} from 'sanity'
 
-/**
- * The tag vocabulary. Fixed on purpose — see Rule 2 in CLAUDE.md for why the Studio
- * has no free-text taxonomy.
- *
- * Adding a value later is free. Renaming or removing one is not: the old string stays
- * on every photo already using it, no longer matches the list, and the checkbox for it
- * silently disappears. Add freely; change with care.
- *
- * ## A tag value can become a web address, so it is now doubly hard to change
- *
- * A `gallery` can point at a tag instead of listing photos by hand, and when it does,
- * every photo carrying that tag appears on that gallery's page. The *value* below is
- * what the gallery stores, which is why the values are slug-shaped — `mexico-2022`
- * rather than `mexico2022` or `Mexico 2022`.
- *
- * The consequence: renaming a value already used by a published gallery breaks two
- * things at once, in different places, silently. Every photo keeps the old string and
- * drops out of the list; and the gallery's `tag` no longer matches anything, so its
- * page goes empty rather than erroring. The `title` is free to change at any time —
- * it is only ever a label in the Studio. Change titles; leave values alone.
- *
- * The two kinds of tag below are deliberate and are not distinguished in the schema.
- * The first six group photographs by what is in them; the rest are the trips and
- * bodies of work she is likely to want a page for. Nothing marks which is which,
- * because "does this tag have a page" is answered by whether a gallery points at it —
- * one fact in one place, rather than a flag here that could disagree with reality.
- */
-export const PHOTO_TAGS = [
-  {title: 'Street', value: 'street'},
-  {title: 'Portrait', value: 'portrait'},
-  {title: 'Landscape', value: 'landscape'},
-  {title: 'Architecture', value: 'architecture'},
-  {title: 'Water', value: 'water'},
-  {title: 'Night', value: 'night'},
-  {title: 'Mexico 2022', value: 'mexico-2022'},
-  {title: 'Chile 2021', value: 'chile-2021'},
-  {title: 'USA 2020', value: 'usa-2020'},
-  {title: 'South Africa', value: 'south-africa'},
-  {title: 'Life', value: 'life'},
-]
+import {excludeAlreadyChosen} from '../photoPicker'
 
 /**
  * RULE 1. A photograph is one document, with one image asset and one alt text.
@@ -81,7 +42,7 @@ export default defineType({
         // which Rule 2 forbids — she picks photos and order, never framing. Every photo
         // shown at reading size keeps its native aspect ratio, so nothing needs one.
         //
-        // The one place the site does crop is the preview thumbnail on /writing, which is a
+        // The one place the site does crop is the preview thumbnail on /copy, which is a
         // fixed centred square. That is a knob-free preset rather than a framing control,
         // and it is the reason to revisit this line rather than a contradiction of it: if
         // centred crops start losing the subject of her covers, hotspot is the fix, and
@@ -144,12 +105,28 @@ export default defineType({
       description:
         'Optional. Tags group photos here so they are easier to find — and a gallery can ' +
         'be set to show everything with a given tag, in which case adding that tag to a ' +
-        'photo puts it on that gallery’s page. The tags themselves are never shown on the site.',
-      // The list on the ARRAY is what renders the checkbox grid in the Studio.
-      options: {list: PHOTO_TAGS, layout: 'grid'},
-      // The same list on the ARRAY MEMBER is what makes typegen emit
-      // Array<"street" | "portrait" | …> instead of Array<string>. Both are required.
-      of: [defineArrayMember({type: 'string', options: {list: PHOTO_TAGS}})],
+        'photo puts it on that gallery’s page. Add and rename tags under Tags in the sidebar.',
+      // References to `tag` documents, not strings from a fixed list. See documents/tag.ts
+      // for what that buys and what it costs; the short version is that renaming a tag became
+      // free and deleting one in use became impossible rather than silently destructive.
+      //
+      // What went with the strings: `options: {list, layout: 'grid'}` on the array, which drew
+      // the checkbox grid. A reference array cannot render as one, and that is the accepted
+      // cost of the change rather than an oversight — do not reach for a plugin to get it back
+      // without asking.
+      //
+      // `excludeAlreadyChosen` on the MEMBER for ergonomics — it drops tags already on this
+      // photo out of the picker — and `unique()` on the ARRAY for the guarantee. Both, always:
+      // on the array `options` does nothing at all, silently, and the filter alone cannot catch
+      // a paste. Same pairing as `gallery.photos`, and it works here for the same reason: the
+      // member's `parent` is the surrounding array.
+      of: [
+        defineArrayMember({
+          type: 'reference',
+          to: [{type: 'tag'}],
+          options: {filter: excludeAlreadyChosen},
+        }),
+      ],
       validation: (rule) => rule.unique(),
     }),
 
@@ -164,7 +141,12 @@ export default defineType({
      * exactly the photographs she meant to hide.
      *
      * Separating it costs one concept and buys three things: no gallery can be built on it, it
-     * cannot appear in the filter row on /shots/everything, and the field says what it does.
+     * cannot appear in the filter row on /shots/all, and the field says what it does.
+     *
+     * The field KEY stays `excludeFromIndex` while its label follows the page's new name. The
+     * key was never on screen, so renaming it would buy a label change she already gets and
+     * cost a migration across every photograph — and a half-applied one leaves photographs
+     * quietly un-hidden, which is the failure this field exists to prevent.
      *
      * Scope is narrow on purpose. This hides a photograph from the *index* only. It stays
      * reachable everywhere it was deliberately placed — as an article's cover, in a body of
@@ -174,11 +156,11 @@ export default defineType({
      */
     defineField({
       name: 'excludeFromIndex',
-      title: 'Hide from the Everything page',
+      title: 'Hide from the All Shots page',
       type: 'boolean',
       group: 'details',
       description:
-        'Optional. The Everything page lists every photo you have uploaded — tick this to keep ' +
+        'Optional. The All Shots page lists every photo you have uploaded — tick this to keep ' +
         'this one out of it. Useful for a cover photo that belongs to an article rather than ' +
         'to your photography. It stays visible anywhere you have placed it by hand.',
       initialValue: false,

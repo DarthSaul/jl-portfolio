@@ -11,8 +11,6 @@ import {UserIcon} from '@sanity/icons/User'
 import type {ComponentType} from 'react'
 import type {StructureBuilder, StructureResolver} from 'sanity/structure'
 
-import {PHOTO_TAGS} from './schemaTypes/documents/photo'
-
 /**
  * The document types that exist exactly once.
  *
@@ -43,7 +41,7 @@ export const SINGLETON_TYPES = new Set([
 const API_VERSION = '2026-07-31'
 
 /** Every type placed by hand below. Anything missing here falls through to the bottom. */
-const PLACED_TYPES = new Set([...SINGLETON_TYPES, 'photo', 'gallery', 'post', 'article'])
+const PLACED_TYPES = new Set([...SINGLETON_TYPES, 'photo', 'gallery', 'tag', 'post', 'article'])
 
 function singleton(S: StructureBuilder, typeName: string, title: string, icon: ComponentType) {
   return S.listItem()
@@ -65,10 +63,12 @@ export const structure: StructureResolver = (S) =>
             .title('Pages')
             .items([
               singleton(S, 'homePage', 'Home', HomeIcon),
-              singleton(S, 'writingPage', 'Writing', DocumentsIcon),
-              // The label follows her nav, which now says ABOUT. The type name stays
-              // `aboutPage` because renaming one is a content migration; see aboutPage.ts.
-              singleton(S, 'aboutPage', 'About', UserIcon),
+              // The labels follow her nav, which now says COPY and BIO. The type names stay
+              // `writingPage` and `aboutPage` because renaming one is a content migration; see
+              // aboutPage.ts. That split — her words on screen, our names underneath — is the
+              // whole reason a label change like this costs nothing.
+              singleton(S, 'writingPage', 'Copy', DocumentsIcon),
+              singleton(S, 'aboutPage', 'Bio', UserIcon),
               singleton(S, 'contactPage', 'Contact', EnvelopeIcon),
             ]),
         ),
@@ -112,24 +112,38 @@ export const structure: StructureResolver = (S) =>
 
               S.divider(),
 
-              // One browse list per tag, generated from the vocabulary itself — adding a
-              // tag in photo.ts adds its list here with no second edit.
-              ...PHOTO_TAGS.map(({title, value}) =>
-                S.listItem()
-                  .id(`tag-${value}`)
-                  .title(title)
-                  .icon(TagIcon)
-                  .child(
-                    S.documentList()
-                      .id(`tag-${value}`)
-                      .title(title)
-                      .schemaType('photo')
-                      .apiVersion(API_VERSION)
-                      .filter('_type == "photo" && $tag in tags')
-                      .params({tag: value})
-                      .defaultOrdering([{field: '_createdAt', direction: 'desc'}]),
-                  ),
-              ),
+              // Browse by tag, generated from the tag documents themselves rather than from a
+              // hardcoded array — so a tag she creates gets a list here the moment it exists,
+              // with nothing to deploy.
+              //
+              // `.child()` replaces the default "open this tag for editing" with "show its
+              // photos", which is what makes this a browse list. That is also why editing lives
+              // in the separate top-level Tags list below: override the child here and there
+              // would otherwise be no way into a tag document at all.
+              //
+              // The callback receives the *published* document id, which is exactly what a
+              // photo's `tags[]._ref` stores — so a tag that also has an unpublished draft
+              // still filters correctly rather than matching nothing.
+              S.listItem()
+                .id('photosByTag')
+                .title('Browse by tag')
+                .icon(TagIcon)
+                .child(
+                  S.documentTypeList('tag')
+                    .id('photosByTag')
+                    .title('Browse by tag')
+                    .defaultOrdering([{field: 'title', direction: 'asc'}])
+                    .child((tagId) =>
+                      S.documentList()
+                        .id('photosWithTag')
+                        .title('Photos')
+                        .schemaType('photo')
+                        .apiVersion(API_VERSION)
+                        .filter('_type == "photo" && $tagId in tags[]._ref')
+                        .params({tagId})
+                        .defaultOrdering([{field: '_createdAt', direction: 'desc'}]),
+                    ),
+                ),
 
               // A "not used in any gallery" list is not possible here: documentList
               // filters run per document and do not support joins. That one stays a
@@ -137,11 +151,16 @@ export const structure: StructureResolver = (S) =>
             ]),
         ),
 
+      // Where she adds, renames and removes tags. Separate from the browse drilldown above,
+      // because that one overrides its child pane to show photographs and therefore cannot also
+      // open a tag for editing. Two entries, each doing one obvious thing.
+      S.documentTypeListItem('tag').title('Tags').icon(TagIcon),
+
       // Two lists, not one, because the difference matters to her: a post is hers and
       // lives here, a link points at someone else's site.
-      S.documentTypeListItem('post').title('Writing posts').icon(DocumentTextIcon),
+      S.documentTypeListItem('post').title('Copy posts').icon(DocumentTextIcon),
 
-      S.documentTypeListItem('article').title('Writing links').icon(LinkIcon),
+      S.documentTypeListItem('article').title('Copy links').icon(LinkIcon),
 
       S.divider(),
 

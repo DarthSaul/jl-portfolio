@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { PhotoTag } from '~/content/tags'
-import { tagLabel } from '~/content/tags'
+import type { TagOption } from '~/queries/allShots'
 
 /**
- * The tag filter row on /shots/everything.
+ * The tag filter row on /shots/all.
  *
  * DESIGN.md has no filter component, so this is built from the two it does define, used at
  * their stated polarity: `button-outline` (canvas fill, 1px ink border, ink text) for the
@@ -16,6 +15,18 @@ import { tagLabel } from '~/content/tags'
  * what every other small structural label on this site already uses — the nav, READ MORE, the
  * eyebrow — so the row reads as navigation, which is what it is.
  *
+ * ## Many at once, and no ALL
+ *
+ * Each chip toggles its own tag in or out of the selection, and the selection is a **union**:
+ * a photograph carrying any selected tag is shown. Adding a filter therefore always widens the
+ * set, which is what makes ticking a second one safe — with roughly one trip tag per
+ * photograph, an intersection would empty the page on the second click.
+ *
+ * The ALL chip is gone. It existed to express "no filter" as something to click, and under
+ * multiple selection that state has a better name: nothing is selected. What replaces it is
+ * CLEAR, which appears only when there is something to clear — a control present exactly when
+ * it does something, rather than one permanently on screen and usually already active.
+ *
  * ## Links, not buttons
  *
  * Each filter is a `NuxtLink` and the state lives in the query string. That makes a filtered
@@ -23,57 +34,80 @@ import { tagLabel } from '~/content/tags'
  * free, and means the filtered page server-renders — the alternative, a `<button>` mutating
  * local state, would leave the URL describing a page nobody is looking at.
  *
- * `aria-current="page"` marks the active filter rather than `aria-pressed`, because these are
+ * `aria-current="page"` marks each active filter rather than `aria-pressed`, because these are
  * links to locations and not toggles. It also means the active styling and the accessible
- * state come from the same attribute rather than being tracked twice.
+ * state come from the same attribute rather than being tracked twice. That reading survives
+ * multi-select: each chip still names a location, and several of them can be part of where you
+ * currently are.
  */
-defineProps<{
+const props = defineProps<{
   /**
-   * Only tags actually carried by visible photographs — see `tagsInUse` in the query.
+   * Only tags actually carried by visible photographs — see `tagsInUse` in the query, which
+   * also does the ordering now.
    *
-   * `PhotoTag[]` rather than `string[]`: these come out of the schema's own vocabulary via
-   * typegen, so a tag removed from `PHOTO_TAGS` fails to typecheck here rather than rendering
-   * as a filter that matches nothing.
+   * `TagOption[]` is read off the generated query result. It used to be `PhotoTag[]`, a union
+   * of string literals from the schema's hardcoded vocabulary, paired with a `TAG_LABELS` map
+   * in the app that the compiler kept exhaustive. Both are gone: a tag is a document, so its
+   * name arrives with the query and there is no second copy to keep honest.
    */
-  tags: PhotoTag[]
+  tags: TagOption[]
   /**
-   * The active tag, or '' for everything.
+   * The slugs currently selected. Empty means unfiltered.
    *
-   * Deliberately a plain `string` and not `PhotoTag | ''`, unlike the list above. This one comes
-   * off the query string, where a visitor can type anything; narrowing it would mean asserting a
-   * union over input nothing validates. It is only ever compared, never looked up.
+   * Plain `string[]`, deliberately not narrowed — for the reason the single `active` string was
+   * not: it comes off the query string, where a visitor can type anything, and narrowing it
+   * would mean asserting a union over input nothing validates. It is only ever compared.
    */
-  active: string
+  active: string[]
 }>()
 
 const BASE
   = 'type-body-sm-strong inline-block border border-ink px-4 py-2 uppercase tracking-[0.1em] '
     + 'transition-colors text-ink hover:bg-ink hover:text-canvas '
     + 'aria-[current=page]:bg-ink aria-[current=page]:text-canvas'
+
+const isActive = (slug: string) => props.active.includes(slug)
+
+/**
+ * Where a chip goes: the current selection with this tag added or removed.
+ *
+ * Sorted, so `?tag=a&tag=b` and `?tag=b&tag=a` are one address rather than two that render
+ * identically — the same instinct that keeps the unfiltered page free of an empty parameter.
+ *
+ * The `tag` key is dropped rather than set to `[]` when nothing is left, so clearing the last
+ * chip lands on the canonical `/shots/all`.
+ */
+const toggleTo = (slug: string) => {
+  const next = isActive(slug)
+    ? props.active.filter(value => value !== slug)
+    : [...props.active, slug].sort()
+
+  return next.length ? { path: '/shots/all', query: { tag: next } } : { path: '/shots/all' }
+}
 </script>
 
 <template>
   <nav aria-label="Filter photos">
     <ul class="flex flex-wrap gap-2">
-      <li>
-        <!-- No query param at all rather than `?tag=`, so the unfiltered page has one
-             canonical address instead of two that render identically. -->
+      <li v-for="tag in tags" :key="tag.slug">
         <NuxtLink
-          :to="{ path: '/shots/everything' }"
-          :aria-current="active === '' ? 'page' : 'false'"
+          :to="toggleTo(tag.slug)"
+          :aria-current="isActive(tag.slug) ? 'page' : 'false'"
           :class="BASE"
         >
-          All
+          {{ tag.title }}
         </NuxtLink>
       </li>
 
-      <li v-for="tag in tags" :key="tag">
+      <!-- Only when there is something to clear. Underlined text rather than a bordered chip,
+           so it reads as an action on the row instead of a seventh tag in it — the same
+           treatment the empty state's way back already uses. -->
+      <li v-if="active.length">
         <NuxtLink
-          :to="{ path: '/shots/everything', query: { tag } }"
-          :aria-current="active === tag ? 'page' : 'false'"
-          :class="BASE"
+          :to="{ path: '/shots/all' }"
+          class="type-body-sm-strong inline-block px-2 py-2 uppercase tracking-[0.1em] text-muted underline transition-colors hover:text-ink"
         >
-          {{ tagLabel(tag) }}
+          Clear
         </NuxtLink>
       </li>
     </ul>

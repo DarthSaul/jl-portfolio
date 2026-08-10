@@ -17,20 +17,39 @@ import type { PhotoProjection } from '~/queries/photo'
  * scrolling; the reading measure keeps a stacked gallery feeling like a sequence rather than a
  * slideshow. It is a property of the preset, not of any photograph, so it stays here.
  *
- * Captions render, unlike in the grid. A stack is the slow read of the two, and a caption at
- * the foot of a full-width photograph has room to be read; in a packed row it would sit in a
- * column narrower than the sentence.
+ * Captions render, and always have. The grid can now show them too — see the note there — so
+ * this is no longer the difference between the two presets, only the place a caption has the
+ * most room: at the foot of a full-measure photograph rather than in a packed column.
  */
 defineProps<{
   photos: PhotoProjection[]
+}>()
+
+/**
+ * The same slot `GalleryGrid` declares, so `pages/shots/[slug].vue` can hand one template to
+ * `<component :is="PRESETS[preset]">` and have it work whichever preset she picked. Without it
+ * a stack gallery's photographs would silently not be clickable — the `PRESETS` map guarantees
+ * a component exists for every preset value, and this is what guarantees it takes the slot.
+ *
+ * `sizes` travels with the photograph for the reason it does in the grid: the ladder is the
+ * preset's decision, and a caller overriding the slot must not have to restate it.
+ */
+const SIZES = '(min-width: 768px) 750px, 92vw'
+
+defineSlots<{
+  default?: (props: { photo: PhotoProjection, index: number, sizes: string }) => unknown
 }>()
 </script>
 
 <template>
   <ul class="max-w-read space-y-16">
-    <li v-for="photo in photos" :key="photo._id">
+    <li v-for="(photo, index) in photos" :key="photo._id">
       <figure>
-        <SanityPhoto :photo="photo" sizes="(min-width: 768px) 750px, 92vw" />
+        <!-- The slot wraps the photograph only, never the `<figure>`: the caption belongs
+             outside whatever the caller puts around the image. -->
+        <slot :photo="photo" :index="index" :sizes="SIZES">
+          <SanityPhoto :photo="photo" :sizes="SIZES" />
+        </slot>
 
         <figcaption v-if="photo.caption" class="type-caption mt-3 text-muted">
           {{ photo.caption }}

@@ -58,5 +58,22 @@ export default defineNuxtConfig({
     },
   },
 
-  // ISR route rules land here once there is content to cache. See CLAUDE.md.
+  // The routes she renamed, kept alive.
+  //
+  // /writing, /about and /shots/everything were this site's addresses until her words replaced
+  // ours — COPY, BIO and ALL SHOTS. Nothing external points at the old three (joanatstake.com
+  // is not connected yet), so these are for links already shared out of a preview deploy and
+  // for anyone's bookmarks, and they cost three lines.
+  //
+  // `302`, not `301`, for the reason `/admin` is: a permanent redirect gets cached in a browser
+  // and is genuinely annoying to undo. These are temporary in the sense that they can be
+  // deleted once nothing has followed them for a while — a `301` would decide that for us.
+  //
+  // ISR route rules land here too, once there is content to cache. See CLAUDE.md.
+  routeRules: {
+    '/writing': { redirect: { to: '/copy', statusCode: 302 } },
+    '/writing/**': { redirect: { to: '/copy/**', statusCode: 302 } },
+    '/about': { redirect: { to: '/bio', statusCode: 302 } },
+    '/shots/everything': { redirect: { to: '/shots/all', statusCode: 302 } },
+  },
 })

@@ -4,13 +4,14 @@ import {defineArrayMember, defineField, defineType} from 'sanity'
 import {proseBlock} from '../objects/proseText'
 
 /**
- * /about — her bio: an opening line, then a few paragraphs with photographs among them.
+ * /bio — her bio: an opening line, then a few paragraphs with photographs among them.
  *
- * Called "About" in the Studio and in the sidebar, because that is the word in her nav. It was
- * "Bio" until the nav changed, and the rule behind both is the same: the label follows her
- * word. The type is still `aboutPage` and the route is still `/about` — renaming a document
- * type is a content migration, and the three names cost nothing as long as the one she reads
- * is hers.
+ * Called "Bio" in the Studio and in the sidebar, because that is the word in her nav. It was
+ * "Bio", then "About", and is "Bio" again; the rule behind all three is the same and is the
+ * only part worth remembering: the label follows her word, and nothing underneath it moves.
+ * The type is still `aboutPage`, the query is still `ABOUT_QUERY`, and only the route went
+ * with the label — renaming a document type is a content migration, and three names cost
+ * nothing as long as the one she reads is hers.
  *
  * ## The heading and introduction came from the front page
  *
@@ -34,7 +35,7 @@ import {proseBlock} from '../objects/proseText'
  * body is a portrait at the top of the page.
  *
  * That decision is also the reason the intro above arrived as two fields and a photograph did
- * not. `/about` briefly rendered one below the body, read across from `homePage.introPhoto`
+ * not. `/bio` briefly rendered one below the body, read across from `homePage.introPhoto`
  * because the front page had stopped showing it. That field and that cross-document read are
  * both gone: photographs on this page come from the body, and there is nothing else to reach
  * for. See the note in `queries/about.ts`.
@@ -44,14 +45,19 @@ import {proseBlock} from '../objects/proseText'
  * `post.body` allows a subheading and a pulled-out quote because her essays use them. A bio
  * is a few paragraphs about a person, so this starts at `normal` alone. That direction is the
  * cheap one: adding a style later costs a line, while removing one she has already used
- * leaves blocks in the document whose style no longer matches the list — the same asymmetry
- * as PHOTO_TAGS. Add one when a bio actually needs it, not in advance.
+ * leaves blocks in the document whose style no longer matches the list. Add one when a bio
+ * actually needs it, not in advance.
+ *
+ * This used to cite `PHOTO_TAGS` as the same asymmetry, and that comparison has expired: tags
+ * are documents now, so removing one is blocked rather than silently destructive. The block
+ * `styles` list is still a hardcoded array and still carries the old asymmetry, which is
+ * exactly why it is worth naming here rather than leaning on a neighbour that has moved on.
  *
  * A singleton. See homePage.ts for how that is enforced.
  */
 export default defineType({
   name: 'aboutPage',
-  title: 'About page',
+  title: 'Bio page',
   type: 'document',
   icon: UserIcon,
 
@@ -61,7 +67,7 @@ export default defineType({
       title: 'Browser tab title',
       type: 'string',
       description: 'Shown in the browser tab and in search results. Not shown on the page.',
-      initialValue: 'About — Joan Lebow',
+      initialValue: 'Bio — Joan Lebow',
       validation: (rule) => rule.required(),
     }),
 
@@ -105,6 +111,6 @@ export default defineType({
   ],
 
   preview: {
-    prepare: () => ({title: 'About page'}),
+    prepare: () => ({title: 'Bio page'}),
   },
 })

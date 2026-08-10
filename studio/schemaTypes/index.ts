@@ -8,6 +8,7 @@ import homePage from './documents/homePage'
 import photo from './documents/photo'
 import post from './documents/post'
 import siteSettings from './documents/siteSettings'
+import tag from './documents/tag'
 import writingPage from './documents/writingPage'
 import featuredPhoto from './objects/featuredPhoto'
 import link from './objects/link'
@@ -18,6 +19,7 @@ export const schemaTypes = [
   // Content
   photo,
   gallery,
+  tag,
   post,
   article,
 

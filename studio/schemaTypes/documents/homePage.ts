@@ -37,7 +37,7 @@ export default defineType({
      * Parked, not dead. `HOME_QUERY` still fetches this and `index.vue` still carries the line
      * that would render it, commented out — see *The front page* in CLAUDE.md. The description
      * used to say "below the introduction", which stopped being true when the introduction
-     * moved to the About page, so it now describes where the field stands rather than a
+     * moved to the Bio page, so it now describes where the field stands rather than a
      * position on a page that no longer has one.
      */
     defineField({

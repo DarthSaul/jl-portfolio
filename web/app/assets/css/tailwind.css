@@ -213,7 +213,7 @@
    *
    * ## Where it may appear
    *
-   * The READ MORE affordance on /writing, and nothing else yet. It is an accent in the strict
+   * The READ MORE affordance on /copy, and nothing else yet. It is an accent in the strict
    * sense: a colour that marks one small recurring thing, not a second brand colour to
    * distribute. Reach for `ink` first every time; adding a third call site is a design decision
    * and should look like one.
@@ -254,7 +254,7 @@
    * `rounded-full` survives on purpose and is the single exception the spec allows —
    * "{rounded.full} 9999px: circular icon containers only". It does not read from a
    * `--radius-*` token, so unsetting these does not touch it — confirmed by the same test.
-   * Two call sites: the circular thumbnails on /writing and the social buttons in the sidebar.
+   * Two call sites: the circular thumbnails on /copy and the social buttons in the sidebar.
    */
   --radius: initial;
   --radius-xs: initial;
@@ -492,9 +492,9 @@
  * only elevation cue for one.
  *
  * This was deliberately unimplemented for a while, and the reasoning was sound at the time:
- * /writing had been built on the rule, seven identical rows separated by seven identical
+ * /copy had been built on the rule, seven identical rows separated by seven identical
  * hairlines read as heavier than that page wanted, and space alone did the job better. What
- * changed is the page, not the verdict. /writing now leads with one story and lists the rest
+ * changed is the page, not the verdict. /copy now leads with one story and lists the rest
  * beneath it, so the rows are a ledger under a heavier 2px rule rather than the whole page —
  * and a ledger wants the tighter rhythm a divider allows. Space alone at ledger spacing reads
  * as one run-on block.
@@ -506,4 +506,34 @@
 @utility story-row {
   padding-block: 1rem; /* {spacing.lg} 16px — DESIGN.md's story-row padding */
   border-bottom: 1px solid var(--color-hairline);
+}
+
+/*
+ * The showcase's height budget — how tall the one photograph on the page may be.
+ *
+ * `components/shots/PhotoShowcase.vue` multiplies this by the photograph's own aspect ratio to
+ * get a `max-width`, so the result is `object-fit: contain` computed in CSS: the photograph
+ * fills whichever dimension runs out first and **keeps its proportions either way**.
+ *
+ * RULE 2, and the distinction CLAUDE.md draws between a bound and a crop is the whole reason
+ * this is allowed to exist. A bound shrinks a photograph and loses nothing; a crop selects part
+ * of one. Nothing here selects — there is no `fit`, no `rect`, no `object-cover`, and the CDN
+ * URL still carries only a width, a format and a quality. `--showcase-h` is a property of the
+ * view and applies to every photograph equally; the photograph's own shape enters through
+ * `--ar`, read from the asset's metadata, exactly as `--r` does in `GalleryGrid`. **It must
+ * never become settable per photograph**, at a call site or in the Studio.
+ *
+ * Written as `100dvh` minus the chrome it is actually derived from rather than as a flat
+ * `78dvh`, so that changing <main>'s padding shows up here as arithmetic that no longer adds up
+ * instead of as a photograph quietly pushing the page into scroll. `dvh` and not `vh`, matching
+ * `min-h-dvh` and `lg:h-dvh` in layouts/default.vue — on a phone the URL bar collapses and `vh`
+ * would leave the photograph taller than the space it has.
+ */
+@utility showcase-frame {
+  /* bar 3.5rem + main pt-10 2.5rem + pb-20 5rem + the heading and controls ~5rem */
+  --showcase-h: calc(100dvh - 16rem);
+  @variant lg {
+    /* no bar; main pt-14 3.5rem + pb-28 7rem + the heading and controls ~5rem */
+    --showcase-h: calc(100dvh - 15.5rem);
+  }
 }

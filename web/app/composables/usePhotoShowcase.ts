@@ -105,7 +105,19 @@ export function usePhotoShowcase(photos: Ref<PhotoProjection[]>) {
   )
 
   /**
-   * Where the index was scrolled to when the showcase opened.
+   * The surrounding view — every query parameter except `photo`.
+   *
+   * On `/shots/all` that is the filter selection; on a gallery page there is nothing else and
+   * this is always `[]`. Entries are sorted so two URLs describing the same view compare equal
+   * regardless of the order the parameters happen to appear in.
+   */
+  const viewKey = computed(() => {
+    const { photo: _photo, ...rest } = route.query
+    return JSON.stringify(Object.entries(rest).sort(([a], [b]) => a.localeCompare(b)))
+  })
+
+  /**
+   * Where the index was scrolled to when the showcase opened, and what it was showing.
    *
    * The pages render the grid behind a `v-if`, so opening collapses the document and the browser
    * clamps `scrollY` to the new maximum — by the time the showcase closes, the old position is
@@ -116,19 +128,29 @@ export function usePhotoShowcase(photos: Ref<PhotoProjection[]>) {
    * asset's own dimensions: the grid's full height is back on the next tick, without waiting for
    * a single image to decode. That is a decision made elsewhere paying off here, and it is worth
    * knowing before anyone considers making the reservation conditional.
+   *
+   * **The view is saved alongside the position, and that is not belt-and-braces.** The filter
+   * row stays on screen while the showcase is open, and `FilterBar`'s links drop `photo`
+   * entirely — so clicking a tag from inside the showcase closes it *and* changes the list
+   * underneath in one navigation. Restoring a position measured against the old list would drop
+   * the visitor into the middle of a different set of photographs; worse, it lands *after*
+   * `/shots/all`'s own scroll-to-top on a filter change, so it would silently undo it. When the
+   * view has moved, the position is not ours to restore and the page's own handling wins.
    */
   const savedScroll = ref(0)
+  const savedView = ref('')
 
   watch(activeId, (id, previousId) => {
     if (!import.meta.client) return
 
     if (id && !previousId) {
       savedScroll.value = window.scrollY
+      savedView.value = viewKey.value
       window.scrollTo({ top: 0 })
       return
     }
 
-    if (!id && previousId) {
+    if (!id && previousId && viewKey.value === savedView.value) {
       nextTick(() => window.scrollTo({ top: savedScroll.value }))
     }
   })

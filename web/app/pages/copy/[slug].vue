@@ -18,7 +18,29 @@ import { POST_QUERY } from '~/queries/writing'
  */
 const route = useRoute()
 
-const { data: post } = await useSanityQuery(POST_QUERY, { slug: String(route.params.slug) })
+const { data: post, error } = await useSanityQuery(POST_QUERY, {
+  slug: String(route.params.slug),
+})
+
+/**
+ * `error` before `data`, which CLAUDE.md requires of every route that runs a query and which
+ * this page was the last one missing.
+ *
+ * The two states are indistinguishable downstream: a failed request also leaves `post` null, so
+ * without this a transport failure rendered as "No writing found at this address." — a 404
+ * blaming her URL for a problem with ours, on a page that exists. The CORS case is the one
+ * invisible from the symptom, since SSR sends no `Origin` header and only a client-side
+ * navigation fails; see the longer version in `pages/index.vue`.
+ */
+if (error.value) {
+  throw createError({
+    statusCode: 502,
+    statusMessage: 'Could not reach Sanity — see the logged cause. If this appears only after '
+      + 'navigating between pages, this origin is missing from the project\'s CORS allowlist.',
+    fatal: true,
+    cause: error.value,
+  })
+}
 
 /**
  * A slug with no post is a genuine 404, not a server error. Unlike the singletons, nothing

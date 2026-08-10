@@ -38,6 +38,14 @@ import type { PhotoProjection } from '~/queries/photo'
 const props = defineProps<{
   /** The photograph, or `null` when the id in the URL resolves to nothing. */
   photo: PhotoProjection | null
+  /**
+   * A lookup for this id is still in flight, so `photo` being null does not yet mean anything.
+   *
+   * Only `/shots/all` ever passes it — a gallery has all its photographs in memory and resolves
+   * the id with a `find`, so there is nothing to wait for. Without it the index announced a
+   * deep-linked photograph as missing for as long as the request took, and then showed it.
+   */
+  pending?: boolean
   closeTo: RouteLocationRaw
   previousTo: RouteLocationRaw | null
   nextTo: RouteLocationRaw | null
@@ -90,6 +98,14 @@ const onKeydown = (event: KeyboardEvent) => {
     router.replace(props.closeTo)
     return
   }
+
+  // Modified presses belong to the platform, and one of them is a direct collision:
+  // Cmd+Arrow (macOS) and Alt+Arrow (Windows/Linux) are Back and Forward in every browser, so
+  // without this a visitor pressing Cmd+Left would go back *and* push a new showcase entry in
+  // one keystroke — leaving history pointing somewhere neither of them asked for. Ctrl and
+  // Shift are spoken for by the OS and by assistive tech. Escape above is unmodified either
+  // way, so it is deliberately checked before this.
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
 
   // Arrow keys move through the loaded set. Guarded on the same `null`s the buttons are, so the
   // keyboard cannot reach a photograph the controls say is not there.
@@ -186,8 +202,12 @@ const CONTROL
     <!-- A `?photo=` naming nothing — a mistyped id, a deleted photograph, or one she has hidden
          from the index. Deliberately not a `createError`: this is a query parameter, and letting
          one replace a working gallery with an error screen would be a much worse failure than
-         the one it reports. Same register as the gallery page's "No photos here yet." -->
-    <div v-else class="max-w-read space-y-4">
+         the one it reports. Same register as the gallery page's "No photos here yet."
+
+         `v-else-if="!pending"`, so this is a verdict and not a guess: while a lookup is still
+         out, nothing is claimed. The page keeps its heading and filter row either way, so the
+         waiting state is a gap rather than a blank screen. -->
+    <div v-else-if="!pending" class="max-w-read space-y-4">
       <p class="type-body-serif-lg text-muted">
         That photo is not here — it may have been removed.
       </p>

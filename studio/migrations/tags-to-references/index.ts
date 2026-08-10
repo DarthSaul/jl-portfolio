@@ -34,6 +34,22 @@ const KNOWN = new Set(TAG_SEED.map((entry) => entry.slug))
 
 const ref = (slug: string) => ({_type: 'reference' as const, _ref: tagId(slug)})
 
+/**
+ * The one failure this migration can hit, raised by both branches below.
+ *
+ * A photo and a gallery fail for exactly the same reason — a stored value with no matching tag
+ * document — and the remedy is the same for both: add it to `TAG_SEED` and re-run
+ * `create-tag-documents`. Two anonymous `Error`s would have made that one situation look like
+ * two, and a caller wanting to tell "this value is unmappable" apart from a transport failure
+ * would have had to match on message text.
+ */
+class UnmappableTagValueError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnmappableTagValueError'
+  }
+}
+
 export default defineMigration({
   title: 'Rewrite photo.tags and gallery.tag as references to tag documents',
   documentTypes: ['photo', 'gallery'],
@@ -49,7 +65,7 @@ export default defineMigration({
 
         const orphan = strings.find((value) => !KNOWN.has(value))
         if (orphan) {
-          throw new Error(
+          throw new UnmappableTagValueError(
             `${doc._id} carries the tag "${orphan}", which has no tag document. ` +
               'Add it to TAG_SEED in migrations/create-tag-documents and run that migration again.',
           )
@@ -70,7 +86,7 @@ export default defineMigration({
         if (doc.tag === '') return at('tag', unset())
 
         if (!KNOWN.has(doc.tag)) {
-          throw new Error(
+          throw new UnmappableTagValueError(
             `${doc._id} points at the tag "${doc.tag}", which has no tag document.`,
           )
         }

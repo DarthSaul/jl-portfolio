@@ -283,16 +283,46 @@ const showcase = usePhotoShowcase(photos)
 
 const showcaseParams = reactive({ photoId: showcase.activeId.value })
 
-const { data: fetchedPhoto } = await useSanityQuery(PHOTO_BY_ID_QUERY, showcaseParams, {
-  immediate: Boolean(showcase.activeId.value) && !showcase.inList.value,
-})
+const { data: fetchedPhoto, status: fetchStatus } = await useSanityQuery(
+  PHOTO_BY_ID_QUERY,
+  showcaseParams,
+  { immediate: Boolean(showcase.activeId.value) && !showcase.inList.value },
+)
 
 watch(showcase.activeId, (id) => {
-  showcaseParams.photoId = id
+  // Only ever set to a real id. Assigning `''` on close would refetch `*[_id == ""][0]`, whose
+  // answer is always null — a request per close, for nothing. Leaving the last id in place is
+  // safe because the result is only read while the showcase is open, and re-opening the same
+  // photograph then costs no request at all.
+  if (id) showcaseParams.photoId = id
 })
 
-/** In-memory first, the fetched document second. `null` means the id names nothing visible. */
-const showcased = computed(() => showcase.inList.value ?? fetchedPhoto.value ?? null)
+/**
+ * True while the by-id fetch is still out for the photograph named in the URL.
+ *
+ * Without this the template's `v-else` fires the moment a deep link opens — `fetchedPhoto` is
+ * null until the request lands — so a perfectly good photograph announced itself as "not here"
+ * and then appeared. The two terms are different waits: the params watch has not run yet, or it
+ * has and the request is still in flight.
+ */
+const showcasePending = computed(() => {
+  if (!showcase.activeId.value || showcase.inList.value) return false
+  if (showcaseParams.photoId !== showcase.activeId.value) return true
+  return fetchStatus.value === 'pending'
+})
+
+/**
+ * In-memory first, the fetched document second. `null` means the id names nothing visible.
+ *
+ * The fetched document is checked against the id currently in the URL rather than used
+ * whenever it is set, so moving from one deep-linked photograph to another shows nothing for a
+ * moment instead of showing the previous one under the new address.
+ */
+const showcased = computed(
+  () =>
+    showcase.inList.value
+    ?? (fetchedPhoto.value?._id === showcase.activeId.value ? fetchedPhoto.value : null),
+)
 
 useHead({
   // A showcased photograph titles the page, so a shared link says what it is. `caption || alt`
@@ -338,6 +368,7 @@ const clearFilter = () => router.push({ path: '/shots/all' })
     <ShotsPhotoShowcase
       v-if="showcase.isOpen.value"
       :photo="showcased"
+      :pending="showcasePending"
       :close-to="showcase.closeTo.value"
       :previous-to="showcase.previous.value ? showcase.openTo(showcase.previous.value._id) : null"
       :next-to="showcase.next.value ? showcase.openTo(showcase.next.value._id) : null"

@@ -41,7 +41,7 @@ export default defineCliConfig({
     // The Studio owns the schema, so it owns typegen — but the types are consumed
     // by the Nuxt app next door. Reads GROQ from app/queries/*.ts (and any .vue that
     // uses defineQuery) and writes a single generated file into web/.
-    path: '../web/app/**/*.{ts,vue}',
+    path: '../web/src/**/*.{ts,tsx}',
     schema: 'schema.json',
     generates: '../web/sanity.types.ts',
     overloadClientMethods: true,

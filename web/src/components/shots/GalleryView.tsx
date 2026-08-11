@@ -56,7 +56,30 @@ export function GalleryView({
   photos: NonNullable<Gallery['photos']>
 }) {
   const showcase = useShowcase(photos)
-  const Preset = PRESETS[preset]
+
+  /**
+   * `satisfies` above is a compile-time guarantee about *this* build's code. It cannot promise
+   * anything about the data, and `preset` typing as `'grid' | 'stack'` is a claim derived from
+   * the schema rather than from anything that validated the stored document.
+   *
+   * The gap is reachable here specifically, because **the Studio and the app are separate
+   * deployment artifacts** — that is stated in CLAUDE.md as the main cost of the arrangement. Add
+   * a preset to `LAYOUT_PRESETS`, `sanity deploy`, and she can pick it and publish a gallery
+   * against an app that has no component for it. A rollback of the app does the same thing from
+   * the other direction.
+   *
+   * Falling back beats throwing: an unknown preset is a *layout* we do not have, and the
+   * photographs are all still here. A gallery rendered as a grid is a small wrong answer; a 500
+   * over her published work is a large one, and "the editor wins". The warning is what keeps it
+   * from being silent — without it she would see the wrong layout and have nothing to go on.
+   */
+  const Preset = PRESETS[preset] ?? PRESETS.grid
+  if (!PRESETS[preset]) {
+    console.warn(
+      `[gallery] Unknown preset ${JSON.stringify(preset)} — falling back to "grid". `
+      + 'This build has no component for it; the Studio is probably ahead of the app.',
+    )
+  }
 
   return (
     <>

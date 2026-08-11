@@ -29,8 +29,13 @@ import { POST_QUERY, POST_SLUGS_QUERY } from '@/sanity/queries/writing'
  * — it would look like an optimisation and do nothing. See CLAUDE.md.
  */
 export async function generateStaticParams() {
-  const { data } = await sanityFetch(POST_SLUGS_QUERY)
-  return (data ?? []).map(post => ({ slug: post.slug }))
+  // `orThrow`, not `data ?? []` — the same rule the pages themselves follow, and this is the
+  // one place it was quietly broken. A transport failure also yields no rows, so swallowing it
+  // here would end the build having prerendered nothing, successfully and silently. Failing is
+  // the honest outcome: the routes still work (`dynamicParams` renders them on demand), so what
+  // is actually at stake is noticing.
+  const posts = orThrow(await sanityFetch(POST_SLUGS_QUERY))
+  return posts.map(post => ({ slug: post.slug }))
 }
 
 export async function generateMetadata({ params }: PageProps<'/copy/[slug]'>): Promise<Metadata> {

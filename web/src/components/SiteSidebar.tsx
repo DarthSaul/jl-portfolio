@@ -243,8 +243,8 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
           fits within the bound; lowercase `-z` takes an exact width and height and will happily
           squash the picture to reach them.
         */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <div className="mt-12 lg:mt-auto lg:pt-12">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/joan-animated.png"
             alt="Illustrated portrait of Joan Lebow"

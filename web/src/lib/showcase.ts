@@ -9,23 +9,40 @@ import type { MouseEvent } from 'react'
  */
 
 /**
+ * An upper bound on how many tags one address may filter by.
+ *
+ * Not a product limit — it sits far above any real selection. `development` holds five tags, and
+ * a vocabulary of trips is not going to reach thirty-two. It is a bound on *abuse*, and the
+ * paragraph below explains what it bounds.
+ */
+const MAX_TAGS = 32
+
+/**
  * The selected tag slugs, from a repeated `?tag=` parameter. Empty means unfiltered.
  *
  * The *URL* parameter stays `?tag=` because that is what a visitor reads, and it repeats —
  * `?tag=life&tag=chile-2021`. Only the GROQ parameter is `$filterTags`, and
  * `sanity/queries/allShots` explains why it cannot be `$tag`.
  *
- * Sorted, so the same selection is always the same array whichever order she ticked the chips in.
- * That matters more than it looks: the array goes into a fetch whose cache key is derived from it,
- * so an unsorted one would make `?tag=a&tag=b` and `?tag=b&tag=a` two separate cache entries for
- * one set of photographs.
+ * **Deduplicated, sorted, and capped — all three for one reason.** The array this returns is what
+ * a fetch's cache key is derived from, so two addresses describing the same selection must
+ * produce the same array. Sorting handles the order she ticked the chips in. Deduplication
+ * handles `?tag=a&tag=a`, which selects exactly what `?tag=a` selects and would otherwise be a
+ * second Data Cache entry and a second GROQ query for one set of photographs.
+ *
+ * The cap is the part that is about a stranger rather than about her. This helper feeds both the
+ * server-rendered page **and the public `/api/photos` route**, so without it a caller can append
+ * `?tag=` values without limit and mint an unbounded number of distinct cache entries and GROQ
+ * queries from one endpoint. Deduplication alone does not close that — a thousand *distinct*
+ * junk slugs survive it. Truncating is deliberate over rejecting: a visitor holding an odd URL
+ * should still get a page, and no legitimate selection can reach the bound.
  *
  * Takes the shape Next hands a page (`string | string[] | undefined`) so the server can call it
  * directly; the client passes `searchParams.getAll('tag')`, which is already an array.
  */
 export function readTags(value: string | string[] | undefined): string[] {
   const list = Array.isArray(value) ? value : value == null ? [] : [value]
-  return list.filter(entry => Boolean(entry)).sort()
+  return [...new Set(list.filter(entry => Boolean(entry)))].sort().slice(0, MAX_TAGS)
 }
 
 /**

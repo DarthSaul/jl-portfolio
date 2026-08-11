@@ -218,12 +218,36 @@ export function AllShotsView({
     let cancelled = false
     setPendingId(photoId)
 
+    /*
+      **Only a request that actually answered gets written to `fetched`.** The failure path
+      clears `pendingId` and records nothing, so the lookup runs again if the visitor comes back
+      to this id.
+
+      The shape this replaces had `.catch(() => null)` *before* the write, which turned a dropped
+      connection, a 500 or a malformed body into an entry meaning "no such photograph". The
+      `photoId in fetched` guard above then blocked every retry for the rest of the session, and
+      the showcase announced "That photo is not here — it may have been removed." about a
+      photograph that exists. That is this project's oldest bug wearing new clothes: a request
+      that did not happen must never look like a query that found nothing. `orThrow` makes the
+      server side of that structural; this is the client side, and it has to be written by hand.
+
+      One honest limit: `/api/photos/[id]` answers `null` on its *own* transport failure, so a
+      Sanity outage still reaches here as a well-formed "not found". Fixing that means the route
+      distinguishing the two in its status code, which is a change to a public endpoint's
+      contract and out of scope for this.
+    */
     fetch(`/api/photos/${encodeURIComponent(photoId)}`)
-      .then(response => response.json() as Promise<PhotoProjection | null>)
-      .catch(() => null)
+      .then((response) => {
+        if (!response.ok) throw new Error(`/api/photos/${photoId} responded ${response.status}`)
+        return response.json() as Promise<PhotoProjection | null>
+      })
       .then((photo) => {
         if (cancelled) return
         setFetched(prev => ({ ...prev, [photoId]: photo }))
+        setPendingId(current => (current === photoId ? null : current))
+      })
+      .catch(() => {
+        if (cancelled) return
         setPendingId(current => (current === photoId ? null : current))
       })
 

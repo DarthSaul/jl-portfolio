@@ -1103,20 +1103,35 @@ It reads as a Next.js 404 and is not one:
 
 | | A Next.js deployment | This failure |
 | --- | --- | --- |
+| `/` | HTML, referencing `/_next/static/…` | `text/plain`, `NOT_FOUND`, no HTML |
 | Body of an unknown route | `not-found.tsx`, HTML, site chrome | `text/plain`, `NOT_FOUND` |
-| `x-matched-path` | present | **absent** |
-| `x-vercel-cache` | present | **absent** |
-| `/_next/static/*` | 200 | **404** |
-| A file in `public/` | 200 | **200** — the only thing that resolves |
+| **A generated asset named in that HTML** | **200** | **nothing to name — `/` served no HTML** |
+| A file in `public/` | 200 | 200 — the only thing that resolves |
+| `x-matched-path`, `x-vercel-cache` | present | absent |
 
-That last row is the whole diagnosis in one request. If `/joan-animated.png` returns 200 while
-`/` and `/_next/static/*` return 404, nothing Next is running and Vercel is serving `public/` as
-a directory:
+**No single row is the diagnosis** — note that `public/` is 200 in both columns, which is exactly
+what makes the failure legible rather than obvious. It is the *pair* that identifies it: a file in
+`public/` serving while `/` returns plain text means Vercel is serving `public/` as a directory.
+The last row is supporting evidence, not proof; the asset row is the confirmation.
+
+**Read the asset path out of the page — never invent one.** A path under `/_next/static/` that
+does not exist returns **404 on a perfectly healthy deployment**, measured against a known-good
+Next site, so a guessed path proves nothing and reads as though Next were absent:
 
 ```sh
-curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/joan-animated.png   # 200 -> static
-curl -sS -o /dev/null -w '%{http_code}\n' https://<host>/_next/static/x.js   # 404 -> no Next
+H=https://<host>
+
+curl -sS -o /dev/null -w '/            -> %{http_code}\n' "$H/"
+curl -sS -o /dev/null -w '/public file -> %{http_code}\n' "$H/joan-animated.png"  # 200 either way
+
+# The confirmation: an asset the page itself names, rather than one made up.
+A=$(curl -sS "$H/" | grep -oE '/_next/static/[^"]+\.js' | head -1)
+echo "asset: ${A:-NONE — / served no HTML, so nothing Next is running}"
+[ -n "$A" ] && curl -sS -o /dev/null -w "asset        -> %{http_code}\n" "$H$A"
 ```
+
+An empty `$A` is itself the answer, and it is why the extraction is written to survive the failure
+case rather than assuming the page parses.
 
 **What `vercel.json` does not fix, and must not be assumed to.** It sets `framework` and only
 `framework`. An **explicit** Output Directory or Build Command override left in the dashboard
@@ -1126,12 +1141,20 @@ hand, once. Do not add `outputDirectory` here to force the issue — Next on Ver
 framework builder rather than by copying a directory, and naming one would be a second wrong
 answer rather than a safety net.
 
-**Also note the failure that did *not* happen, because it changes where to look next time.** A
-build that *fails* leaves the previous deployment aliased, so the old site keeps serving — a red
-deploy never presents as a 404. A 404 on every route therefore means a deployment **succeeded**
-and served the wrong thing, which points at project settings rather than at the build log. That
-is the opposite of where the missing-`SANITY_*` blocker in *Open questions* points, and the two
-are easy to confuse because they landed in the same deploy.
+**Also note the failure that did *not* happen, because it changes where to look first.** A build
+that *fails* leaves the previous deployment aliased **when there is one** — so on a project with
+deployment history, the old site keeps serving and a red build usually does not present as a 404.
+That inference does not hold on a first deployment, or where the previous production deployment
+was deleted or the alias reassigned: then there is nothing to fall back to and a failed build
+does show as a 404.
+
+So on *this* project, which had a working Nuxt deployment, a 404 on every route pointed at
+project settings before the build log — and that is the opposite of where the missing-`SANITY_*`
+blocker in *Open questions* points, which is what made the two easy to confuse when they landed
+in the same deploy. Treat it as an ordering heuristic rather than a proof: a 404 on every route
+is also what an unassigned alias, a domain pointed elsewhere, a misconfigured Root Directory or a
+deleted project look like, and the table above is what separates "serving the wrong thing" from
+"serving nothing at all".
 
 ## Conventions
 
@@ -1695,21 +1718,45 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 - **The deploy checklist gained two items instead, and they broke production in that order.**
   1. **The framework preset.** Deleting `nuxt.config.ts` made Vercel's auto-detection fall
      through to no framework, which served `web/public/` as a static site and 404'd every route
-     on a **green** deploy. `web/vercel.json` now pins `"framework": "nextjs"`. What is still
-     manual, and one-time: **clear any explicit Output Directory or Build Command override** left
-     in the dashboard from the Nuxt project, because vercel.json overrides only the keys it
-     declares. See *Directory structure* for the diagnostic signature — it is not a Next 404.
+     on a **green** deploy. `web/vercel.json` now pins `"framework": "nextjs"`. What that file
+     cannot do, and so had to be done in the dashboard by hand: **clear any explicit Output
+     Directory or Build Command override** left from the Nuxt project, because vercel.json
+     overrides only the keys it declares. Same for **Root Directory**, which stays `web`. See
+     *Directory structure* for the diagnostic signature — it is not a Next 404.
   2. **The four `SANITY_*` variables** must exist in Vercel's project settings under their new
      names, with the old `NUXT_PUBLIC_*` entries deleted, **in the same window as the deploy**.
-     Unlike the Nuxt build, a missing one fails the build loudly rather than defaulting — which
-     is the intended behaviour and still means a red deploy if it is forgotten. See *Environment
-     variables*.
+     They do not all fail the same way, and the split is worth knowing before reading a green
+     build as proof all four are set:
+
+     | Variable | Needed | Missing |
+     | --- | --- | --- |
+     | `SANITY_PROJECT_ID` | **build** | red build, naming the variable |
+     | `SANITY_DATASET` | **build** | same |
+     | `SANITY_API_VERSION` | **build** | same |
+     | `SANITY_STUDIO_URL` | **request** | **green build**, and `/admin` returns a 503 |
+
+     The first three are `required()` calls at module scope in `sanity/client.ts`, so they throw
+     during `next build` — unlike the Nuxt build, a missing one fails loudly rather than
+     defaulting, which is the intended behaviour and still means a red deploy if forgotten. The
+     fourth is read at request time by `app/admin/route.ts`, which is `force-dynamic` precisely
+     so the Studio host resolves per request; absent, it deliberately answers 503 with a legible
+     message rather than breaking the build. **So `SANITY_STUDIO_URL` is the one that a
+     successful deploy says nothing about** — the only thing that catches it is opening `/admin`.
+     See *Environment variables*.
 
   **The first hides the second, which is why they are numbered.** A green deploy that served
   `public/` proves nothing about the variables either way, so **(2) cannot be inferred from the
-  site having deployed — check the settings.** Do both before redeploying: fixing (1) alone is
-  what makes a missing variable able to go red, so the next build fails on `SANITY_PROJECT_ID`
-  rather than on anything to do with the preset, and that will read like a new problem.
+  site having deployed — check the settings.** Fixing (1) alone is what makes a missing variable
+  able to go red, so a build failing on `SANITY_PROJECT_ID` straight after a preset fix is the
+  system working rather than a new problem.
+
+  **Both are done, verified live on 2026-08-11**, by dashboard changes — `vercel.json` was not
+  merged at the time, so the repo half is what stops it regressing rather than what fixed it.
+  Every route answers: `/`, `/bio`, `/copy`, `/shots/all` 200; the four old addresses 307; an
+  unknown route 404s as `text/html` from `not-found.tsx` rather than as Vercel's plain text; and
+  `/admin` 302s to `https://joanatstake.sanity.studio`, which is the only check that covers
+  `SANITY_STUDIO_URL`. `x-vercel-cache` and `x-nextjs-prerender: 1` are present on `/`, so ISR is
+  live. Kept here rather than deleted because the *ordering* is the reusable part.
 - **When the promote stops.** The deployed Studio writes to `production` and `npm run promote`
   overwrites it, so the day Joan starts editing is the day the direction reverses for good.
   Nothing detects "she has been given the URL" — the preflight only catches it *after* she has

@@ -21,21 +21,33 @@ way: prefer fewer knobs, more defaults, and choices that cannot produce a broken
 
 | Piece | Why it's here |
 | --- | --- |
-| **Nuxt 4** (Vue 3) | File-based routing, SSR/SSG per route, and a small surface area for a site this size. |
+| **Next.js 16** (App Router, React 19) | File-based routing, per-route rendering, and Server Components — so a page's data fetch happens on the server by default and only the interactive parts ship. |
 | **TypeScript** | Content shapes come from generated types — the compiler catches schema drift. |
-| **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. v4, CSS-first — the `@theme` and `@utility` block in `web/app/assets/css/tailwind.css` is the single source for type, colour and container width. **There is no `tailwind.config.ts` and one should not be added.** |
+| **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. v4, CSS-first — the `@theme` and `@utility` block in `web/src/app/globals.css` is the single source for type, colour and container width. **There is no `tailwind.config.ts` and one should not be added.** |
 | **Sanity** (hosted Content Lake) | The CMS. Structured content, real references between documents, and an editing UI we control the shape of. |
 | **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `joanatstake.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
-| **`@nuxtjs/sanity`** | Client + `useSanityQuery` wiring for the Nuxt app. |
+| **`@sanity/client` + `groq`** | The client and `defineQuery`, wired through one `sanityFetch` helper in `web/src/sanity/fetch.ts`. Chosen over `next-sanity`, which bundles visual-editing, preview-secret and webhook packages this project defers — see *Working agreements*. |
+| **`@portabletext/react`** | Renders `proseText` and the two bodies. Same `components` map shape the Vue renderer had. |
 | **GROQ** | Sanity's query language. Lets a route fetch exactly its shape in one request, following references. |
 | **Sanity image CDN** | Transform params in the URL — resizing, format negotiation, and LQIP come free, no build-time image pipeline. |
-| **Vercel + ISR** | Deployment. ISR means content changes appear on the live site without a build step she has to know about or wait for. |
+| **Vercel + ISR** | Deployment. ISR means content changes appear on the live site without a build step she has to know about or wait for. Sixty seconds, set once at the fetch layer — see *Caching*. |
 
 ### The Studio (Phase 1 approach)
 
-The Studio is **not embedded in the Nuxt app**. Sanity Studio is React and Nuxt is Vue;
-rather than bridge that, the Studio is its own npm package in `studio/` with its own
+The Studio is **not embedded in the app**. It is its own npm package in `studio/` with its own
 `package.json`, deployed to `joanatstake.sanity.studio`. `/admin` on the site redirects to it.
+
+**The original reason for that split is gone, and the conclusion is unchanged.** This used to
+read "Sanity Studio is React and Nuxt is Vue; rather than bridge that…", and the app is React
+now — the language gap that made embedding awkward no longer exists. The arrangement stays on
+its own merits, which were always the stronger half of the argument: Sanity's own guidance
+treats a standalone, separately-deployed Studio as the recommended shape and embedding as
+legacy, because embedding slows app builds, couples Studio updates to app deploys, and rules
+out Studio auto-updates. Note it also keeps `sanity`, `styled-components` and the Studio's React
+out of the *app's* install, which still matters even though both halves now speak React.
+
+So: if embedding is ever reconsidered, it has to be argued against those three costs. "They are
+both React now" is not the argument — it only removes an obstacle that was never the reason.
 
 Sanity project: **`c3808h1v`** ("Portfolio: Joan Lebow"). Hardcoded in `studio/sanity.config.ts`
 and `studio/sanity.cli.ts` — it's public, and the Studio only ever talks to one project.
@@ -46,16 +58,18 @@ different host by typo. CORS is registered for it and for `http://localhost:3333
 
 Consequences to keep in mind:
 
-- **The Studio is a separate deployment artifact.** Pushing the Nuxt app to Vercel does not
-  ship Studio changes, and `sanity deploy` does not ship app changes. A schema change only
-  reaches her after a Studio deploy. This is the main cost of the approach — when a task
-  touches `studio/schemaTypes/`, deploying the Studio is part of finishing it.
+- **The Studio is a separate deployment artifact.** Pushing the app to Vercel does not ship
+  Studio changes, and `sanity deploy` does not ship app changes. A schema change only reaches
+  her after a Studio deploy. This is the main cost of the approach — when a task touches
+  `studio/schemaTypes/`, deploying the Studio is part of finishing it.
 - **Studio auto-updates are on** (`autoUpdates: true` in `studio/sanity.cli.ts`). Sanity ships
   Studio improvements to her without a redeploy from us. Schema changes still need a deploy;
   only the Studio shell auto-updates.
-- **Studio dependencies stay out of the app's install.** React, `styled-components`, and
-  `sanity` live in `studio/package.json`, so a Vercel build of the Vue site never installs
-  them. This is the main reason the two halves have separate `package.json` files.
+- **Studio dependencies stay out of the app's install.** `sanity`, `styled-components` and the
+  Studio's own React live in `studio/package.json`, so a Vercel build of the app never installs
+  them. This is the main reason the two halves have separate `package.json` files, and it
+  survived the app becoming React — the app depends on `react` and `react-dom` and on nothing
+  else the Studio needs.
 - **The redirect is a `302`, not a `301`.** A permanent redirect gets cached in her browser
   and would be genuinely annoying to undo if we later embed the Studio. Keep it temporary
   while the arrangement is temporary.
@@ -70,60 +84,68 @@ Consequences to keep in mind:
 - **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
   opaque error. That means both the deployed host and `http://localhost:3333` for
   `sanity dev`: `npx sanity cors add <origin> --credentials`.
-- **Every *app* origin needs one too, and without credentials.** Different flag, different
-  reason, and the Studio line above is the wrong template to copy. The app never logs in — it
-  reads a public dataset anonymously — so `--no-credentials` grants a browser exactly what
-  `curl` already returns to anyone holding the project id. `--credentials` on an app origin
-  would be a real widening for no gain. Four entries exist today:
+- **The *app* needs no CORS entry at all any more, and that is a property worth defending.**
+  Nothing in the browser talks to Sanity: every read happens on the server, and the one that
+  used to happen after hydration — "load more" on /shots/all — goes through `app/api/photos`.
+  A server request sends no `Origin` header, so the allowlist cannot apply to the app.
+
+  Two app origins are still registered, `https://*.vercel.app` and `http://localhost:3000`,
+  both `--no-credentials`. They are now inert. Leaving them costs nothing — they grant a
+  browser exactly what `curl` already returns to anyone holding the public project id — and
+  removing them is a separate decision, not part of this. **What matters is not adding more:**
+  a new app origin appearing on that list is the signal that something in the browser has
+  started calling Sanity directly, which is the invariant below being broken.
 
   | Origin | Credentials | For |
   | --- | --- | --- |
   | `https://joanatstake.sanity.studio` | yes | deployed Studio |
   | `http://localhost:3333` | yes | `sanity dev` |
-  | `https://*.vercel.app` | **no** | the app, production and every preview deploy |
-  | `http://localhost:3000` | **no** | the app, `npm run dev` |
+  | `https://*.vercel.app` | no | the app — **inert**, see above |
+  | `http://localhost:3000` | no | the app — **inert**, see above |
 
-  The wildcard is deliberate: Vercel gives each preview deploy its own hostname, and one entry
-  covers all of them. It does not cover an apex domain — **`joanatstake.com` needs its own
-  `npx sanity cors add https://joanatstake.com --no-credentials` on the day DNS is connected**,
-  or the site breaks the moment anyone navigates between pages. That is one of exactly two
-  going-live steps; the other is replacing the stock photographs in `development` and running
-  `npm run promote`, in *Datasets* below. Neither requires touching a dataset's existence or
-  its visibility.
+  **The invariant, and what enforces it.** `web/src/sanity/client.ts` begins with
+  `import 'server-only'`, so importing it from anything in the client graph is a build error
+  naming the file that did it. That is why no Sanity value carries a `NEXT_PUBLIC_` prefix —
+  see *Environment variables*. The check that proves it, and the one to run after any change
+  here: `grep -r "c3808h1v" web/.next/static/` must return nothing after a build, and
+  `apicdn.sanity.io` must never appear in the browser's Network tab on any route.
+  (`cdn.sanity.io` image requests are expected — those are `<img>` loads, which are not
+  CORS-checked, and their URLs come from the server payload.)
 
-  **Know how a missing app origin fails, because it does not look like CORS.** SSR sends no
-  `Origin` header, so a hard load always works. Nuxt purges a route's cached data on unmount,
-  so navigating away from a page and back re-runs its query *in the browser* — which does send
-  one, gets a 403, and leaves the result `null`. Identical to a query that found nothing. `/`
-  spent a while reporting "No homePage document found in this dataset" for this, and the dataset
-  was correct throughout. `index.vue` now checks `error` before `data` and returns a 502 naming
-  the origin. Any route that gains a query should do the same.
+  **The bug this replaced is worth keeping, because its shape is general.** A missing app
+  origin did not look like CORS. SSR sent no `Origin` header, so a hard load always worked;
+  Nuxt purged a route's cached data on unmount, so navigating away and back re-ran the query
+  *in the browser*, which did send one, got a 403, and left the result `null` — identical to a
+  query that found nothing. `/` spent a while reporting "No homePage document found in this
+  dataset" while the dataset was correct throughout.
 
-  Diagnosing it takes three requests, and the contrast between them *is* the signature — a
-  status alone does not distinguish "origin rejected" from "dataset empty":
+  The specific failure cannot recur. **The lesson generalises and is now structural:** a
+  request that did not happen must never look like a query that found nothing. `orThrow` in
+  `sanity/fetch.ts` makes checking the transport failure *first* a property of the type rather
+  than something six routes remember to do — see *Errors* under Conventions.
+
+  Diagnosing an origin problem still takes three requests, and the contrast between them *is*
+  the signature — a status alone does not distinguish "origin rejected" from "dataset empty".
+  Kept because it is still how you check the Studio's own entries:
 
   ```sh
   U="https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D"
 
   # allowlisted origin  -> 200, and the origin echoed back
-  curl -sS -D - -o /dev/null "$U" -H "Origin: https://jl-portfolio-seven.vercel.app" \
+  curl -sS -D - -o /dev/null "$U" -H "Origin: https://joanatstake.sanity.studio" \
     | grep -iE '^HTTP|^access-control-allow-origin'
 
   # origin not on the list -> 403, and no allow-origin header at all
   curl -sS -D - -o /dev/null "$U" -H "Origin: https://example.com" \
     | grep -iE '^HTTP|^access-control-allow-origin'
 
-  # no Origin header -> 200. This is the SSR path, and why hard loads never showed the bug.
+  # no Origin header -> 200. This is the server path, and it is now the only path the app takes.
   curl -sS -o /dev/null -w '%{http_code}\n' "$U"
   ```
 
   **Grep those headers case-insensitively.** Under HTTP/2 all header names are lowercase, so a
   pattern anchored on `Access-Control-Allow-Origin` matches nothing and reads as a rejection on
   an origin that is in fact allowed.
-
-Sanity's own guidance now treats a standalone, separately-deployed Studio as the recommended
-shape and embedding as legacy — it slows builds, couples Studio updates to app deploys, and
-rules out Studio auto-updates. So this is the mainline path, not a workaround.
 
 This is Phase 1. Revisit only if the hop to a second domain actually confuses her, or if
 embedded preview / visual editing becomes worth the bridge — not on general principle.
@@ -133,7 +155,7 @@ embedded preview / visual editing becomes worth the bridge — not on general pr
 Two datasets on project `c3808h1v`, both created:
 
 - `development` (public) — **where content is authored.** What local dev points at, via
-  `SANITY_STUDIO_DATASET` in `studio/.env` and `NUXT_PUBLIC_SANITY_DATASET` in `web/.env`.
+  `SANITY_STUDIO_DATASET` in `studio/.env` and `SANITY_DATASET` in `web/.env`.
   The dataset anyone actually types into.
 - `production` (public) — **a mirror of `development`**, refreshed by `npm run promote`.
   Read by the Vercel app, and written by the deployed Studio. Reached from the CLI only by an
@@ -387,18 +409,24 @@ something to solve by duplicating the photo.
 She picks **which photos**, **in what order**, and **which preset**. She never positions
 anything. She never sets a width, a column count, a crop offset, or a breakpoint.
 
-Presets are Vue components that guarantee the result works at every width. They are the
+Presets are React components that guarantee the result works at every width. They are the
 product, not a limitation of it. Do not work around this constraint, do not add per-photo
 overrides "just for this one case", and do not propose a drag-and-drop canvas or freeform
 page builder — that is the exact thing this project exists to replace.
 
 Adding a preset means two changes, always together:
 
-1. A new component in `web/app/components/presets/`.
+1. A new component in `web/src/components/presets/`, satisfying `GalleryPresetProps`.
 2. A new option in the hard-coded preset list in the gallery schema.
 
 The schema field is a `string` with a fixed `options.list`. It is never a free-text field.
-A preset value that has no matching component must be impossible.
+A preset value that has no matching component must be impossible — and it is: the `PRESETS` map
+in `shots/GalleryView.tsx` is `satisfies Record<Gallery['preset'], ComponentType<GalleryPresetProps>>`
+over the union typegen produces from that list, so forgetting either half is a typecheck failure
+at the point the pair was broken. **Verified by deleting an entry: the compiler names the missing
+preset.** The map is typed against the shared props rather than `unknown`, so it also catches a
+preset that quietly does not accept `renderPhoto` — which would render a gallery whose
+photographs are not clickable, and fail silently otherwise.
 
 ---
 
@@ -419,8 +447,9 @@ for the Squarespace vocabulary back. Only the labels and the addresses moved: th
 types are still `post`, `article`, `writingPage` and `aboutPage`, the queries are still
 `WRITING_QUERY` and `ABOUT_QUERY`, and the components are still `components/writing/`. Renaming
 a Sanity document type is a content migration bought with nothing, and the Studio labels carry
-her words instead (*Copy page*, *Copy post*, *Copy link*, *Bio*). `nuxt.config.ts` `routeRules`
-302s the old three addresses, including `/shots/everything`.
+her words instead (*Copy page*, *Copy post*, *Copy link*, *Bio*). `next.config.ts` `redirects()`
+307s the old three addresses, including `/shots/everything`. (307, not 302: Next's shorthand has
+no 302, and the property that matters — temporary, not browser-cached — is the same.)
 
 The `Start` nav item was going to become `Shots` in the same pass and was deferred. It still
 says START and still points at `/`; only the sub-item under it changed, from EVERYTHING to
@@ -430,35 +459,64 @@ ALL SHOTS.
 
 Clicking any photograph on `/shots/all` or `/shots/<slug>` opens it alone and centred, at
 `?photo=<_id>` on the page you were already on. The front page is the exception — its
-photographs are links into galleries, and `home/PhotoStrip.vue` keeps its own slot.
+photographs are links into galleries, and `home/PhotoStrip.tsx` keeps its own slot.
 
 **It is a query parameter and not a route, and the reason is measured rather than aesthetic.**
-Nuxt keys a page by its *interpolated path*, not `fullPath`, so a query-only navigation reuses
-the component instance and does not re-run `setup`. On `/shots/all` that is the whole feature
-working for free: `appended` — every photograph loaded past the first page — and the
-`IntersectionObserver` both survive an open and close, and no request fires. A nested route
-would unmount the index and mean lifting the accumulator into `useState` plus hand-rolled scroll
-restoration, for a prettier address. It also composes: `?tag=life&photo=X` closes back to the
-filter you came from.
+On `/shots/all` the page holds two things a route change would destroy: `appended` — every
+photograph loaded past the first page — and the `IntersectionObserver` driving it. A nested
+route (`/shots/[slug]/[photo]`) would unmount the index and mean lifting the accumulator into
+shared state plus hand-rolled scroll restoration, for a prettier address. It also composes:
+`?tag=life&photo=X` closes back to the filter you came from.
+
+**The navigation is `window.history.pushState`, and that is the load-bearing part.** Nuxt got
+"a query-only change does not re-run the page" for free, because it keyed a page by its
+interpolated path rather than by `fullPath`. Next has no such rule — both `/shots/*` routes are
+dynamic, so a `<Link>` to `?photo=X` is a real navigation that refetches the RSC payload and
+re-runs `ALL_SHOTS_QUERY` on **every open and every close**. On a ~200 kB LQIP payload that is
+the exact cost the paging exists to avoid, paid on a UI gesture.
+
+Native `pushState` avoids it entirely: Next patches `pushState`/`replaceState`, updates its
+canonical URL, and re-renders whatever reads `useSearchParams()` — with no request. Back and
+Forward across those entries stay soft navigations. So the property Nuxt inherited is now
+*stated*, in `components/shots/useShowcase.ts`, which is arguably where it belonged all along.
+**Verified in a real browser: opening the showcase fires zero network requests, and `appended`
+survives an open/close cycle unchanged.**
 
 - **It is not a preset**, and must never join `LAYOUT_PRESETS` or the `PRESETS` map. She never
   chooses it; it is a behaviour of every photograph on `/shots/*`, like the filter row.
-- **Sizing is a bound, not a crop.** `--showcase-h` (an `@utility` in `tailwind.css`) times the
+- **Sizing is a bound, not a crop.** `--showcase-h` (an `@utility` in `globals.css`) times the
   photograph's own `--ar` gives a `max-width`, so the photograph fills whichever dimension runs
   out first with its ratio intact. No `crop`, no `CROPS` entry, no `object-cover`, no new
   srcset ladder — and the wrapper carries the bound so `SanityPhoto`'s `w-full` is untouched.
   Putting `max-h-*` + `w-auto` on the image instead would pit `w-auto` against `w-full`, which
   Tailwind v4 resolves by emitted-CSS order rather than class-list order.
-- **`/shots/[slug]` needs no query for it** — `GALLERY_QUERY` returns the whole array, so the id
-  resolves with a `find`. `/shots/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`, gated by
-  `immediate` so a deep link server-renders and an ordinary load costs nothing. That query
-  **restates `excludeFromIndex != true`**: the flag is a rule about the index, and this is how a
-  photograph is reached *through* the index, so ignoring it would be a hole in the flag.
-- **The index is hidden with `v-if`, which destroys the sentinel** — so the observer watches the
-  template ref rather than attaching once at mount. Without that, infinite scroll silently stops
-  working for the rest of the session after the first showcase closes, while the Load more
-  button keeps working and nothing looks broken.
-- A bad or hidden id renders a message and a way back, **never a `createError`**. A query
+- **The tiles are plain `<a href>` with an intercepted left-click**, never `<Link>`. Two reasons,
+  and both matter: `<Link>` prefetches as it enters the viewport, so 200 tiles on a dynamic route
+  would be 200 server renders during a scroll; and the click has to become a `pushState`. The
+  `href` is the real address, so middle-click and Cmd-click open a tab the server renders
+  correctly, and before hydration the anchor simply navigates. `lib/showcase.ts`'s
+  `isModifiedEvent` is the same test `next/link` makes internally.
+  - **`FilterBar` is the deliberate opposite**: a tag change *must* reach the server, because it
+    is a different set, a different first page and a different total. Same page, two kinds of
+    query parameter, two mechanisms — preserve that distinction if either is touched.
+- **`/shots/[slug]` needs no second query for it** — `GALLERY_QUERY` returns the whole array, so
+  the id resolves with a `find`. `/shots/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`,
+  resolved **on the server** when the id is not in the first page so a shared link paints the
+  photograph in the HTML, and not at all otherwise. That query **restates
+  `excludeFromIndex != true`**: the flag is a rule about the index, and this is how a photograph
+  is reached *through* the index, so ignoring it would be a hole in the flag.
+- **The index is not rendered while the showcase is open, which destroys the sentinel** — so the
+  observer is attached by a **callback ref that returns its own cleanup** (React 19), not in an
+  effect at mount. `useCallback([])` for a stable ref identity, plus a ref holding the current
+  `loadMore` because a stable identity cannot close over a fresh one. Without either, infinite
+  scroll silently stops working for the rest of the session after the first showcase closes,
+  while the Load more button keeps working and nothing looks broken.
+- **The tab title follows `?photo=` in two places, because one is not enough.** `generateMetadata`
+  covers the server-rendered case — a shared link, which is what the title is for — but a
+  `pushState` open runs no server render, so `PhotoShowcase` sets `document.title` and restores
+  the previous one on close. Do not "fix" the split by switching the tiles to `<Link>`: that
+  trades the tab title for a full first-page refetch on every open and close.
+- A bad or hidden id renders a message and a way back, **never `notFound()`**. A query
   parameter must not be able to replace a working gallery with an error screen.
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
@@ -483,7 +541,7 @@ nav. The byline is on `siteSettings` rather than `homePage` precisely because of
 "Featured Writing" is a hardcoded heading in the component, not a field.
 
 **Three fields are fetched and not rendered, and none of them is dead.** `blurb` sits as a
-commented line in `index.vue`; `featuredTitle` and `featuredSubtitle` came off the photo row
+commented line in `app/page.tsx`; `featuredTitle` and `featuredSubtitle` came off the photo row
 when it became a grid, and `ProseHeading` has had no caller since. All three are still in the
 schema and still in `HOME_QUERY`, waiting on a decision about where they belong now the page
 opens with photographs instead of closing with them. Do not delete the fields or the query
@@ -491,13 +549,13 @@ lines to tidy up — that is a content decision, not a cleanup.
 
 **The whole introduction left this page.** `introHeading` and `intro` are `aboutPage`'s fields
 now and open `/bio`; the component that renders them moved with them, from `home/Hero.vue` to
-`about/Intro.vue`. `introPhoto` was deleted outright rather than following them — `aboutPage`
+`about/Intro.tsx`. `introPhoto` was deleted outright rather than following them — `aboutPage`
 has no photo field by design, and photographs on that page come from the body. Nothing on the
 front page shows a photograph of her any more, which is the intended end state rather than a
 gap: the page opens with her work.
 
 **Status: the site name and byline still do not read from Sanity.** They come from
-`web/app/content/site.ts`, because no `siteSettings` document exists in either dataset — the
+`web/src/content/site.ts`, because no `siteSettings` document exists in either dataset — the
 type is in the schema, nothing has been created against it. Wiring them means creating the
 singleton and giving the layout a query, which is site chrome rather than front-page work and
 touches every route.
@@ -515,7 +573,12 @@ error**. Every route throws on a failed Sanity read, because a page with no cont
 this is chrome on every page, so a failure costs the gallery links and leaves the site
 navigable rather than taking down every route at once.
 
-Three things about that sub-list, all in `SiteNav.vue`:
+**The nav is split across two files**, and the seam is the server/client boundary: `SiteNav.tsx`
+is an async Server Component that runs `NAV_QUERY`, and `SiteNavList.tsx` is the `'use client'`
+half that needs `usePathname` for the active state and a piece of state for the collapse. The
+galleries cross as a prop.
+
+Three things about that sub-list, all in `SiteNavList.tsx`:
 
 - **Its order is not the query's.** `NAV_QUERY` returns title A–Z; the component then pins one
   gallery to the top by slug (`PINNED_FIRST`, currently `life`) and appends ALL SHOTS at the
@@ -525,13 +588,14 @@ Three things about that sub-list, all in `SiteNav.vue`:
   field on `gallery`, which is a schema change and a new knob.
 - **It collapses**, via a button beside START rather than by making START itself the toggle —
   a link that also expands is the classic nav trap where a keyboard user reaches the section
-  and never the page. Open by default; the state is a plain `ref` and survives client-side
-  navigation because `SiteNav` lives in the layout and does not unmount.
-- **`v-show`, never `v-if`, on the group.** The button's `aria-controls` names the list by id,
-  and `v-if` would remove the element it points at exactly when the group is closed — which is
-  when that attribute is being read.
+  and never the page. Open by default; the state is plain component state and survives
+  client-side navigation because App Router preserves layouts across it, so `SiteNavList` never
+  unmounts.
+- **`hidden={!open}`, never conditional rendering, on the group.** The button's `aria-controls`
+  names the list by id, and removing the element would leave that attribute pointing at nothing
+  exactly when the group is closed — which is when it is being read.
 
-**Slots 1–3 are no longer a header.** They are the top of the left sidenav — `SiteSidebar.vue`
+**Slots 1–3 are no longer a header.** They are the top of the left sidenav — `SiteSidebar.tsx`
 — on every page, and a hamburger drawer below `lg`. That does not change where they read from
 or what would have to happen to wire them to `siteSettings`; it changes only which file to
 open. One consequence worth knowing: the byline sits in the collapsible part of the sidebar, so
@@ -584,7 +648,7 @@ Things worth knowing before changing any of it:
   Studio, and not at a call site. Every gallery preset still preserves the native aspect ratio.
   If a preset ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
   component.
-  - **The exceptions live in one closed list, `CROPS` in `SanityPhoto.vue`.** A caller passes
+  - **The exceptions live in one closed list, `CROPS` in `SanityPhoto.tsx`.** A caller passes
     `crop="square"` or `crop="lead"` — a name, never numbers — so the set of framings that exist
     on this site is that object, and a value with no entry is a type error. It is the same move
     `LAYOUT_PRESETS` makes in the gallery schema, one layer down: she picks a preset, never a
@@ -594,7 +658,7 @@ Things worth knowing before changing any of it:
     There are two today. `square` is /copy's ledger thumbnail. `lead` is the 300×200 cover of
     the lead story on the same page, and it is the first crop applied to a photograph at
     *reading* size rather than to a preview — it was declined once in favour of bounding the
-    photo instead, and reversed when that left the column half empty. See `writing/Lead.vue`.
+    photo instead, and reversed when that left the column half empty. See `writing/Lead.tsx`.
 
     What keeps these inside Rule 2 is that nothing about either is a choice: the shape is fixed
     by its `CROPS` entry, the crop is always centred, and **she has no control over any of it** —
@@ -628,7 +692,7 @@ Things worth knowing before changing any of it:
     showcase: no `crop`, and the CDN URL carries nothing that selects a region — a width, a
     format and a quality, but no `fit` and no `rect` — so the no-crop default holds at the URL
     and not merely by convention.
-    `grep -rn "crop=" web/app/components/` should stay a short list, and every hit should be a
+    `grep -rn "crop=" web/src/components/` should stay a short list, and every hit should be a
     thumbnail or the /copy lead.
 
     **The showcase is the case that most looks like it wants a crop and does not get one.** It
@@ -710,7 +774,7 @@ Things worth knowing before changing any of it:
   Its scope is narrow on purpose. A flagged photograph still appears wherever she placed it by
   hand — an article cover, a body of prose, a gallery, the front page — because a flag that
   silently emptied those would be a worse surprise than the one it prevents.
-- ~~**`web/app/content/tags.ts` is a second copy of the tag vocabulary.**~~ **The file is
+- ~~**`web/src/content/tags.ts` is a second copy of the tag vocabulary.**~~ **The file is
   deleted, and the copy does not exist any more.** It held `TAG_LABELS`, typed
   `Record<PhotoTag, string>` against the generated tag union, because the app could not import
   `PHOTO_TAGS` across the package boundary and still needed the human-readable titles for the
@@ -780,10 +844,16 @@ Things worth knowing before changing any of it:
     produces a `<div>` wrapping a `<p>` that merely looks like one, with nothing in the
     document outline. `ProseHeading` makes the `<h2>` the real element and overrides
     `components.block.normal` so a block renders as nothing but its children.
-    - The reason it needs its own root element at all: **`SanityContent` sets
-      `inheritAttrs: false` and returns `PortableText` with no wrapper**, so a `class` handed
-      to it is silently dropped. That is what the `<div>` in `ProseText` is for, and it is a
-      trap worth knowing before wiring the next editable heading.
+    - The reason it needs its own root element at all: **`<PortableText>` renders no wrapper of
+      its own**, so there is nothing for a heading's element or a wrapper's vertical rhythm to
+      sit on unless the caller supplies one. That is what the `<div>` in `ProseText` is for.
+    - **The Vue version of that note described a trap, and the trap is gone.** `SanityContent`
+      set `inheritAttrs: false`, so a `class` handed to it was silently dropped — and the
+      block components needed `inheritAttrs = false` of their own or every render warned about
+      block props landing on the element as junk attributes. React passes only what a component
+      destructures, so both halves simply do not exist. What survives is the *structural* half:
+      the wrapper is still required, and typography classes are now an explicit `className`
+      prop rather than attribute fallthrough.
     - `featuredTitle` is capped at one block by `rule.max(1)`, because Enter in the editor
       otherwise makes a second paragraph that would render inside the same heading.
   - The restriction is the whole point, and it lives in `objects/proseText.ts`. **The
@@ -812,7 +882,7 @@ Things worth knowing before changing any of it:
     second thing. What must still never appear there: a width, a percentage, an alignment, or
     anything that only makes sense at one screen size.
 
-    Two consequences worth knowing before touching it. The class map in `BodyPhoto.vue` is
+    Two consequences worth knowing before touching it. The class map in `BodyPhoto.tsx` is
     `satisfies Record<Layout, string>` over the schema's union, so a third value without a
     branch is a typecheck failure — the same pairing guarantee `PRESETS` gives for galleries.
     And **the alternating float had to leave CSS**: it was `nth-of-type(odd/even)` on the
@@ -841,7 +911,7 @@ CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
 DESIGN.md                   ✎ The design spec — colours, type scale, radius, component
                               chrome. Currently Wired-derived: three type faces, square
                               corners, hairline dividers, no chromatic accent. Implemented in
-                              web/app/assets/css/tailwind.css, with TWO deliberate departures:
+                              web/src/app/globals.css, with TWO deliberate departures:
                               the canvas is cream, not white, and --color-accent exists at all
                               (a deep maroon; the spec forbids a chromatic accent outright).
                               Both are argued in the CSS beside the token. It has been swapped
@@ -850,106 +920,136 @@ DESIGN.md                   ✎ The design spec — colours, type scale, radius,
 .env.example                ✎ Root env, for scripts/ only
 .worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
 
-web/                        ✎ The Nuxt app. Vercel's root directory.
-  package.json              ✎ nuxt, vue, @nuxtjs/sanity, tailwind. No React.
-  nuxt.config.ts            ✎ sanity module, Tailwind, routeRules (ISR — TBD)
-  tsconfig.json             ✎
-  .env.example              ✎ NUXT_PUBLIC_* only
+web/                        ✎ The Next app. Vercel's root directory.
+  package.json              ✎ next, react, react-dom, @sanity/client, groq,
+                              @portabletext/react. Dev: typescript, tailwindcss,
+                              @tailwindcss/postcss, the @types. No Vue, no Nuxt.
+  next.config.ts            ✎ redirects() only. Four 307s for her old addresses.
+  postcss.config.mjs        ✎ @tailwindcss/postcss. The whole Tailwind wiring.
+  tsconfig.json             ✎ paths: @/* -> ./src/*, ~~/* -> ./*
+  next-env.d.ts               GENERATED by next. Committed.
+  .env.example              ✎ SANITY_* only — nothing public, see Environment variables
   sanity.types.ts           ✎ GENERATED by studio typegen — do not edit by hand.
                               Committed: Vercel builds web/ and never runs typegen.
-  app/
-    app.vue                 ✎
-    layouts/                ✎ default.vue
-    pages/
-      index.vue             ✎ LIVE — the photo grid and featured writing, from Sanity
-      shots/all.vue         ✎ LIVE — the index of every photo, multi-select filters +
-                              infinite scroll. STATIC, so it shadows [slug] — gallery.ts
-                              refuses that slug. Also hosts the showcase.
-      shots/[slug].vue      ✎ LIVE — one gallery, through its preset. No shots/index.vue:
+                              Stays at the web root; tsconfig's glob picks it up, so the
+                              `typescript.tsConfig.include` workaround Nuxt needed is gone.
+  public/                   ✎ joan-animated.png, the sidebar's illustrated portrait. Nothing
+                              here is processed at build time.
+  src/
+    app/                      The App Router. A directory is a route; page.tsx is the page.
+      layout.tsx            ✎ <html lang>, metadata + title template, globals.css, the
+                              NavDrawer provider, the sidebar and the main column. The only
+                              layout. Server Component: SiteNav and every page pass through
+                              it as props, which is what lets the client shell wrap them.
+      globals.css           ✎ The design system. Type, colour and container width are decided
+                              here and nowhere else. Was app/assets/css/tailwind.css and
+                              moved verbatim. See Conventions.
+      error.tsx             ✎ 'use client' — where a thrown SanityUnreachableError or
+                              MissingDocumentError lands. HTTP 500.
+      not-found.tsx         ✎ The 404. Reached by notFound() and by unrouted addresses.
+      page.tsx              ✎ LIVE — / : the photo grid and featured writing, from Sanity
+      bio/page.tsx          ✎ LIVE — /bio : intro and body. Every photograph on it comes from
+                              the body, as postPhoto members; there is no photo field.
+      copy/page.tsx         ✎ LIVE — /copy : posts and links out, newest first
+      copy/[slug]/page.tsx  ✎ LIVE — one post, body and all. generateStaticParams.
+      shots/all/page.tsx    ✎ LIVE — the index of every photo. STATIC ROUTE, so it shadows
+                              [slug] — gallery.ts refuses that slug. Server half only: it
+                              owns searchParams, the first page and the deep-link lookup.
+      shots/[slug]/page.tsx ✎ LIVE — one gallery, through its preset. No shots/page.tsx:
                               /shots itself was a stub and is gone, so it 404s while its
-                              children do not. Also hosts the showcase.
-      copy/index.vue        ✎ LIVE — posts and links out, newest first, from Sanity.
-                              Was writing/index.vue; only the address moved.
-      copy/[slug].vue       ✎ LIVE — one post, body and all
-      bio.vue               ✎ LIVE — intro and body. Every photograph on it comes from the
-                              body, as postPhoto members; there is no photo field.
-      contact.vue
+                              children do not.
+      contact/page.tsx        Not built. Text and links only — see Non-goals.
+      admin/route.ts        ✎ 302 redirect to SANITY_STUDIO_URL. force-dynamic — see below.
+      api/photos/route.ts   ✎ One further slice, for infinite scroll. The site's ONLY
+                              endpoint the browser calls, and the reason no env var is public.
+      api/photos/[id]/route.ts ✎ One photo by id, for a showcase deep-linked past page 1.
+    sanity/
+      client.ts             ✎ 'server-only' + createClient. No defaults: an unset variable
+                              throws at module scope and fails the build.
+      fetch.ts              ✎ sanityFetch + orThrow + REVALIDATE. Every read goes through it.
+      errors.ts             ✎ SanityUnreachableError, MissingDocumentError
+      queries/              ✎ GROQ, one file per route
+        photo.ts            ✎ The shared photo projection, and PHOTO_BY_ID_QUERY for the
+                              showcase's deep links. Not a route — see Conventions.
+        nav.ts              ✎ NAV_QUERY — the galleries listed under START. Not a route
+                              either: it is chrome, read on every page.
+        allShots.ts         ✎ ALL_SHOTS_QUERY (first page, total, tags in use) and
+                              MORE_PHOTOS_QUERY (one further slice). Filters on $filterTags —
+                              an array of slugs, union semantics — and NOT $tag; see the
+                              reserved-key note in Conventions. Exports TagOption and
+                              PAGE_SIZE, which the page and the route handler must share.
+        home.ts             ✎
+        shots.ts            ✎ GALLERY_QUERY — one gallery, both fill modes resolved to one
+                              `photos` array. Read the `^` scoping notes before editing it.
+        writing.ts          ✎ WRITING_QUERY (the list, plus the featured piece), POST_QUERY
+                              (one post) and POST_SLUGS_QUERY (generateStaticParams). Owns
+                              WRITING_ITEM_PROJECTION, which home.ts imports — the front
+                              page's cards are the same union.
+        about.ts            ✎ ABOUT_QUERY — the bio, body dereferenced
+        contact.ts            Not built.
     components/
-      SanityPhoto.vue       ✎ The only place an <img> is emitted (see conventions)
-      SiteSidebar.vue       ✎ All the chrome: wordmark, byline, nav, socials, copyright.
-                              The desktop column AND the mobile drawer, one instance —
-                              see the single-<h1> note in the file. There is no SiteHeader
-                              and no SiteFooter; this replaced both.
-      SiteNav.vue           ✎ The nav inside it, stacked
-      SiteSocialIcon.vue    ✎ Four hand-written glyphs. Named Site* because content/site.ts
-                              already exports a `SocialIcon` *type*, and the auto-import
-                              would collide with it.
-      ProseText.vue         ✎ Renders a proseText field via SanityContent
-      ProseHeading.vue      ✎ The same, as a real <h2> — see the note above. NO CALLER right
+      SanityPhoto.tsx       ✎ The only place an <img> is emitted for a photograph (see
+                              conventions). Deliberately not next/image.
+      SiteSidebar.tsx       ✎ 'use client'. All the chrome: wordmark, byline, nav, socials,
+                              copyright. The desktop column AND the mobile drawer, one
+                              instance — see the single-<h1> note in the file. There is no
+                              SiteHeader and no SiteFooter; this replaced both. Owns every
+                              drawer effect.
+      SiteNav.tsx           ✎ async Server Component. Runs NAV_QUERY and swallows its error —
+                              the only place on the site that does.
+      SiteNavList.tsx       ✎ 'use client'. The nav itself: usePathname for the active state,
+                              and the collapse toggle.
+      MainColumn.tsx        ✎ 'use client'. <main inert={isOpen}> and nothing else.
+      NavDrawerContext.tsx  ✎ 'use client'. Drawer state and actions ONLY — no effects; it
+                              has three consumers, so an effect here would be three listeners.
+      SiteSocialIcon.tsx    ✎ Four hand-written glyphs. Named Site* because content/site.ts
+                              already exports a `SocialIcon` *type* and the two would collide.
+      ProseText.tsx         ✎ Renders a proseText field via <PortableText>
+      ProseHeading.tsx      ✎ The same, as a real <h2> — see the note above. NO CALLER right
                               now: it rendered homePage.featuredTitle above the photographs,
                               and that field is looking for a new home. Not dead code yet.
-      ProseLink.vue         ✎ The `hyperlink` annotation inside one. The only user of
+      ProseLink.tsx         ✎ The `hyperlink` annotation inside one. The only user of
                               --color-link.
-      ProseBody.vue         ✎ A body of prose with photos in it — post.body and aboutPage.body
-      BodyPhoto.vue         ✎ The postPhoto member of one, floated and wrapped by the text
+      ProseBody.tsx         ✎ A body of prose with photos in it — post.body and aboutPage.body
+      BodyPhoto.tsx         ✎ The postPhoto member of one, floated and wrapped by the text
       about/                ✎ Intro — the heading and introduction at the top of /bio.
                               Was `home/Hero.vue`; moved with the fields it renders.
-      home/                 ✎ FeaturedWriting, PhotoStrip — slots 6 and 7.
+      home/                 ✎ FeaturedWriting, PhotoStrip.
                               PhotoStrip no longer owns a layout: it uses the `grid` preset
-                              through its slot so each photo can become a link. The name is
+                              through renderPhoto so each photo can become a link. The name is
                               now a lie worth fixing the next time that file is opened.
       writing/              ✎ Lead — the leading piece, with the eyebrow passed in as a prop
                               because LATEST is a claim about the date and stops being true
-                              when she features something older; Row — one ledger row.
-                              Named `writing/` still: only the route said /writing.
+                              when she features something older; Row — one ledger row;
+                              WritingLink — post vs article destination, one place, now used
+                              by FeaturedWriting too. Named `writing/` still: only the route
+                              said /writing.
       shots/                ✎ FilterBar — the tag filters on /shots/all, built from
-                              DESIGN.md's button-outline / button-primary pair. Links, not
-                              buttons, so the filter is in the URL and shareable. Multi-select
-                              with a CLEAR that appears only when something is selected;
-                              there is no ALL chip.
+                              DESIGN.md's button-outline / button-primary pair. Real <Link>s,
+                              so the filter is in the URL, shareable, and reaches the server.
+                              Multi-select with a CLEAR that appears only when something is
+                              selected; there is no ALL chip.
+                              AllShotsView / GalleryView — the 'use client' halves of the two
+                              /shots pages. GalleryView holds the PRESETS map.
                               PhotoShowcase — one photograph alone, and every effect that
-                              goes with it. PhotoLink — the clickable wrapper both gallery
-                              pages drop into a preset's slot.
+                              goes with it. PhotoLink — the clickable wrapper both views drop
+                              into a preset's renderPhoto; a plain <a>, never <Link>.
+                              useShowcase.ts — the showcase's route state, pushState
+                              navigation and scroll save/restore. No fetching, no listeners.
       presets/              ✎ One component per layout preset, and the list is exhaustive by
-                              typecheck — see the PRESETS map in pages/shots/[slug].vue.
+                              typecheck — see the PRESETS map in shots/GalleryView.tsx.
                               GalleryGrid (wrap-and-fill rows, also used by the front page)
-                              and GalleryStack (full-measure column).
-    utils/                  ✎ date.ts — formatDate/formatShortDate, auto-imported. UTC note in it.
-                              photo.ts — photoRatio(), shared by GalleryGrid and the showcase.
-    queries/                ✎ GROQ, one file per route
-      photo.ts              ✎ The shared photo projection, and PHOTO_BY_ID_QUERY for the
-                              showcase's deep links. Not a route — see below.
-      nav.ts                ✎ NAV_QUERY — the galleries listed under START. Not a route
-                              either: it is chrome, read on every page.
-      allShots.ts           ✎ ALL_SHOTS_QUERY (first page, total, tags in use) and
-                              MORE_PHOTOS_QUERY (one further slice). Filters on $filterTags —
-                              an array of slugs, union semantics — and NOT $tag; see the
-                              reserved-key note in Conventions. Exports TagOption.
-      home.ts               ✎
-      shots.ts              ✎ GALLERY_QUERY — one gallery, both fill modes resolved to one
-                              `photos` array. Read the `^` scoping notes before editing it.
-      writing.ts            ✎ WRITING_QUERY (the list, plus the featured piece) and
-                              POST_QUERY (one post). Owns WRITING_ITEM_PROJECTION, which
-                              home.ts imports — the front page's cards are the same union.
-      about.ts              ✎ ABOUT_QUERY — the bio, body dereferenced
-      contact.ts
+                              and GalleryStack (full-measure column). types.ts holds the
+                              shared GalleryPresetProps both must satisfy.
     content/                ✎ Site chrome only. tags.ts is gone — a tag's name is content
                               now and arrives with the query.
       site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
                               content. (Was "footer links" — there is no footer any more.)
-    composables/            ✎ usePhotoShowcase.ts — the showcase's route state, scroll
-                              save/restore and prev/next. No fetching, no lifecycle hooks.
-                              useNavDrawer.ts — open/closed state for the mobile nav.
-                              useWritingLink.ts — post vs article destination, one place.
-                              State and actions only: it is called from two components, so a
-                              lifecycle hook in it would register two Escape listeners. Every
-                              effect lives in SiteSidebar.vue.
-    assets/css/             ✎ tailwind.css — the design system. Type, colour and container
-                              width are decided here and nowhere else. See Conventions.
-  server/
-    routes/
-      admin.ts              ✎ 302 redirect to NUXT_PUBLIC_SANITY_STUDIO_URL
-  public/
+    lib/                    ✎ date.ts — formatDate/formatShortDate. UTC note in it.
+                              photo.ts — photoRatio(), shared by GalleryGrid and the showcase.
+                              showcase.ts — readTags/readPhotoId/showcaseHref/viewKey/
+                              isModifiedEvent. Pure functions, called from BOTH sides of the
+                              server boundary so the two cannot disagree about an address.
 
 studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   package.json              ✎ sanity, react, styled-components, @sanity/vision
@@ -989,7 +1089,7 @@ build the repo root and find no app.
 
 ### The design system
 
-**`DESIGN.md` is the spec; `web/app/assets/css/tailwind.css` is the implementation.** Colour,
+**`DESIGN.md` is the spec; `web/src/app/globals.css` is the implementation.** Colour,
 type, radius and container width are decided in that one file's `@theme` and `@utility` blocks,
 and nowhere else. The file itself carries the reasoning; what belongs here is the part that
 constrains everyone.
@@ -1025,7 +1125,7 @@ a token whose tracking assumes capitals renders as wide-spaced lowercase.
 **Removing a colour token is silent, so the grep is the check.** Verified against
 tailwindcss@4.3.3: with a token absent, a class like `hover:text-brand` emits zero rules — no
 warning, no error, the class simply stays in the markup doing nothing. After any palette change,
-grep the old token names across `web/app` and expect hits only in prose. That is the only thing
+grep the old token names across `web/src` and expect hits only in prose. That is the only thing
 standing between a deleted token and a stale class that looks fine in review.
 
 (This example used to be written with `text-accent`, which was safely fictional at the time and
@@ -1046,7 +1146,7 @@ comment. Re-check it if the face set ever changes; the answer is not the same fo
 spec calls square corners non-negotiable, so `rounded-md` and friends resolve to nothing rather
 than sitting there to be reached for. `rounded-full` survives deliberately and is the one
 exception the spec allows, "circular icon containers only": exactly one call site, the social
-links in the sidebar. `grep -rn "rounded-" web/app` should return that one and nothing else.
+links in the sidebar. `grep -rn "rounded-" web/src` should return that one and nothing else.
 
 It was two until /copy's rows became a ledger and their circular thumbnails became squares.
 Nothing about the rule changed — the surviving call site is an icon container, which is what
@@ -1076,7 +1176,9 @@ not matter. When it does, make the crop a `CROPS` entry with the argument writte
 than a class at a call site — a `max-h-*` on a photo is a design choice, an `object-cover` on one
 is a conversation.
 
-**GROQ lives in `web/app/queries/`, one file per route. Never inline in a component.**
+### Queries and types
+
+**GROQ lives in `web/src/sanity/queries/`, one file per route. Never inline in a component.**
 A query is the contract between a route and the content model. Keeping them in one directory
 means a schema change has one obvious place to look for breakage, and typegen can find them.
 
@@ -1094,7 +1196,7 @@ types queries wrapped in `defineQuery()`. A raw template literal produces no typ
 silently opts that route out of type checking.
 
 ```ts
-// web/app/queries/trip.ts
+// web/src/sanity/queries/trip.ts
 import { defineQuery } from 'groq'
 
 export const TRIP_QUERY = defineQuery(`
@@ -1108,39 +1210,143 @@ export const TRIP_QUERY = defineQuery(`
 Note the `->` dereference. Galleries store references; queries resolve them. That is Rule 1
 showing up at the query layer.
 
-`@nuxtjs/sanity` bundles `groq` and auto-imports both `groq` and `defineQuery`, so there is
-no separate package to install and `.vue` files need no import. Keep the explicit import in
-`web/app/queries/*.ts` anyway — those files are read by the typegen parser, and being explicit
-costs nothing.
+`groq` is a direct dependency and `defineQuery` is imported explicitly in every query file.
+It is a tiny package — `defineQuery` is an identity function whose whole job is preserving the
+literal type — and typegen's parser reads these files, so being explicit costs nothing.
+
+**Every read goes through `sanityFetch` in `web/src/sanity/fetch.ts`, and four things about its
+signature are load-bearing.** The file carries the long version; the parts that constrain
+callers:
+
+- **It returns `{ data, error }`, not a bare result.** That is what makes "check the transport
+  failure before the null" a property of the type rather than a convention — see *Errors* below.
+- **`ClientReturn<Q, unknown>`, never the bare default.** `client.fetch`'s own fallback is
+  `Any` — that is, `any`. So if `sanity.types.ts` ever falls out of the TypeScript program, the
+  old behaviour is that every route keeps compiling and silently stops being typechecked.
+  Pinning the fallback to `unknown` turns that into a compile error at the first property
+  access. **A green typecheck is not evidence the types are live; a red one is.** The check, and
+  it takes thirty seconds: point a result at a field that does not exist and confirm the
+  compiler rejects it *naming the real shape*; then hand `sanityFetch` a query string that is
+  not in the generated map and confirm the result is `unknown` rather than `any`.
+- **`const Q extends string`**, mirroring `defineQuery`'s own signature, so a query's literal
+  type — interpolations already resolved — reaches the `SanityQueries` map. Widen it to
+  `string` and every result becomes the fallback.
+- **Naming the result type *inside* the helper** is what sidesteps the overload trap below. One
+  non-overloaded signature covers both the no-params and with-params call shapes.
+
+**`client.fetch` is overloaded four ways, and a params object of plain values matches
+`QueryWithoutParams` first.** A direct call therefore resolves to the no-params overload and
+reports "string is not assignable to undefined" — an error about the overload it landed on
+rather than about the call. This is why there is exactly one `client.fetch` call site on the
+site. Do not add a second; add a query and let `sanityFetch` take it.
 
 **A GROQ parameter cannot be named after a fetch option, and the error will not tell you
 that.** `QueryParams` in `@sanity/client` declares a list of keys as `never` — `tag`, `query`,
-`perspective`, `signal`, `token`, `cache`, `headers`, `method`, `timeout`, `useCdn` and more —
-on the grounds that passing one as a GROQ parameter is nearly always a mistake. `tag` is
+`perspective`, `signal`, `token`, `cache`, `headers`, `method`, `body`, `timeout`, `next` and
+more — on the grounds that passing one as a GROQ parameter is nearly always a mistake. `tag` is
 Sanity's request tagging. A parameter named `$tag` therefore fails with **"Type 'string' is not
 assignable to type 'undefined'"**, which names the overload the call fell through to and says
-nothing about the collision. `/shots/all` filters on `$filterTags` for exactly this
-reason. Check that list before naming a parameter after anything that sounds like a request
-setting.
+nothing about the collision. `/shots/all` filters on `$filterTags` for exactly this reason.
+Check that list before naming a parameter after anything that sounds like a request setting.
+**This is a `@sanity/client` fact and not a framework one** — it survived the port from Nuxt
+unchanged and will survive the next one.
 
-**Two more things about `useSanityQuery` that fail in ways that do not name themselves**, both
-hit while building that page:
+### Caching
 
-- **Its params argument must be a plain reactive object, never a `computed`.** It calls
-  `reactive(params)` and then `JSON.stringify(params)` to build a cache key; a `ComputedRef`
-  makes the second one throw *"Converting circular structure to JSON … ComputedRefImpl"* from
-  inside the composable. Declare `reactive({ … })` and mutate a property to refetch — the
-  composable already pushes the object onto its own `watch` list.
-- **`useSanity().fetch` is not the same as `useSanity().client.fetch`.** The helper declares
-  `fetch: SanityClient['fetch']`, an indexed access on an *overloaded* method, which TypeScript
-  flattens to one signature instead of carrying all four. Use `client.fetch` for the imperative
-  path, and give it an explicit result type from `sanity.types.ts`.
+**One number, at the fetch layer.** `REVALIDATE` in `sanity/fetch.ts` is 60 seconds, and it is
+passed as `next: { revalidate }` on *every* read. Next then derives a route segment's own
+revalidate from the lowest among the fetches it makes, so `/`, `/bio`, `/copy` and
+`/copy/[slug]` prerender and revalidate on their own — confirm in `next build`'s output, which
+prints the interval per route.
+
+**There is deliberately no `export const revalidate` on any page**, and two reasons:
+
+- Next's implicit caching only covers fetches discovered *before* a request-time API is used,
+  and `/shots/all` awaits `searchParams` first. Relying on the segment default would cache every
+  route except the one page that pages. Stating it on the fetch removes the asymmetry.
+- A segment export must be a **literal**, read by static analysis rather than evaluated —
+  `export const revalidate = REVALIDATE` fails the build with "Invalid segment configuration
+  export". So it would mean the number in two places, with the second copy unable to reference
+  the first.
+
+**Both `/shots/*` routes are dynamic, and that is a decision.** They read `searchParams` for the
+showcase. `generateStaticParams` there would look like an optimisation and do nothing, which is
+why it is absent from `/shots/[slug]` and present on `/copy/[slug]`. What it costs is one React
+render per request; it is *not* a Sanity request per request, because the read comes from the
+Data Cache. What it buys is in *The showcase*: a shared `?photo=` link server-renders the
+photograph, with its caption as the `<title>`.
+
+One thing worth knowing before any query grows: **`@sanity/client` switches from GET to POST
+above 11,264 encoded characters**, and Next's Data Cache does not cache POSTs. Every query here
+is far under. A query that crosses that line stops being cached with nothing saying so.
+
+### Errors
+
+**Check the transport failure before the null.** A failed request and an empty result both leave
+you holding `null`, and they mean opposite things — the CORS history in *The Studio* is the
+archetype, and it cost real debugging time.
+
+`orThrow(await sanityFetch(...))` makes that structural: it throws `SanityUnreachableError` on a
+transport failure and hands back a value that, for a `*[…][0]` query, is still `X | null`. So the
+second check stays a second check and stays at the call site, **where the answer differs**:
+
+| Missing | Route | Because |
+| --- | --- | --- |
+| `homePage` | 500, `MissingDocumentError` | A singleton the Studio will not let her delete — the dataset is wrong. |
+| `aboutPage` | 500, `MissingDocumentError` | Same. |
+| `writingPage` | *nothing* | It holds a tab title and an optional intro; the page's content is the list beside it. Absent costs a paragraph. |
+| a `post` / `gallery` by slug | 404, `notFound()` | Nothing guarantees the document exists; the address may be mistyped or changed. |
+| a `?photo=` id | **a message in place** | A query parameter must never replace a working page with an error screen. |
+
+Two things this gave up, both deliberately:
+
+- **The 502 is gone; both errors are HTTP 500.** App Router gives a page no way to set a status —
+  `notFound()` is the only exception. Nothing consumed the 502, and the distinction survives
+  where it was actually used: `Error.name` in the server log.
+- **Production redacts the message.** `error.tsx` receives a generic string and a `digest` hash;
+  the real error, with its `cause`, is in the Vercel function log. That is the same hardening
+  Nuxt did, and the reason the page prints the digest.
+
+`SiteNav` is the **only** place that swallows a query error, and it does not use `orThrow`. The
+nav is chrome on every page: a Sanity outage taking down the whole site because four gallery
+links could not be listed would be worse than the failure it reports. That exception is now more
+conspicuous, not less, because it is the one call site that opts out of the helper.
+
+### Server and client
+
+A `'use client'` directive is only needed at a **boundary** — a module imported by a Server
+Component that itself needs hooks or event handlers. Anything imported by a client component is
+already in the client graph and needs no directive of its own.
+
+There are ten, and `grep -rln "^'use client'" web/src` is the list: `NavDrawerContext`,
+`SiteSidebar`, `SiteNavList`, `MainColumn`, `AllShotsView`, `GalleryView`, `PhotoShowcase`,
+`PhotoLink`, `useShowcase.ts`, and `error.tsx`. Everything else — every page,
+every prose component, `SiteNav`, `FilterBar`, `PhotoStrip`, `FeaturedWriting`, `Lead`, `Row`,
+`Intro` — is a Server Component.
+
+**`SanityPhoto`, `GalleryGrid` and `GalleryStack` carry no directive and are dual-use**, and
+that is what makes the presets' `renderPhoto` render prop legal. The front page passes one from
+a Server Component; `AllShotsView` passes one from a client component; because the presets are
+never marked, the function never crosses a boundary in either direction. **Marking a preset
+`'use client'` would break the front page** with "functions cannot be passed to client
+components" — so if one ever needs a hook, the render prop has to be reconsidered at the same
+time.
+
+Two client components exist only because of one attribute each — `MainColumn` for `inert`,
+`SiteNavList` for `usePathname`. Splitting them off keeps the pages themselves on the server.
+
+**`useSearchParams()` must not appear in the root layout's tree.** In a *prerendered* route it
+drops everything below the nearest Suspense boundary out of the static HTML; from the layout
+that would be every page on the site. `SiteSidebar` closes the drawer on `usePathname` alone for
+this reason, and nothing in the chrome needs the query string.
 
 **Types are generated, never hand-written.** `web/sanity.types.ts` is output from
 `sanity schemas extract` + `sanity typegen generate`, run from `studio/`. Do not hand-edit it, do not write a
 parallel `interface Photo` somewhere, and do not `as any` past a type error — a type error
 here means the query and the schema disagree, which is information, not an obstacle. If a
 type looks wrong, fix the schema or the query and re-run typegen.
+
+### Photographs
 
 **Every image on the site renders through `SanityPhoto`.** One component, no exceptions —
 not in presets, not in the hero, not in the Studio preview.
@@ -1167,17 +1373,35 @@ centred framing and its own much shorter srcset ladder. It takes a name and neve
 an offset, so a call site still cannot invent a framing. See the thumbnail note in *The content
 model* for why the list exists and what each entry costs.
 
-**Every *photograph* renders through one `<img>`, and `grep -rn "<img" web/app` is the check.**
-It finds two tags, and the count is the thing to read rather than the number: `SanityPhoto`,
+**It is deliberately not `next/image`.** That would put Vercel's optimiser in front of an image
+CDN that already does everything it does — a second transform of an already-transformed file,
+billed per source image, to re-derive a width and a format Sanity negotiated. It would also move
+the srcset ladder, the format choice and the placeholder behind a component this project does
+not control, which is the opposite of the rule above: the value here is that one file decides
+all of it and the decisions are readable. **The no-upscale clamp has no `next/image` equivalent
+at all** — every candidate width is capped at the asset's own, and for a crop at what the source
+can fill *at that ratio*, so a 599px original is offered at 400w and 599w and stops.
+
+The same argument covers `public/joan-animated.png` in the sidebar: a static file, already at
+the size it renders, with no second pipeline needed to serve it.
+
+**Every *photograph* renders through one `<img>`, and `grep -rl "<img" web/src` is the check.**
+It finds two *files*, and the count is the thing to read rather than the number: `SanityPhoto`,
 and the illustrated portrait in `SiteSidebar` — a static asset that is site chrome rather than
 one of her photographs, so it has no photo document, no alt from Sanity and nothing to
-dereference. A third hit is a bug until argued otherwise.
+dereference. A third file is a bug until argued otherwise.
+
+(`-l` rather than `-n`, because both files also *discuss* `<img>` at length in their comments —
+a line-count grep returns six and reads like a violation. The two actual elements are
+`SanityPhoto.tsx` and the portrait in `SiteSidebar.tsx`.)
 
 It was briefly two for a much worse reason: `SitePhoto` and `RichParagraph` were static twins
 of `SanityPhoto` and `ProseText` serving /copy while that page was on Unsplash placeholders.
 All three — both twins and `~/content/writing` — died when /copy got its query. The
 alternative considered at the time, teaching `SanityPhoto` to also accept bare URLs, would have
 put a permanent hole in the rule to paper over a temporary one.
+
+### The schema wins
 
 **Sanity schema files are the source of truth for the content model.** Not this document,
 not the generated types, not the GROQ queries. Schema changes flow outward:
@@ -1190,17 +1414,28 @@ server routes that POST to the Content Lake.
 
 ## Commands
 
-There is no root `package.json`. Nuxt commands run from `web/`, Studio and schema commands
-run from `studio/`, and the seed scripts run from the repo root — check which directory you
-are in before running anything.
+There is no root `package.json`. Next commands run from `web/`, Studio and schema commands run
+from `studio/`, and the seed scripts run from the repo root — check which directory you are in
+before running anything.
 
-From **`web/`** — the Nuxt app:
+From **`web/`** — the Next app:
 
 | Command | Purpose | Status |
 | --- | --- | --- |
-| `npm run dev` | Nuxt dev server on :3000 | ✎ works |
+| `npm run dev` | Next dev server on :3000 | ✎ works |
 | `npm run build` | Production build for Vercel — app only, never the Studio | ✎ works |
-| `npm run preview` | Serve the built output locally | ✎ works |
+| `npm run start` | Serve the built output locally | ✎ works |
+| `npm run typecheck` | `next typegen && tsc --noEmit` | ✎ works |
+
+**`next typegen` is not optional in that last one.** It writes `.next/types/routes.d.ts`, where
+the global `PageProps<'/shots/[slug]'>` and `RouteContext<'/api/photos/[id]'>` live. A cold
+`tsc --noEmit` without it fails on every page and route-handler signature.
+
+`npm run build` reports each route's rendering mode, and that output is worth reading rather
+than skimming: `○`/`●` are prerendered, `ƒ` is dynamic. `/`, `/bio`, `/copy` and the
+`/copy/[slug]` pages should be prerendered with a 1m revalidate; `/shots/*`, `/admin` and
+`/api/photos*` should be dynamic. A content route silently becoming dynamic means something
+started reading a request-time API.
 
 From **`studio/`** — the Sanity Studio:
 
@@ -1227,7 +1462,9 @@ defaults to *no*. Either way the `&&` short-circuits and the types silently do n
 regenerate. Do not remove it.
 
 `typegen` lives in `studio/` because the Studio owns the schema, but it writes
-`web/sanity.types.ts`. Paths are configured under `typegen` in `studio/sanity.cli.ts`. Re-run
+`web/sanity.types.ts`. Paths are configured under `typegen` in `studio/sanity.cli.ts`, whose
+`path` glob is `../web/src/**/*.{ts,tsx}` — **a query file outside that glob generates no
+types and no error.** Re-run
 it after any schema change or any new/edited query, and **commit the regenerated types in
 the same commit as the schema change** — the diff is what shows the change's effect on the
 contract. Vercel builds `web/` and never runs typegen, so the file has to be in the repo.
@@ -1249,7 +1486,7 @@ contract. Vercel builds `web/` and never runs typegen, so the file has to be in 
   the field as though it were mandatory. Verified on `post.summary` and `article.summary`:
   adding it flipped `summary` from `string | null` to `string` in all four query result types,
   while six of the seven documents in `development` have no summary at all. Nothing errors. The
-  types simply start claiming a field is always there, every `v-if="item.summary"` becomes a
+  types simply start claiming a field is always there, every `item.summary &&` guard becomes a
   redundant check as far as the compiler is concerned, and the first code that trusts the type
   crashes on real content.
 
@@ -1298,30 +1535,52 @@ sits unmerged on `chore/worktree-setup-script`, pending a decision on approach.
 Three `.env` files, because each tool loads `.env` from its own directory. They are separate
 on purpose — do not consolidate them into one root file.
 
-**`web/.env`** — read by Nuxt. All public: these ship in the browser bundle.
+**`web/.env`** — read by Next. **All server-side. Nothing here is public, and nothing here
+carries a `NEXT_PUBLIC_` prefix.**
 
 | Name | Purpose |
 | --- | --- |
-| `NUXT_PUBLIC_SANITY_PROJECT_ID` | `c3808h1v`. Public by design. |
-| `NUXT_PUBLIC_SANITY_DATASET` | `development` locally, `production` on Vercel. |
-| `NUXT_PUBLIC_SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
-| `NUXT_PUBLIC_SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
+| `SANITY_PROJECT_ID` | `c3808h1v`. Public information, but not a public *variable* — see below. |
+| `SANITY_DATASET` | `development` locally, `production` on Vercel. |
+| `SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
+| `SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
 
-**`web/.env` is a local file.** Nuxt loads it for `npm run dev`, `npm run build`, and
-`npm run preview` — `preview` even prints *"Loading .env. This will not be loaded when
-running the server in production."* Only the deployed production server ignores it and reads
-real environment variables instead. So every `NUXT_PUBLIC_*` value must also be set in
-Vercel's project settings; a correct `web/.env` proves nothing about production.
+**`web/.env` used to say "all public: these ship in the browser bundle", and the invariant has
+flipped.** These were `NUXT_PUBLIC_SANITY_*` and were inlined into the client bundle, because
+the app read Sanity from the browser. It no longer does — every read is on the server, and the
+one that used to happen after hydration goes through `app/api/photos`. So:
 
-Two consequences, both verified:
+- **No prefix.** `NEXT_PUBLIC_*` is substituted into the *bundle* at build time, so a value only
+  the server reads should never carry one. Adding one to any of these would put the project id
+  back in the JS for no gain.
+- **`import 'server-only'` in `src/sanity/client.ts` enforces it.** Importing that module from
+  anything in the client graph is a build error naming the file that did it, so the boundary is
+  checked rather than remembered.
+- **The check after any change here:** `grep -r "c3808h1v" web/.next/static/` must return
+  nothing after a build.
 
-- Running `node .output/server/index.mjs` directly skips `.env` and returned a 503 on
-  `/admin`, while `npm run preview` returned a 302 from that same build. If you're smoke-testing
-  what production will do, the raw node invocation is the honest one.
-- `npm run build` bakes `.env` values into the output as build-time defaults — a probe value
-  in `.env` turned up inside `.output/server/chunks/nitro/nitro.mjs`. So a locally built
-  artifact carries your `development` dataset. Vercel is unaffected, because `.env` is
-  gitignored and never gets there.
+**No defaults, deliberately.** `nuxt.config.ts` defaulted the dataset to `development`, and that
+is exactly the failure worth preventing: a deploy missing the variable would quietly read a
+dataset the live site does not publish from and look like it was working. `client.ts` throws at
+module scope instead, which fails the **build** and names the variable. Same refusal
+`studio/dataset.ts` makes, for the same reason — both wrong answers fail silently, so neither
+gets to be the default.
+
+**`web/.env` is a local file**, loaded by `next dev`, `next build` and `next start`. Only the
+deployed server ignores it and reads real environment variables. So **every value here must also
+be set in Vercel's project settings; a correct `web/.env` proves nothing about production.**
+
+Three consequences, all verified:
+
+- **A rename has to land in Vercel in the same window as the deploy.** Delete the old
+  `NUXT_PUBLIC_*` entries rather than leaving them, so a half-finished rename cannot look
+  half-working.
+- **Non-prefixed variables are live `process.env` reads on the server**, so changing one in
+  Vercel does not require a rebuild for anything rendered at request time. The prerendered
+  routes are the caveat: their *first* HTML reflects build-time values and picks the change up on
+  the next revalidation.
+- **`next build` loads `web/.env`**, so a locally built artifact carries your `development`
+  dataset. Vercel is unaffected, because `.env` is gitignored and never gets there.
 
 **`studio/.env`** — read by the Sanity CLI and baked into the Studio bundle at build time.
 
@@ -1339,14 +1598,14 @@ which is standard for Sanity and avoids a variable that can only ever have one v
 | `SANITY_WRITE_TOKEN` | Write access for seeding. |
 
 **`SANITY_WRITE_TOKEN` is used by scripts only and is never referenced in app code.** Not in
-`web/app/`, not in `web/server/`, not in `nuxt.config.ts`, not in runtime config. It never
-reaches the browser and never reaches the Vercel runtime. If a task seems to need it in the
-app, re-read "The app never writes to Sanity" above.
+`web/src/`, not in `next.config.ts`, nowhere. It never reaches the browser and never reaches
+the Vercel runtime. If a task seems to need it in the app, re-read "The app never writes to
+Sanity" above.
 
-Confirmed against `@nuxtjs/sanity` v2: the module merges its options onto
-`runtimeConfig.public.sanity`, so `NUXT_PUBLIC_SANITY_PROJECT_ID` / `_DATASET` /
-`_API_VERSION` override `projectId` / `dataset` / `apiVersion` at runtime. Verified end to
-end — the values in `nuxt.config.ts` are build-time defaults, not the source of truth.
+Note the name no longer disambiguates itself by prefix, now that the app's variables are also
+bare `SANITY_*`. They never meet — this one lives in the repo-root `.env` and is read only by
+`scripts/`, which has its own `package.json` and its own directory — but a variable named
+`SANITY_WRITE_TOKEN` turning up in `web/.env` or in Vercel is a bug, not a convenience.
 
 ## Non-goals
 
@@ -1363,8 +1622,8 @@ don't add a dependency that anticipates them.
 
 ## Working agreements
 
-**Ask before adding any dependency.** Every one — runtime, dev, Nuxt module, Sanity plugin,
-Tailwind plugin. No exceptions for "tiny" or "everyone uses it". State what it's for and what
+**Ask before adding any dependency.** Every one — runtime, dev, Sanity plugin, Tailwind
+plugin, Next plugin. No exceptions for "tiny" or "everyone uses it". State what it's for and what
 the alternative is without it, then wait. This applies to transitive-in-spirit additions too:
 pulling in a component library to get one component is the thing this rule exists to catch.
 
@@ -1377,14 +1636,20 @@ or a positioning control, say so and propose the preset-shaped version instead.
 
 Unresolved. Don't paper over these — raise them when the relevant work comes up.
 
-- **The going-live checklist, both halves.** Neither is optional and neither is hard; they
-  just have to happen on the same day, and both are easy to forget because the site looks fine
-  without them right up until it doesn't.
-  1. **Replace slot 7's six stock house photos** with five of Joan's, in `development`, then
-     `npm run promote`. See the note under *The front page* — replace, do not delete.
-  2. **`npx sanity cors add https://joanatstake.com --no-credentials`.** See the app-origin
-     CORS bullet; without it the site breaks on the first client-side navigation, and the
-     symptom looks nothing like CORS.
+- **The going-live checklist is down to one item, and the CORS half is retired.**
+  1. **Replace the front page's six stock house photos** with five of Joan's, in `development`,
+     then `npm run promote`. See the note under *The front page* — replace, do not delete.
+  2. ~~`npx sanity cors add https://joanatstake.com --no-credentials`~~ — **no longer required.**
+     Nothing in the browser talks to Sanity, so no request from `joanatstake.com` ever carries an
+     `Origin` header to the Content Lake. See the CORS bullet in *The Studio*. **This stops being
+     true the moment something in the client graph imports the Sanity client** — which
+     `import 'server-only'` makes a build error rather than a surprise on DNS day.
+- **The deploy checklist gained an item instead, and it is the one that breaks production.**
+  The four `SANITY_*` variables must exist in Vercel's project settings under their new names,
+  with the old `NUXT_PUBLIC_*` entries deleted, **in the same window as the deploy**. Unlike the
+  Nuxt build, a missing one fails the build loudly rather than defaulting — which is the
+  intended behaviour and still means a red deploy if it is forgotten. See *Environment
+  variables*.
 - **When the promote stops.** The deployed Studio writes to `production` and `npm run promote`
   overwrites it, so the day Joan starts editing is the day the direction reverses for good.
   Nothing detects "she has been given the URL" — the preflight only catches it *after* she has
@@ -1395,9 +1660,17 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   her — a visible tab that does nothing she needs. Keep it through the query-building phase;
   it is how the image metadata and the GROQ get verified. Delete the one line in the
   handover PR, so the decision has a home instead of drifting.
-- **ISR revalidation.** Time-based `routeRules` will make edits appear on a delay. If that
-  delay feels wrong to her, it becomes a Sanity webhook doing on-demand revalidation. Start
-  with the simple version.
+- ~~**ISR revalidation.**~~ **Half settled: it is 60 seconds, set once at the fetch layer.** See
+  *Caching*. What is still open is the other half of the original question — **whether a delay is
+  the right shape at all.** If a minute feels wrong to her, the answer is a Sanity webhook doing
+  on-demand revalidation, which costs a secret, an endpoint and a hook to configure. Do not reach
+  for it before she says the delay is a problem.
+- **`cacheComponents` (PPR) is the thing that would let `/shots/[slug]` be static *and*
+  server-render its showcase.** Today it is dynamic, because reading `searchParams` makes it so —
+  see *Caching* for why that is the right trade at this size. A static shell with a dynamic hole
+  would get both. It was deliberately not taken on inside a framework port: enabling it removes
+  `dynamic`, `dynamicParams`, `revalidate` and `fetchCache` wholesale, which is a second
+  migration wearing a flag. Revisit when the render cost is measurable rather than theoretical.
 - **Fonts are hotlinked rather than vendored.** ~171 kB of latin woff2 across five files, from
   `fonts.gstatic.com`. Copying them into `web/public/fonts/` and serving them same-origin
   removes a third-party dependency, removes a DNS + TLS handshake from the critical path, and
@@ -1419,7 +1692,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   See the note under *The front page*. They need a home, and until they get one `ProseHeading`
   has no caller.
 - **The photo grid's `K` is tuned against five photographs of the shapes currently in
-  `development`.** `home/PhotoStrip.vue` wraps photographs into rows by a flex basis
+  `development`.** `home/PhotoStrip.tsx` wraps photographs into rows by a flex basis
   proportional to each one's aspect ratio; `K` (the `22rem` in the basis) sets roughly how tall
   a row wants to be before wrapping, and at the current content it produces a 3-then-2 split on
   a wide screen. Different photographs will pack differently — that is the mechanism working,
@@ -1439,7 +1712,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   every photo shares a height and takes a width from its own shape; `GalleryStack` gives each
   the full reading measure down a column. Neither crops. What is *not* settled is whether two
   is the right number — a third would be a component plus a `LAYOUT_PRESETS` line, always
-  together, and the `PRESETS` map in `pages/shots/[slug].vue` now makes that pairing a
+  together, and the `PRESETS` map in `shots/GalleryView.tsx` now makes that pairing a
   typecheck failure rather than a convention.
 - ~~**The tag vocabulary is real now, but only half-decided.**~~ **Settled, in the direction
   the evidence pointed.** The six placeholders (Street, Portrait, Landscape, Architecture,
@@ -1471,13 +1744,19 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   legitimate state — she can make the page before tagging the photographs — but it is also what
   a mistyped tag looks like, and the two are indistinguishable from the page. If that bites, the
   fix is in the Studio rather than the app: a warning on `gallery.tag` when nothing carries it.
-- ~~**`@portabletext/vue` is approved but not installed.**~~ **Settled: it is never installed
-  directly.** `/copy/[slug]` renders `post.body` — the first route to read one — and needed
-  nothing added. `SanityContent` ships with `@nuxtjs/sanity`, already renders Portable Text for
-  `proseText`, and takes the same `components` map for a body: `block` for the styles, `marks`
-  for the `hyperlink` annotation, `types` for `postPhoto`. `@portabletext/vue` still arrives
-  transitively, which is why `ProseLink` and `PostPhoto` can import their props types from it.
-  Adding it to `web/package.json` would pin a second copy of something already present.
+- ~~**`@portabletext/vue` is approved but not installed.**~~ **Settled, then reopened by the
+  port and settled the other way.** Under Nuxt the renderer arrived transitively inside
+  `@nuxtjs/sanity`'s `SanityContent`, so declaring it would have pinned a second copy of
+  something already present. With that module gone there is nothing to inherit it from, so
+  `@portabletext/react` is now a **direct** dependency — the same library family, the same
+  `components` map shape (`block` for the styles, `marks` for the `hyperlink` annotation,
+  `types` for `postPhoto`), just declared rather than borrowed.
+
+  It brought one improvement worth using: **`InferComponents<T>`** derives each handler's
+  `value` type from the TypeGen result, so a schema rename fails at the `components` map instead
+  of falling through to an unknown-type renderer. `ProseBody`, `ProseText` and `ProseHeading`
+  all use it. `InferStrictComponents` goes further and *requires* a handler per custom type —
+  worth considering for `ProseBody`, which has exactly one.
 - **Porting the Squarespace posts.** ~15 of them, and the schema is ready for them but the
   content is not. Every Squarespace date reads `January 01, 2030`, so real dates have to be
   recovered from the text; several slugs are junk
@@ -1486,14 +1765,23 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   against `development` first.
 Resolved, kept because the reasoning still applies:
 
-- ~~**`web/sanity.types.ts` may fall outside the app's TypeScript program.**~~ **It did, and
-  it is fixed.** `.nuxt/tsconfig.app.json` includes `../app/**/*` and `../*.d.ts`; a `.ts`
-  file at the web root matches neither, so the `declare module "@sanity/client"` augmentation
-  typegen emits under `overloadClientMethods: true` was outside the program. `typescript.tsConfig.include`
-  in `nuxt.config.ts` now names the file explicitly.
+- ~~**`web/sanity.types.ts` may fall outside the app's TypeScript program.**~~ **The mechanism
+  changed and the hazard did not.** Under Nuxt this was a real bug: `.nuxt/tsconfig.app.json`
+  included `../app/**/*` and `../*.d.ts`, a `.ts` file at the web root matched neither, and the
+  `declare module "@sanity/client"` augmentation typegen emits under
+  `overloadClientMethods: true` sat outside the program. It needed an explicit
+  `typescript.tsConfig.include` entry.
 
-  Worth knowing how this fails, because it does not fail loudly: without the augmentation
-  `ClientReturn<Q, unknown>` falls back to its second parameter, so every `useSanityQuery`
-  result types as `unknown` and *nothing errors* — the routes simply stop being typechecked.
-  A green `npm run typecheck` is not evidence. The check that is: point a query result at a
-  field that does not exist and confirm the compiler rejects it, naming the real result shape.
+  That workaround is gone: `tsconfig.json`'s glob covers the whole of `web/`, so the file is in
+  the program by ordinary means. **Keep the paragraph anyway, because the failure has a second
+  face and it is nastier than the first.** `ClientReturn`'s own default fallback is `Any` — that
+  is, `any`. So a lost augmentation does not merely weaken the types, it *silently switches them
+  off*: every route keeps compiling and stops being checked. `sanityFetch` pins the fallback to
+  `unknown` precisely to convert that into a compile error.
+
+  **A green `npm run typecheck` is not evidence.** Two checks that are, and they take a minute:
+
+  1. Point a query result at a field that does not exist. The compiler must reject it *naming
+     the real result shape* — that proves the map is live.
+  2. Hand `sanityFetch` a query string that is not in the generated map. The result must be
+     `unknown`, not `any` — that proves the fallback is pinned.

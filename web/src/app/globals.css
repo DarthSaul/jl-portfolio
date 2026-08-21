@@ -537,3 +537,53 @@
     --showcase-h: calc(100dvh - 15.5rem);
   }
 }
+
+/*
+ * ============================================================================
+ * Print
+ * ============================================================================
+ *
+ * The app's only `@media print` block, added for /docs — the Field Guide is meant to survive
+ * being printed as a paper reference. Hiding the chrome is not done here: `SiteSidebar`'s
+ * <aside> and both TOC elements on /docs carry `print:hidden` at the call site, where the
+ * decision is visible next to the element it hides. This block holds only what a utility
+ * class cannot say.
+ */
+@media print {
+  /*
+   * Paper is white. The cream canvas is a screen decision — printed, it either spends toner
+   * tinting every page or dithers into visible noise, depending on the printer. Overriding the
+   * custom property catches both places it is read (`@layer base html` above and the layout's
+   * `bg-canvas` wrapper) without naming either.
+   */
+  :root {
+    --color-canvas: #ffffff;
+  }
+
+  /*
+   * `h3` is the guide's *section* level — the markdown's `##`, demoted one step because the
+   * sidebar owns the site's only h1 (see `DocsMarkdown`). One numbered section per sheet, with
+   * the first sharing page one with the title rather than leaving it alone on a cover page.
+   */
+  .docs-article h3 {
+    break-before: page;
+  }
+  .docs-article h3:first-of-type {
+    break-before: auto;
+  }
+  .docs-article h3,
+  .docs-article h4 {
+    break-after: avoid;
+  }
+  .docs-article figure {
+    break-inside: avoid;
+  }
+
+  /*
+   * On paper a link is just underlined text, so print the address after it. Scoped to external
+   * links — a same-page anchor's fragment would print as noise.
+   */
+  .docs-article a[href^='http']::after {
+    content: ' (' attr(href) ')';
+  }
+}

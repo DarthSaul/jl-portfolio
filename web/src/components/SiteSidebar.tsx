@@ -135,8 +135,13 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
       The sidebar sets its own gutter rather than using `main-column`. That utility's `xl` step
       widens to 56px, which is right for a 1120px reading column and would leave this 240px one
       with 128px of usable width.
+
+      `print:hidden` takes all of the chrome — bar, panel and drawer — out of every printed
+      page, added so the Field Guide at /docs prints as a clean reference. Site-wide rather
+      than docs-only on purpose: no printed page wants the nav. The page-level print rules live
+      in globals.css.
     */
-    <aside className="sticky top-0 z-40 bg-canvas lg:flex lg:h-dvh lg:w-sidebar lg:shrink-0 lg:flex-col lg:self-start lg:overflow-y-auto">
+    <aside className="sticky top-0 z-40 bg-canvas print:hidden lg:flex lg:h-dvh lg:w-sidebar lg:shrink-0 lg:flex-col lg:self-start lg:overflow-y-auto">
       {/* Always visible, at every width. Holds the site's only level-1 heading. */}
       <div className="flex h-bar shrink-0 items-center justify-between border-b border-hairline px-5 lg:h-auto lg:block lg:border-b-0 lg:px-8 lg:pt-14">
         <h1 className="type-display-sm lg:type-display-md">

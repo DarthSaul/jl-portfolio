@@ -1,6 +1,6 @@
 # Managing Your Website
 
-_Here's a guide_
+_Here's a guide for managing your website's content via the Sanity Studio CMS._
 
 <!--
   Screenshots: an image whose URL starts with `placeholder:` renders on /docs as a dashed

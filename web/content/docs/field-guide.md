@@ -107,9 +107,11 @@ Create and rename tags freely under **Tags**. Renaming is safe: every photo carr
 
 You can't delete a tag that photos are still using — the Studio will name the photos and ask you to untag them first. That's a guardrail, not a bug.
 
+When creating a "Web address" for a tag, do not use spaces. Use hyphens instead; you can always use the "Generate" button as a fallback as well.
+
 ## 6. Galleries
 
-A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's gallery menu. This is the menu of galleries underneath **START**.
+A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's gallery menu. This is the menu of galleries listed underneath **START**.
 
 ### The fields
 

@@ -76,7 +76,7 @@ export default defineType({
       title: 'Web address',
       type: 'slug',
       description:
-        'The end of this gallery’s address, e.g. “iceland” makes /shots/iceland. ' +
+        'The end of this gallery’s address, e.g. “iceland” makes /shots/iceland. Do NOT use spaces or special characters; only letters, numbers and hyphens. ' +
         'Press Generate to make one from the title. Changing it later breaks any link ' +
         'someone has already shared.',
       options: {source: 'title', maxLength: 96},

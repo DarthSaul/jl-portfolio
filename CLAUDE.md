@@ -197,8 +197,9 @@ A document she *edits* leaves the id set untouched — and editing is the likeli
 because the singletons are pinned by `structure.ts` and can only ever be edited, never created.
 `homePage` is the exact document at risk and the exact one an id check cannot see.
 
-So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`) and
-key order are normalised away; asset documents are compared by id only, since their ids are
+So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`, and
+`_system` — server-side base-revision bookkeeping that clients cannot write and import does not
+carry) and key order are normalised away; asset documents are compared by id only, since their ids are
 content hashes and a matching id already proves matching bytes. **What it cannot do is decide.**
 A document differing because `development` changed is the entire point of promoting; one
 differing because `production` changed is the thing to stop for, and the two are

@@ -129,8 +129,15 @@ const SNAPSHOT = `{
   "docs": *[${PROMOTABLE} && !(_type in ["sanity.imageAsset", "sanity.fileAsset"])]
 }`
 
-/** Fields the Content Lake rewrites on every write. Comparing them would flag everything. */
-const VOLATILE = new Set(['_rev', '_createdAt', '_updatedAt'])
+/**
+ * Fields the Content Lake manages itself, excluded from comparison. The first three are
+ * rewritten on every write, so comparing them would flag everything. `_system` is base-revision
+ * bookkeeping the server attaches to some documents and not to their imported twins — clients
+ * cannot write it, `dataset import` does not carry it, and before it was excluded here it kept
+ * five content-identical documents permanently on the "different content" list, which is
+ * exactly the noise that erodes the "read that list" step this preflight exists for.
+ */
+const VOLATILE = new Set(['_rev', '_createdAt', '_updatedAt', '_system'])
 
 /** Key-order-independent JSON, so two equal documents always produce the same string. */
 function canonical(value) {

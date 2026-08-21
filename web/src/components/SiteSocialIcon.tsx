@@ -3,9 +3,9 @@ import type { SocialIcon } from '@/content/site'
 /**
  * One social glyph, chosen by name.
  *
- * The four paths are hand-written inline SVG. Pulling in an icon library to get four icons is
- * exactly the kind of addition the dependency rule in CLAUDE.md exists to catch, and these four
- * are unlikely to ever become forty.
+ * The four glyphs are inline SVG — three hand-written, Substack's the simple-icons path (CC0).
+ * Pulling in an icon library to get four icons is exactly the kind of addition the dependency
+ * rule in CLAUDE.md exists to catch, and these four are unlikely to ever become forty.
  *
  * ## Why the component is `SiteSocialIcon` and not `SocialIcon`
  *
@@ -47,11 +47,12 @@ export function SiteSocialIcon({ name, className }: { name: SocialIcon, classNam
     )
   }
 
-  if (name === 'threads') {
+  if (name === 'substack') {
+    // Filled rather than stroked, like linkedin above: Substack's mark is three solid bars,
+    // and an outline version reads as a hamburger menu.
     return (
-      <svg {...stroke}>
-        <path d="M12.5 21c-5 0-8-3.3-8-9s3-9 8-9c3.4 0 5.7 1.5 6.7 4" />
-        <path d="M9.3 9.4c1.6-1.3 5-1.6 6.6.3 1.3 1.6 1 5-2 6.4-2.6 1.2-4.9 0-4.9-1.7 0-1.9 2.6-2.8 5.4-2.4 3 .4 4.4 2.3 4.4 4.6" />
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+        <path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.539 24V10.812H1.46zM22.539 0H1.46v2.836h21.08V0z" />
       </svg>
     )
   }

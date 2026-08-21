@@ -1,7 +1,7 @@
 import {ImagesIcon} from '@sanity/icons/Images'
 import {defineArrayMember, defineField, defineType} from 'sanity'
 
-import {excludeAlreadyChosen} from '../photoPicker'
+import {excludeAlreadyChosen, taggedPhotosNotAlreadyChosen} from '../photoPicker'
 
 /**
  * RULE 2. Every value here must have a matching component in
@@ -22,9 +22,11 @@ export const LAYOUT_PRESETS = [
  * A gallery fills itself one of two ways, and exactly one of them is visible at a time.
  *
  * Set a tag and the page shows every photo carrying it, newest first, updating on its own as
- * she tags more. Leave the tag empty and she picks the photos by hand and drags them into the
- * order she wants. Setting a tag hides the photo list rather than greying it out, so there is
- * only ever one answer on screen to "where do the photos come from".
+ * she tags more — with an optional "Put these first" list for arranging the front of the page;
+ * the rest still follows on its own. Leave the tag empty and she picks the photos by hand and
+ * drags them into the order she wants. Setting a tag hides the photo list rather than greying
+ * it out (and hiding the tag's own list works the other way round), so there is only ever one
+ * photo list on screen, and one answer to "where do the photos come from".
  *
  * The cost of the two modes, stated plainly because it is the thing to watch: a gallery that
  * has photos picked by hand and *then* gets a tag has both stored, and only one of them does
@@ -93,6 +95,22 @@ export default defineType({
     }),
 
     defineField({
+      name: 'navOrder',
+      title: 'Menu position',
+      type: 'number',
+      description:
+        'Optional. Galleries with a number come first in the site menu, lowest at the top. ' +
+        'Galleries without one follow, A–Z. All Shots always sits last.',
+      // Warnings, never errors — a strange number rearranges a menu, and blocking a publish
+      // over it would cost more than it protects. Every wrong value fails soft: a decimal, a
+      // duplicate or a negative still sorts somewhere, and A–Z picks up the ties.
+      validation: (rule) => [
+        rule.integer().warning('Whole numbers only — 1, 2, 3.'),
+        rule.positive().warning('Use a number above zero.'),
+      ],
+    }),
+
+    defineField({
       name: 'description',
       title: 'Short description',
       type: 'text',
@@ -134,12 +152,40 @@ export default defineType({
     }),
 
     defineField({
+      name: 'leadPhotos',
+      title: 'Put these first',
+      type: 'array',
+      description:
+        'Optional. These photos open the gallery, in this order — drag to arrange. Every ' +
+        'other photo carrying the tag follows, newest first. A photo stays here even if it ' +
+        'later loses the tag.',
+      options: {layout: 'grid'},
+      // The mirror image of `photos` below: visible ONLY when a tag is set, so the "one photo
+      // list on screen at a time" rule survives the tag mode growing a list of its own.
+      // `._ref`, not the field — a half-cleared reference is `{}`, and `Boolean({})` is `true`.
+      hidden: ({parent}) => !(parent?.tag as {_ref?: string} | undefined)?._ref,
+      of: [
+        defineArrayMember({
+          type: 'reference',
+          to: [{type: 'photo'}],
+          // Same ergonomics-vs-guarantee split as `photos` below, plus one narrowing: the
+          // picker only offers photos carrying this gallery's tag, because arranging the
+          // front of a tag gallery with a photo the gallery does not contain is a mistake
+          // the picker can simply not offer.
+          options: {filter: taggedPhotosNotAlreadyChosen},
+        }),
+      ],
+      // A photo that later loses the tag deliberately stays in this list and on the page —
+      // hand-placed wins, the same rule `excludeFromIndex` follows. Checking for it here
+      // would take a client fetch inside validation; the query keeps the photo regardless.
+      validation: (rule) => rule.unique().error('That photo is already at the front.'),
+    }),
+
+    defineField({
       name: 'photos',
       title: 'Photos',
       type: 'array',
-      description:
-        'Drag to reorder — this is the order they appear on the page. The first photo is ' +
-        'also the one used as this gallery’s cover on the Shots page.',
+      description: 'Drag to reorder — this is the order they appear on the page.',
       options: {layout: 'grid'},
       // The mode switch. Hidden rather than disabled, so there is one visible answer to
       // "where do the photos come from" instead of two fields and a rule to remember.
@@ -167,6 +213,18 @@ export default defineType({
   ],
 
   orderings: [
+    // First entry is the Studio's default sort wherever no `defaultOrdering` applies, so the
+    // list she sees matches the menu the site renders. `nulls: 'last'` is the Studio's own
+    // default on asc, stated anyway for the same reason photo.ts states it: the site query
+    // sends numberless galleries to the end too, and the two must not quietly disagree.
+    {
+      name: 'navOrderAsc',
+      title: 'Menu position',
+      by: [
+        {field: 'navOrder', direction: 'asc', nulls: 'last'},
+        {field: 'title', direction: 'asc'},
+      ],
+    },
     {
       name: 'titleAsc',
       title: 'Title, A–Z',
@@ -186,15 +244,17 @@ export default defineType({
       // The same dereference, resolving the first referenced photo document and reading its
       // image off it. Rule 1 holds: the gallery still stores nothing but references.
       media: 'photos.0.image',
+      leadMedia: 'leadPhotos.0.image',
     },
-    prepare({title, preset, tagTitle, photos, media}) {
+    prepare({title, preset, tagTitle, photos, media, leadMedia}) {
       const presetTitle = LAYOUT_PRESETS.find((option) => option.value === preset)?.title
 
-      // A tag-filled gallery cannot show a count or a cover here. `preview.select` reads
-      // fields off this one document and cannot run a query, so the photographs it will
-      // render are simply not knowable at this point — they live on the photos. Naming the
-      // tag is the honest substitute; the alternative is a confident "0 photos", which is
-      // worse than saying nothing.
+      // A tag-filled gallery cannot show a count here. `preview.select` reads fields off
+      // this one document and cannot run a query, so the photographs it will render are
+      // simply not knowable at this point — they live on the photos. Naming the tag is the
+      // honest substitute; the alternative is a confident "0 photos", which is worse than
+      // saying nothing. A cover it can now sometimes show: the first "Put these first"
+      // photo really is the first photo on the page, so it is honest where it exists.
       const source = tagTitle
         ? `Everything tagged “${tagTitle}”`
         : `${Array.isArray(photos) ? photos.length : 0} ${photos?.length === 1 ? 'photo' : 'photos'}`
@@ -202,7 +262,7 @@ export default defineType({
       return {
         title,
         subtitle: [source, presetTitle?.split(' — ')[0]].filter(Boolean).join(' · '),
-        media: tagTitle ? undefined : media,
+        media: tagTitle ? leadMedia : media,
       }
     },
   },

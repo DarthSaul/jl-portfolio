@@ -107,22 +107,25 @@ Create and rename tags freely under **Tags**. Renaming is safe: every photo carr
 
 You can't delete a tag that photos are still using — the Studio will name the photos and ask you to untag them first. That's a guardrail, not a bug.
 
+When creating a "Web address" for a tag, do not use spaces. Use hyphens instead; you can always use the "Generate" button as a fallback as well.
+
 ## 6. Galleries
 
-A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's menu.
+A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's gallery menu. This is the menu of galleries listed underneath **START**.
 
 ### The fields
 
 - **Title** — the gallery's name, shown on the site.
 - **Web address** — press Generate to make one from the title (e.g. "iceland" becomes /shots/iceland). Same rule as tags: fine to set, avoid changing later.
+- **Menu position** — optional; sets where the gallery sits in the START menu. Lowest number at the top, galleries without a number follow alphabetically, and All Shots always sits last.
 - **Short description** — optional; the blurb that appears when someone shares a link to the gallery.
 - **Layout** — Grid (several photos across, in rows) or Stack (one at a time, down the page). Both work on a phone. You can switch anytime.
 
 ### Two ways to fill a gallery
 
-**By hand:** leave "Fill from a tag" empty and add photos to the list yourself. **Drag to reorder** — the order in the list is the order on the page, and the first photo is the gallery's cover. This is the mode for a curated set.
+**By hand:** leave "Fill from a tag" empty and add photos to the list yourself. **Drag to reorder** — the order in the list is the order on the page. This is the mode for a curated set.
 
-**From a tag:** pick a tag in "Fill from a tag" and the gallery shows every photo carrying it, newest first — tag a new photo and it appears on the page by itself, nothing to update. This is the mode for an ongoing collection.
+**From a tag:** pick a tag in "Fill from a tag" and the gallery shows every photo carrying it, newest first — tag a new photo and it appears on the page by itself, nothing to update. This is the mode for an ongoing collection. If you want particular photos to open the page, add them to **Put these first** and drag them into order — the rest still follow on their own, newest first.
 
 Pick one mode per gallery. If a gallery somehow ends up with both a tag and a hand-picked list, the Studio flags it and explains: only the tag is being used, and clearing it brings your hand-picked list back.
 
@@ -168,7 +171,7 @@ A heading, an introduction set in larger type, and then the bio itself — writt
 
 ### Contact
 
-A short introduction in your own words. The actual links — email, Instagram, LinkedIn, Threads — live in **Site settings**, because they appear across the site, not just here.
+A short introduction in your own words. The actual links — email, Instagram, LinkedIn, Substack — live in **Site settings**, because they appear across the site, not just here.
 
 ### Site settings
 

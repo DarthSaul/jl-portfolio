@@ -29,37 +29,18 @@ import type { SubNavItem } from './SiteNavList'
  * safe here.
  */
 
-/**
- * The gallery this nav pins to the top, by slug.
- *
- * This is app code naming one of her documents, which is a coupling worth being explicit about
- * rather than burying. It is here because "Life" is her ongoing body of work and the trips are
- * episodes of it, so alphabetical order — which would drop it between Chile and Mexico — reads
- * as a list of equals when it is not one.
- *
- * It fails softly in every direction. Rename the gallery and the pin still works, because it
- * matches on slug rather than title. Change the slug, or delete the gallery, and the pin simply
- * finds nothing and the rest of the list is unaffected; nothing breaks and no page disappears.
- *
- * The shaped fix, if the order ever needs to be hers rather than ours, is an explicit ordering
- * field on `gallery` — which is a schema change and a new knob, and not worth it for one pin.
- */
-const PINNED_FIRST = 'life'
-
 export async function SiteNav() {
   const { data } = await sanityFetch(NAV_QUERY)
 
+  // The gallery order is entirely the query's — `navOrder` first, numberless galleries A–Z
+  // after; see `queries/nav.ts`. There used to be a `PINNED_FIRST` slug pinned to the top
+  // here, app code naming one of her documents; "Menu position" in the Studio is that pin
+  // become hers, so this component appends ALL SHOTS and reorders nothing.
   const galleries: SubNavItem[] = (data ?? []).map(gallery => ({
     key: gallery._id,
     title: gallery.title,
     to: `/shots/${gallery.slug}`,
   }))
-
-  // A stable partition rather than a comparator: the query already returns title A–Z, and `sort`
-  // with a "pinned first" comparator would only preserve the rest of that order because V8's
-  // sort happens to be stable. Splitting the list says what is meant and does not depend on that.
-  const pinned = galleries.filter(g => g.to === `/shots/${PINNED_FIRST}`)
-  const rest = galleries.filter(g => g.to !== `/shots/${PINNED_FIRST}`)
 
   /**
    * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not
@@ -72,8 +53,7 @@ export async function SiteNav() {
    * which is also the order someone browsing wants them in.
    */
   const subNav: SubNavItem[] = [
-    ...pinned,
-    ...rest,
+    ...galleries,
     { key: 'all', title: 'All Shots', to: '/shots/all' },
   ]
 

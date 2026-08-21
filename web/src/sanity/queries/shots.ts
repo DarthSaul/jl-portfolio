@@ -22,11 +22,33 @@ import { PHOTO_PROJECTION } from './photo'
  *   would produce a page that looks like "no photos with this tag" and is really a broken
  *   query. Verified, and the reason `tag` is read straight off the document below.
  *
- * The ordering is `dateTaken` desc with `_createdAt` as the tiebreak, matching the orderings
- * `photo.ts` offers her in the Studio. `dateTaken` is optional, so the second key is what keeps
- * undated photographs from bunching arbitrarily. Note this is the one thing the tag mode gives
- * up: with a hand-picked list she drags photos into the order she wants, and with a tag the
- * order is computed. That is the trade the mode makes, not an oversight.
+ * ## The tag mode's order: an arranged front, then newest first
+ *
+ * The tag branch is two lists concatenated. `leadPhotos` — "Put these first" in the Studio —
+ * renders in her drag order; every other photo carrying the tag follows, `dateTaken` desc with
+ * `_createdAt` as the tiebreak, matching the orderings `photo.ts` offers her in the Studio.
+ * This used to read "the tag mode has no order control, that is the trade the mode makes" —
+ * she asked for the control, and the concat is the shape that adds it without giving up the
+ * mode's point: a newly tagged photo still appears on its own, in the newest-first tail,
+ * whether or not she ever touches the front.
+ *
+ * Three details are load-bearing:
+ *
+ * - **`coalesce(leadPhotos[]->…, [])`**, because `null + array` is null in GROQ — without it a
+ *   gallery with no front arranged would render empty rather than newest-first.
+ * - **`!(_id in coalesce(^.leadPhotos[]._ref, []))`** keeps a lead photo out of the tail. Same
+ *   coalesce reason: `in null` is null, and a bare `!null` filter would drop every photo.
+ * - **`coalesce(dateTaken, '')`** is a deliberate fix, not decoration: GROQ sorts null first on
+ *   `desc`, so undated photographs used to bunch at the TOP while the Studio's `dateTakenDesc`
+ *   ordering sends them last via `nulls: 'last'`. Coalescing to `''` — which sorts below every
+ *   real date on desc — makes the site agree with the Studio, undated last, `_createdAt`
+ *   breaking the ties.
+ *
+ * A lead photo that later loses the tag deliberately STAYS on the page: the first list never
+ * checks the tag. Hand-placed wins over the flag, the same rule `excludeFromIndex` follows —
+ * a list she arranged emptying itself because of an edit elsewhere would be the worse surprise.
+ * Verified against the live dataset, like the scoping below: leads render first in array order,
+ * the tail excludes them, and a photo in both lists appears exactly once.
  *
  * ## The empty-string trap is gone, and it went with the string
  *
@@ -54,8 +76,9 @@ export const GALLERY_QUERY = defineQuery(`
     description,
     preset,
     "photos": select(
-      defined(tag._ref) => *[_type == "photo" && references(^.tag._ref)]
-        | order(dateTaken desc, _createdAt desc){ ${PHOTO_PROJECTION} },
+      defined(tag._ref) => coalesce(leadPhotos[]->{ ${PHOTO_PROJECTION} }, [])
+        + (*[_type == "photo" && references(^.tag._ref) && !(_id in coalesce(^.leadPhotos[]._ref, []))]
+          | order(coalesce(dateTaken, '') desc, _createdAt desc){ ${PHOTO_PROJECTION} }),
       photos[]->{ ${PHOTO_PROJECTION} }
     )
   }

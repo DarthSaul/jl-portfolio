@@ -23,3 +23,28 @@ export function excludeAlreadyChosen({parent}: {parent?: unknown}) {
 
   return {filter: '!(_id in $chosen)', params: {chosen}}
 }
+
+/**
+ * For `gallery.leadPhotos`: only photos carrying the gallery's tag, minus the ones already
+ * chosen. The list arranges the front of a tag-filled gallery, so offering an untagged
+ * photo would let her "arrange" something the gallery does not contain.
+ *
+ * The field is hidden when there is no tag, but a filter must not crash on the half-cleared
+ * state — with no `tag._ref` it falls back to the plain exclusion above.
+ */
+export function taggedPhotosNotAlreadyChosen({
+  document,
+  parent,
+}: {
+  document?: unknown
+  parent?: unknown
+}) {
+  const base = excludeAlreadyChosen({parent})
+  const tagId = (document as {tag?: {_ref?: string}} | undefined)?.tag?._ref
+  if (!tagId) return base
+
+  return {
+    filter: `references($tagId) && ${base.filter}`,
+    params: {...base.params, tagId},
+  }
+}

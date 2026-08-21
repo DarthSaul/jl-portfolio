@@ -68,8 +68,8 @@ export default defineType({
       type: 'slug',
       description:
         'The end of this tag’s address, e.g. “mexico-2022” makes ' +
-        '/shots/all?tag=mexico-2022. Press Generate to make one from the name. Changing it ' +
-        'later breaks any link someone has already shared.',
+        '/shots/all?tag=mexico-2022. Do NOT use spaces or special characters; only letters, numbers and hyphens. ' +
+        'Press Generate to make one from the name. Changing it later breaks any link someone has already shared.',
       // Uniqueness comes from the `slug` type's own per-type check, exactly as gallery.slug
       // relies on it. A custom `isUnique` here would be a second implementation of something
       // already correct.
@@ -78,9 +78,7 @@ export default defineType({
     }),
   ],
 
-  orderings: [
-    {name: 'titleAsc', title: 'Name, A–Z', by: [{field: 'title', direction: 'asc'}]},
-  ],
+  orderings: [{name: 'titleAsc', title: 'Name, A–Z', by: [{field: 'title', direction: 'asc'}]}],
 
   preview: {
     select: {title: 'title', subtitle: 'slug.current'},

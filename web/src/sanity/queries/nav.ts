@@ -30,12 +30,22 @@ import { defineQuery } from 'groq'
  * that page and that document type are gone: the page was a stub, and a second control over
  * which galleries appear would now contradict the one above.
  *
- * Ordered by title A–Z, which is predictable and needs no field on the document. It is also not
- * obviously right — for a set of trips, newest-first probably reads better — but that wants an
- * explicit order and an order is a field, so it is left as a question rather than guessed at.
+ * ## The order is hers, via `navOrder`
+ *
+ * This used to be title A–Z with one gallery pinned first in `SiteNav.tsx`, and the ordering
+ * question was deliberately left open. She answered it: `navOrder` ("Menu position" in the
+ * Studio) is an optional number on `gallery`, lowest first. The `coalesce` sentinel is
+ * load-bearing — GROQ sorts null FIRST on asc, so without it a gallery she has not numbered
+ * would jump to the top rather than fall to the end. Numberless galleries sort after every
+ * numbered one, A–Z, so a menu with no numbers at all reads exactly as it did before.
+ *
+ * The whole order lives in this query on purpose: `SiteNav.tsx` appends ALL SHOTS and reorders
+ * nothing, so there is one place deciding the menu rather than a query and a component sharing
+ * the job.
  */
 export const NAV_QUERY = defineQuery(`
-  *[_type == "gallery" && defined(slug.current)] | order(title asc){
+  *[_type == "gallery" && defined(slug.current)]
+    | order(coalesce(navOrder, 999999) asc, title asc){
     _id,
     title,
     "slug": slug.current

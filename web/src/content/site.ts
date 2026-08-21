@@ -11,7 +11,7 @@ export type NavItem = {
 	to: string;
 };
 
-export type SocialIcon = 'mail' | 'linkedin' | 'threads' | 'instagram';
+export type SocialIcon = 'mail' | 'linkedin' | 'substack' | 'instagram';
 
 export type SocialLink = {
 	/** Accessible name. The rendered link is icon-only, so this is the only label a screen reader gets. */
@@ -58,7 +58,7 @@ export const SITE = {
 	social: [
 		{ label: 'Email Joan', href: 'mailto:joanlebow@gmail.com', icon: 'mail' },
 		{ label: 'Joan on LinkedIn', href: 'https://www.linkedin.com/in/joanlebow', icon: 'linkedin' },
-		{ label: 'Joan on Threads', href: 'https://www.threads.com/joanatstake', icon: 'threads' },
+		{ label: 'Joan on Substack', href: 'https://substack.com/@joanatstake', icon: 'substack' },
 		{ label: 'Joan on Instagram', href: 'https://www.instagram.com/joanatstake', icon: 'instagram' },
 	] satisfies SocialLink[],
 

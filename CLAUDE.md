@@ -197,8 +197,9 @@ A document she *edits* leaves the id set untouched — and editing is the likeli
 because the singletons are pinned by `structure.ts` and can only ever be edited, never created.
 `homePage` is the exact document at risk and the exact one an id check cannot see.
 
-So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`) and
-key order are normalised away; asset documents are compared by id only, since their ids are
+So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`, and
+`_system` — server-side base-revision bookkeeping that clients cannot write and import does not
+carry) and key order are normalised away; asset documents are compared by id only, since their ids are
 content hashes and a matching id already proves matching bytes. **What it cannot do is decide.**
 A document differing because `development` changed is the entire point of promoting; one
 differing because `production` changed is the thing to stop for, and the two are
@@ -579,14 +580,18 @@ is an async Server Component that runs `NAV_QUERY`, and `SiteNavList.tsx` is the
 half that needs `usePathname` for the active state and a piece of state for the collapse. The
 galleries cross as a prop.
 
-Three things about that sub-list, all in `SiteNavList.tsx`:
+Three things about that sub-list — the first in `SiteNav.tsx`, the other two in
+`SiteNavList.tsx` (an earlier version of this list put all three in the second file, which was
+wrong even then):
 
-- **Its order is not the query's.** `NAV_QUERY` returns title A–Z; the component then pins one
-  gallery to the top by slug (`PINNED_FIRST`, currently `life`) and appends ALL SHOTS at the
-  bottom. So app code names one of her documents — deliberately, and it fails soft in every
-  direction: renaming the gallery keeps the pin, changing its slug or deleting it just drops
-  the pin and leaves the rest alone. If the order ever needs to be hers, that is an ordering
-  field on `gallery`, which is a schema change and a new knob.
+- **Its order is the query's, and hers.** `NAV_QUERY` orders by
+  `coalesce(navOrder, 999999) asc, title asc` — `navOrder` is "Menu position" in the Studio, an
+  optional number on `gallery`, lowest first. The coalesce sentinel is load-bearing: GROQ sorts
+  null FIRST on asc, so without it an unnumbered gallery would jump to the top instead of
+  falling to the end A–Z. `SiteNav.tsx` appends ALL SHOTS at the bottom and reorders nothing.
+  The `PINNED_FIRST` slug pin that used to hold `life` at the top — app code naming one of her
+  documents — is gone; the field is that pin become hers, exactly the "ordering field on
+  `gallery`" this paragraph used to defer.
 - **It collapses**, via a button beside START rather than by making START itself the toggle —
   a link that also expands is the classic nav trap where a keyboard user reaches the section
   and never the page. Open by default; the state is plain component state and survives
@@ -618,7 +623,7 @@ is a map, not a spec.
 | Type | Shape | Notes |
 | --- | --- | --- |
 | `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
-| `gallery` | title, slug, description, preset, **tag → ref**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. |
+| `gallery` | title, slug, **navOrder**, description, preset, **tag → ref**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` arranges the front of a tag-filled gallery. |
 | `tag` | title, slug | **Hers to add, rename and remove.** Two fields, and it should keep two. Replaced the hardcoded `PHOTO_TAGS` array. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
@@ -786,15 +791,25 @@ Things worth knowing before changing any of it:
 
   `FilterBar`'s prop is `TagOption`, read off `ALL_SHOTS_QUERY_RESULT['tagsInUse']` — a
   generated shape, never hand-written, exactly as `PhotoProjection` is.
-- **Two ways a gallery fills itself, and exactly one is visible at a time.** Set `tag` and the
-  page shows every photo carrying it, newest first, growing on its own as she tags more. Leave
-  `tag` empty and she picks the photos by hand and drags them into order. Setting a tag
-  *hides* the photo list rather than greying it out, so there is one answer on screen to
-  "where do the photos come from" instead of two fields and a rule to remember.
+- **Two ways a gallery fills itself, and exactly one photo list is visible at a time.** Set
+  `tag` and the page shows every photo carrying it, newest first, growing on its own as she
+  tags more. Leave `tag` empty and she picks the photos by hand and drags them into order.
+  Setting a tag *hides* the photo list rather than greying it out — and swaps in `leadPhotos`,
+  below — so there is one answer on screen to "where do the photos come from" instead of two
+  fields and a rule to remember.
 
-  The trade is worth stating because it is invisible in the Studio: the tag mode has **no order
-  control and no curation**. Every photo with the tag appears, sorted by `dateTaken` desc with
-  `_createdAt` as the tiebreak. Hand-picking is the mode for "these fifty, in this order".
+  **The tag mode's order is arrangeable at the front, and only at the front.** This used to
+  read "the tag mode has no order control and no curation", and she asked for the control.
+  `leadPhotos` ("Put these first", visible only when the tag is set) leads the page in her
+  drag order; every other photo carrying the tag follows, `dateTaken` desc with `_createdAt`
+  as the tiebreak and — a deliberate fix made in the same change — undated photos LAST, via
+  `coalesce(dateTaken, '')`, since GROQ sorts null first on desc and the Studio's own
+  `dateTakenDesc` ordering sends them last. What keeps the mode's point: a newly tagged photo
+  still appears on its own, in the newest-first tail, whether or not she arranges anything.
+  A lead photo that later loses the tag deliberately **stays on the page** — hand-placed wins,
+  the same rule `excludeFromIndex` follows. The picker on `leadPhotos` offers only photos
+  carrying the gallery's tag (`taggedPhotosNotAlreadyChosen` in `photoPicker.ts`).
+  Hand-picking is still the mode for "these fifty, in this order".
 
   Both modes resolve to one `photos` array in `queries/shots.ts`, so `/shots/[slug]` never
   branches and the presets only ever see photographs.
@@ -1016,8 +1031,9 @@ web/                        ✎ The Next app. Vercel's root directory.
       MainColumn.tsx        ✎ 'use client'. <main inert={isOpen}> and nothing else.
       NavDrawerContext.tsx  ✎ 'use client'. Drawer state and actions ONLY — no effects; it
                               has three consumers, so an effect here would be three listeners.
-      SiteSocialIcon.tsx    ✎ Four hand-written glyphs. Named Site* because content/site.ts
-                              already exports a `SocialIcon` *type* and the two would collide.
+      SiteSocialIcon.tsx    ✎ Four glyphs — three hand-written, Substack's the simple-icons
+                              path (CC0). Named Site* because content/site.ts already exports
+                              a `SocialIcon` *type* and the two would collide.
       ProseText.tsx         ✎ Renders a proseText field via <PortableText>
       ProseHeading.tsx      ✎ The same, as a real <h2> — see the note above. NO CALLER right
                               now: it rendered homePage.featuredTitle above the photographs,
@@ -1867,9 +1883,11 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   she is expected to upload ~250. The number that matters is not the document count but the
   LQIP payload — roughly a kilobyte per photo — so re-measure the first-page weight once the
   real set is in, rather than assuming 24 is still right.
-- **Nav ordering is title A–Z**, which is predictable and needs no field. For a set of trips
-  newest-first probably reads better, but "newest" wants an explicit order and an order is a
-  field on `gallery` — so it is a question rather than something guessed at. See `queries/nav.ts`.
+- ~~**Nav ordering is title A–Z.**~~ **Settled: the order is hers.** She asked for it, which is
+  the answer the old question was waiting on: `navOrder` ("Menu position"), an optional number
+  on `gallery`, lowest first, unnumbered galleries after A–Z, ALL SHOTS still appended last in
+  code. Validation is warnings only, so a strange number can rearrange a menu but never block a
+  publish. The `PINNED_FIRST` pin went with it. See `queries/nav.ts`.
 - **A gallery with a tag nothing carries yet renders "No photos here yet."** That is a real and
   legitimate state — she can make the page before tagging the photographs — but it is also what
   a mistyped tag looks like, and the two are indistinguishable from the page. If that bites, the

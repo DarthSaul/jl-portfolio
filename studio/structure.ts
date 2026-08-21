@@ -75,7 +75,21 @@ export const structure: StructureResolver = (S) =>
 
       S.divider(),
 
-      S.documentTypeListItem('gallery').title('Galleries').icon(ImagesIcon),
+      // documentTypeList rather than documentTypeListItem, so the pane can default to the
+      // schema's `navOrderAsc` ordering — the list she sees here is the menu the site
+      // renders, All Shots excepted.
+      S.listItem()
+        .id('gallery')
+        .title('Galleries')
+        .icon(ImagesIcon)
+        .child(
+          S.documentTypeList('gallery')
+            .title('Galleries')
+            .defaultOrdering([
+              {field: 'navOrder', direction: 'asc', nulls: 'last'},
+              {field: 'title', direction: 'asc'},
+            ]),
+        ),
 
       S.listItem()
         .title('Photos')

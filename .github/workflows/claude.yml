@@ -19,36 +19,31 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: write # push branches
-      pull-requests: write # open PRs, post comments
-      issues: write # reply on issues
+      contents: read
+      pull-requests: read
+      issues: read
       id-token: write
-      actions: read # read CI results on PRs
+      actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          # The action installs its own token for pushes; the workflow token
-          # never needs to be persisted into the checkout's git config.
-          persist-credentials: false
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1.0.198
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Lets Claude read CI results on PRs
+          # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |
             actions: read
 
-          # Shell tools Claude may run without prompting. Bash is not in the
-          # action's default tool set, so without this it can't branch, commit,
-          # push, or open a PR. Each subcommand in a compound command must match.
-          # Explicit git subcommands, never Bash(git:*): the broad pattern also
-          # covers `git config` — which can read the action's push token back
-          # out of remote.origin.url — and `!`-prefixed aliases, which run
-          # arbitrary shell.
-          claude_args: |
-            --allowed-tools "Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout -b:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh repo view:*)"
+          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
+          # prompt: 'Update the pull request description to include a summary of changes.'
+
+          # Optional: Add claude_args to customize behavior and configuration
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          # claude_args: '--allowed-tools Bash(gh pr:*)'

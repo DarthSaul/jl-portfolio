@@ -520,6 +520,7 @@ survives an open/close cycle unchanged.**
   parameter must not be able to replace a working gallery with an error screen.
 | `/contact` | Text and links only — see non-goals |
 | `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
+| `/docs` | The Field Guide — Joan's manual for editing through the Studio, rendered from `web/content/docs/field-guide.md`. **Unlisted**: linked from nowhere, `robots` meta noindex, and it stays out of any sitemap the app ever grows (none exists today). Printable — the app's only `@media print` rules exist for it. |
 
 ## The front page
 
@@ -922,7 +923,9 @@ DESIGN.md                   ✎ The design spec — colours, type scale, radius,
 
 web/                        ✎ The Next app. Vercel's root directory.
   package.json              ✎ next, react, react-dom, @sanity/client, groq,
-                              @portabletext/react. Dev: typescript, tailwindcss,
+                              @portabletext/react, react-markdown (the Field Guide's
+                              renderer; /docs renders it in a Server Component, so it
+                              never ships to the browser). Dev: typescript, tailwindcss,
                               @tailwindcss/postcss, the @types. No Vue, no Nuxt.
   next.config.ts            ✎ redirects() only. Four 307s for her old addresses.
   vercel.json               ✎ `"framework": "nextjs"`, and nothing else. Pins the preset
@@ -936,7 +939,13 @@ web/                        ✎ The Next app. Vercel's root directory.
                               Stays at the web root; tsconfig's glob picks it up, so the
                               `typescript.tsConfig.include` workaround Nuxt needed is gone.
   public/                   ✎ joan-animated.png, the sidebar's illustrated portrait. Nothing
-                              here is processed at build time.
+                              here is processed at build time. docs/ is where the Field
+                              Guide's real screenshots land when they exist — see DocImage.
+  content/docs/             ✎ field-guide.md — the Field Guide's markdown, read from disk by
+                              /docs. Repo content, not Sanity content: the guide documents
+                              the Studio, so it ships in the same commit as the change it
+                              describes. Outside src/ deliberately — src/content/ is site
+                              chrome, and this is a document.
   src/
     app/                      The App Router. A directory is a route; page.tsx is the page.
       layout.tsx            ✎ <html lang>, metadata + title template, globals.css, the
@@ -961,6 +970,9 @@ web/                        ✎ The Next app. Vercel's root directory.
                               /shots itself was a stub and is gone, so it 404s while its
                               children do not.
       contact/page.tsx        Not built. Text and links only — see Non-goals.
+      docs/page.tsx         ✎ LIVE — /docs : the Field Guide, from content/docs/. Unlisted
+                              and noindexed; fully static (no fetch, no dynamic APIs), so
+                              the markdown is read at build and updates ship with deploys.
       admin/route.ts        ✎ 302 redirect to SANITY_STUDIO_URL. force-dynamic — see below.
       api/photos/route.ts   ✎ One further slice, for infinite scroll. The site's ONLY
                               endpoint the browser calls, and the reason no env var is public.
@@ -1010,8 +1022,9 @@ web/                        ✎ The Next app. Vercel's root directory.
       ProseHeading.tsx      ✎ The same, as a real <h2> — see the note above. NO CALLER right
                               now: it rendered homePage.featuredTitle above the photographs,
                               and that field is looking for a new home. Not dead code yet.
-      ProseLink.tsx         ✎ The `hyperlink` annotation inside one. The only user of
-                              --color-link.
+      ProseLink.tsx         ✎ The `hyperlink` annotation inside one. One of --color-link's
+                              two users — docs/DocsMarkdown's link renderer is the other,
+                              and the two share their classes verbatim.
       ProseBody.tsx         ✎ A body of prose with photos in it — post.body and aboutPage.body
       BodyPhoto.tsx         ✎ The postPhoto member of one, floated and wrapped by the text
       about/                ✎ Intro — the heading and introduction at the top of /bio.
@@ -1043,6 +1056,12 @@ web/                        ✎ The Next app. Vercel's root directory.
                               GalleryGrid (wrap-and-fill rows, also used by the front page)
                               and GalleryStack (full-measure column). types.ts holds the
                               shared GalleryPresetProps both must satisfy.
+      docs/                 ✎ The Field Guide's rendering. DocsMarkdown — react-markdown with
+                              a components map, headings demoted one level (the sidebar owns
+                              the only h1). DocImage — the placeholder-or-screenshot switch,
+                              and the third <img> in the app; the swap process is documented
+                              in the file. DocsToc — the two "On this page" shapes, both
+                              server-rendered, no scroll-spy. All Server Components.
     content/                ✎ Site chrome only. tags.ts is gone — a tag's name is content
                               now and arrives with the query.
       site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
@@ -1052,6 +1071,9 @@ web/                        ✎ The Next app. Vercel's root directory.
                               showcase.ts — readTags/readPhotoId/showcaseHref/viewKey/
                               isModifiedEvent. Pure functions, called from BOTH sides of the
                               server boundary so the two cannot disagree about an address.
+                              docs.ts — slugifyHeading/extractSections, shared by the Field
+                              Guide's TOC and its heading renderer so an anchor and its
+                              target cannot disagree — the showcase.ts move again.
 
 studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   package.json              ✎ sanity, react, styled-components, @sanity/vision
@@ -1457,14 +1479,15 @@ The same argument covers `public/joan-animated.png` in the sidebar: a static fil
 the size it renders, with no second pipeline needed to serve it.
 
 **Every *photograph* renders through one `<img>`, and `grep -rl "<img" web/src` is the check.**
-It finds two *files*, and the count is the thing to read rather than the number: `SanityPhoto`,
-and the illustrated portrait in `SiteSidebar` — a static asset that is site chrome rather than
-one of her photographs, so it has no photo document, no alt from Sanity and nothing to
-dereference. A third file is a bug until argued otherwise.
+It finds three *files*, and the count is the thing to read rather than the number: `SanityPhoto`;
+the illustrated portrait in `SiteSidebar`; and `docs/DocImage`, the Field Guide's Studio
+screenshots. The second and third are one argument made twice — a static asset that is chrome
+or documentation rather than one of her photographs, so it has no photo document, no alt from
+Sanity and nothing to dereference. A fourth file is a bug until argued otherwise.
 
-(`-l` rather than `-n`, because both files also *discuss* `<img>` at length in their comments —
-a line-count grep returns six and reads like a violation. The two actual elements are
-`SanityPhoto.tsx` and the portrait in `SiteSidebar.tsx`.)
+(`-l` rather than `-n`, because these files also *discuss* `<img>` at length in their comments —
+a line-count grep reads like a violation. The actual elements are one each, in
+`SanityPhoto.tsx`, `SiteSidebar.tsx` and `docs/DocImage.tsx`.)
 
 It was briefly two for a much worse reason: `SitePhoto` and `RichParagraph` were static twins
 of `SanityPhoto` and `ProseText` serving /copy while that page was on Unsplash placeholders.

@@ -25,9 +25,9 @@ export function excludeAlreadyChosen({parent}: {parent?: unknown}) {
 }
 
 /**
- * For `gallery.leadPhotos`: only photos carrying the gallery's tag, minus the ones already
- * chosen. The list arranges the front of a tag-filled gallery, so offering an untagged
- * photo would let her "arrange" something the gallery does not contain.
+ * For `gallery.leadPhotos` ("Photo order"): only photos carrying the gallery's tag, minus the
+ * ones already chosen. The list sets the order of a tag-filled gallery, so offering an
+ * untagged photo would let her "order" something the gallery does not contain.
  *
  * The field is hidden when there is no tag, but a filter must not crash on the half-cleared
  * state — with no `tag._ref` it falls back to the plain exclusion above.

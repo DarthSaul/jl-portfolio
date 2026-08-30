@@ -1,6 +1,7 @@
 import {ImagesIcon} from '@sanity/icons/Images'
 import {defineArrayMember, defineField, defineType} from 'sanity'
 
+import {PhotoOrderInput} from '../../components/PhotoOrderInput'
 import {excludeAlreadyChosen, taggedPhotosNotAlreadyChosen} from '../photoPicker'
 
 /**
@@ -21,12 +22,14 @@ export const LAYOUT_PRESETS = [
 /**
  * A gallery fills itself one of two ways, and exactly one of them is visible at a time.
  *
- * Set a tag and the page shows every photo carrying it, newest first, updating on its own as
- * she tags more — with an optional "Put these first" list for arranging the front of the page;
- * the rest still follows on its own. Leave the tag empty and she picks the photos by hand and
- * drags them into the order she wants. Setting a tag hides the photo list rather than greying
- * it out (and hiding the tag's own list works the other way round), so there is only ever one
- * photo list on screen, and one answer to "where do the photos come from".
+ * Set a tag and the page shows every photo carrying it — tag a new photo and it joins the end
+ * of the page on its own — with the order set by the "Photo order" list: photos she places
+ * render first, in her drag order, and anything she has not placed follows, newest additions
+ * last. The tag brings photos in; the order is hers. Leave the tag empty and she picks the
+ * photos by hand and drags them into the order she wants. Setting a tag hides the photo list
+ * rather than greying it out (and hiding the tag's own list works the other way round), so
+ * there is only ever one photo list on screen, and one answer to "where do the photos come
+ * from".
  *
  * The cost of the two modes, stated plainly because it is the thing to watch: a gallery that
  * has photos picked by hand and *then* gets a tag has both stored, and only one of them does
@@ -138,9 +141,9 @@ export default defineType({
       type: 'reference',
       to: [{type: 'tag'}],
       description:
-        'Optional. Pick a tag and this gallery shows every photo carrying it, newest first — ' +
-        'tag a new photo and it appears here on its own, with nothing to update. ' +
-        'Leave this empty to choose the photos yourself instead.',
+        'Optional. Pick a tag and this gallery shows every photo carrying it — tag a new ' +
+        'photo and it joins the end of the page on its own, with nothing to update. Set the ' +
+        'order below in “Photo order”. Leave this empty to choose the photos yourself instead.',
       // A reference rather than a value from a fixed list, since the vocabulary is hers now.
       // It also removes a failure mode rather than just moving one: a string field could hold
       // `""`, which the Studio treated as empty while GROQ's `defined("")` reported `true`, so
@@ -152,16 +155,24 @@ export default defineType({
     }),
 
     defineField({
+      // Still *stored* as `leadPhotos`, although it now sets the whole order rather than just
+      // the front — renaming a stored field is a content migration bought with nothing, so the
+      // label carries the new meaning instead, the same trade the /copy and /bio renames made.
       name: 'leadPhotos',
-      title: 'Put these first',
+      title: 'Photo order',
       type: 'array',
       description:
-        'Optional. These photos open the gallery, in this order — drag to arrange. Every ' +
-        'other photo carrying the tag follows, newest first. A photo stays here even if it ' +
-        'later loses the tag.',
+        'Drag to set the order the photos appear on the page. Tagged photos you haven’t ' +
+        'placed are shown underneath, in the order they follow on the page — press Place ' +
+        'to arrange them too. A placed photo stays even if it later loses the tag.',
       options: {layout: 'grid'},
+      // The default array input renders only stored members, and the stored members are only
+      // the photos she has placed — the tail lives in the site query. Without this input the
+      // field is blank on a gallery whose page shows thirty photographs, and the current
+      // order is visible nowhere in the Studio. See the component for what it adds.
+      components: {input: PhotoOrderInput},
       // The mirror image of `photos` below: visible ONLY when a tag is set, so the "one photo
-      // list on screen at a time" rule survives the tag mode growing a list of its own.
+      // list on screen at a time" rule survives the tag mode having a list of its own.
       // `._ref`, not the field — a half-cleared reference is `{}`, and `Boolean({})` is `true`.
       hidden: ({parent}) => !(parent?.tag as {_ref?: string} | undefined)?._ref,
       of: [
@@ -169,16 +180,16 @@ export default defineType({
           type: 'reference',
           to: [{type: 'photo'}],
           // Same ergonomics-vs-guarantee split as `photos` below, plus one narrowing: the
-          // picker only offers photos carrying this gallery's tag, because arranging the
-          // front of a tag gallery with a photo the gallery does not contain is a mistake
-          // the picker can simply not offer.
+          // picker only offers photos carrying this gallery's tag, because ordering a tag
+          // gallery with a photo the gallery does not contain is a mistake the picker can
+          // simply not offer.
           options: {filter: taggedPhotosNotAlreadyChosen},
         }),
       ],
       // A photo that later loses the tag deliberately stays in this list and on the page —
       // hand-placed wins, the same rule `excludeFromIndex` follows. Checking for it here
       // would take a client fetch inside validation; the query keeps the photo regardless.
-      validation: (rule) => rule.unique().error('That photo is already at the front.'),
+      validation: (rule) => rule.unique().error('That photo is already placed.'),
     }),
 
     defineField({
@@ -253,7 +264,7 @@ export default defineType({
       // this one document and cannot run a query, so the photographs it will render are
       // simply not knowable at this point — they live on the photos. Naming the tag is the
       // honest substitute; the alternative is a confident "0 photos", which is worse than
-      // saying nothing. A cover it can now sometimes show: the first "Put these first"
+      // saying nothing. A cover it can now sometimes show: the first "Photo order"
       // photo really is the first photo on the page, so it is honest where it exists.
       const source = tagTitle
         ? `Everything tagged “${tagTitle}”`

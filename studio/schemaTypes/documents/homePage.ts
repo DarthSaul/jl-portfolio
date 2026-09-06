@@ -128,7 +128,8 @@ export default defineType({
       title: 'Featured photos',
       type: 'array',
       description:
-        'The photos at the top of the front page, in the order they appear. Exactly five. ' +
+        'The photos at the top of the front page, in the order they appear. On a desktop they ' +
+        'sit three to a row, so six photos make two even rows — six is the number to aim for. ' +
         'Drag to reorder. Each one can link to a gallery — open a photo to set that.',
       options: {layout: 'grid'},
       // A `featuredPhoto` object, not a bare reference: each slot carries the photograph and
@@ -137,7 +138,10 @@ export default defineType({
       // reference member.
       of: [defineArrayMember({type: 'featuredPhoto'})],
       validation: (rule) => [
-        rule.required().length(5).error('The front page holds exactly five photos.'),
+        // Any count, six recommended. This was `length(5)` while the grid packed by the
+        // browser's own wrapping; the rows are chunks of three now, so every count produces
+        // a working page and the only wrong number is zero.
+        rule.required().min(1).error('The front page needs at least one photo.'),
         // `unique()` cannot do this job any more. It compares whole members ignoring `_key`,
         // and now that a member is an object, the same photograph pointed at two different
         // galleries reads as two different members and passes. The rule below compares the

@@ -25,12 +25,17 @@ export function excludeAlreadyChosen({parent}: {parent?: unknown}) {
 }
 
 /**
- * For `gallery.leadPhotos` ("Photo order"): only photos carrying the gallery's tag, minus the
- * ones already chosen. The list sets the order of a tag-filled gallery, so offering an
- * untagged photo would let her "order" something the gallery does not contain.
+ * For `gallery.leadPhotos` ("Photo order"): only photos carrying any of the gallery's tags,
+ * minus the ones already chosen. The list sets the order of a tag-filled gallery, so offering
+ * a photo the gallery does not contain would let her "order" something that is not on the page.
  *
- * The field is hidden when there is no tag, but a filter must not crash on the half-cleared
- * state — with no `tag._ref` it falls back to the plain exclusion above.
+ * `references()` with an array of ids is a union — the same any-of reading the site's
+ * `GALLERY_QUERY` gives the tags — so the picker and the page agree on what "in the gallery"
+ * means.
+ *
+ * The field is hidden when there are no tags, but a filter must not crash on the half-cleared
+ * states — an unset array, or members with no `_ref` yet — so it collects only real ids and
+ * falls back to the plain exclusion above when none exist.
  */
 export function taggedPhotosNotAlreadyChosen({
   document,
@@ -40,11 +45,14 @@ export function taggedPhotosNotAlreadyChosen({
   parent?: unknown
 }) {
   const base = excludeAlreadyChosen({parent})
-  const tagId = (document as {tag?: {_ref?: string}} | undefined)?.tag?._ref
-  if (!tagId) return base
+  const tags = (document as {tags?: {_ref?: string}[] | null} | undefined)?.tags
+  const tagIds = (Array.isArray(tags) ? tags : [])
+    .map((entry) => entry?._ref)
+    .filter((ref): ref is string => Boolean(ref))
+  if (tagIds.length === 0) return base
 
   return {
-    filter: `references($tagId) && ${base.filter}`,
-    params: {...base.params, tagId},
+    filter: `references($tagIds) && ${base.filter}`,
+    params: {...base.params, tagIds},
   }
 }

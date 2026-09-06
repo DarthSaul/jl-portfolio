@@ -23,7 +23,7 @@ import { defineQuery } from 'groq'
  *
  * There is no "show in nav" toggle and no publish checkbox. A gallery exists, therefore it has
  * a page, therefore it is listed — one action with three consequences rather than three
- * switches that can disagree. Taking one off the site means deleting it, or clearing its tag
+ * switches that can disagree. Taking one off the site means deleting it, or clearing its tags
  * and emptying it, which the validation in `gallery.ts` will then flag.
  *
  * There was a `shotsPage.galleries` field that gated which galleries a /shots page listed. Both

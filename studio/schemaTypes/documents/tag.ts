@@ -28,12 +28,24 @@ import {defineField, defineType} from 'sanity'
  * freely; leave addresses alone. That is the same bargain `gallery.slug` offers, said the same
  * way in its description.
  *
- * ## Two fields, and no third
+ * ## Three fields, and the third is a recorded reversal
  *
- * No colour, no description, no "show in the filter row" toggle, no ordering field. The filter
- * row is built from the tags photographs actually carry, and "does this tag have a page" is
- * still answered by whether a gallery points at it — one fact in one place, rather than a flag
- * here that could disagree with reality. Prefer deleting a knob to documenting it.
+ * This section used to be called "Two fields, and no third": no colour, no description, no
+ * "show in the filter row" toggle, no ordering field — the filter row was built from the tags
+ * photographs actually carry, and a flag here could only disagree with that reality. Most of
+ * that still holds: there is still no colour, no description and no ordering field. The toggle
+ * exists now, as `excludeFromIndex`, because she needs tags that organise without publishing —
+ * a tag can fill a gallery, or group photographs she is still sorting, without announcing
+ * itself on /shots/all.
+ *
+ * What keeps it from being the flag the old argument warned about is scope. It states her
+ * intent about the *index* and nothing else. It answers no question about galleries, so it
+ * cannot disagree with "does this tag have a page" — that is still answered by whether a
+ * gallery points at it, one fact in one place. The semantics on /shots/all: the tag's filter
+ * button disappears, and a photograph is hidden only when EVERY tag it carries is hidden — one
+ * visible tag keeps it on the page, and an untagged photograph was never in this rule's reach.
+ * A gallery filled from a hidden tag is untouched, the same narrow-scope bargain
+ * `photo.excludeFromIndex` makes with hand-placed photographs.
  *
  * The cost this change does carry, and it is real: `photo.tags` is a reference array now, so it
  * renders as an "Add item" list rather than the grid of checkboxes it used to be. Tagging a
@@ -76,11 +88,31 @@ export default defineType({
       options: {source: 'title', maxLength: 96},
       validation: (rule) => rule.required(),
     }),
+
+    defineField({
+      name: 'excludeFromIndex',
+      title: 'Hide from the All Shots page',
+      type: 'boolean',
+      description:
+        'Optional. Tick this to keep this tag off the All Shots page: its filter button ' +
+        'disappears, and photos whose every tag is hidden are left out of the list. A photo ' +
+        'that also carries a visible tag still appears, and so does an untagged photo. ' +
+        'Galleries filled from this tag are unaffected.',
+      initialValue: false,
+    }),
   ],
 
   orderings: [{name: 'titleAsc', title: 'Name, A–Z', by: [{field: 'title', direction: 'asc'}]}],
 
   preview: {
-    select: {title: 'title', subtitle: 'slug.current'},
+    select: {title: 'title', slug: 'slug.current', excludeFromIndex: 'excludeFromIndex'},
+    prepare({title, slug, excludeFromIndex}) {
+      return {
+        title,
+        // The hidden state rides the subtitle so the Tags list shows it at a glance — the
+        // alternative is a flag she can only discover by opening every tag in turn.
+        subtitle: excludeFromIndex ? `${slug} · hidden from All Shots` : slug,
+      }
+    },
   },
 })

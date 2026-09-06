@@ -15,12 +15,13 @@ import { PHOTO_PROJECTION } from './photo'
  * the live dataset before this was written, because two things about the scoping are easy to
  * get wrong and neither fails loudly:
  *
- * - **`^` reaches the enclosing document, and `select()` does not add a level.** `^.tag` inside
- *   the subquery is the gallery's own `tag`. Verified.
+ * - **`^` reaches the enclosing document, and `select()` does not add a level.** `^.tags` inside
+ *   the subquery is the gallery's own `tags`. Verified (as `^.tag`, before the field became an
+ *   array; re-verified as an array traversal when it did).
  * - **`^` cannot see a projected alias, only a stored field.** `{"t": "x", "p": *[^.t in tags]}`
  *   silently returns an empty array rather than erroring, so a tag routed through an alias
  *   would produce a page that looks like "no photos with this tag" and is really a broken
- *   query. Verified, and the reason `tag` is read straight off the document below.
+ *   query. Verified, and the reason `tags` is read straight off the document below.
  *
  * ## The tag mode's order: her arrangement, then arrivals at the end
  *
@@ -47,13 +48,13 @@ import { PHOTO_PROJECTION } from './photo'
  * - **`!(_id in coalesce(^.leadPhotos[]._ref, []))`** keeps a placed photo out of the tail. Same
  *   coalesce reason: `in null` is null, and a bare `!null` filter would drop every photo.
  *
- * A placed photo that later loses the tag deliberately STAYS on the page: the first list never
- * checks the tag. Hand-placed wins over the flag, the same rule `excludeFromIndex` follows —
+ * A placed photo that later loses its tags deliberately STAYS on the page: the first list never
+ * checks the tags. Hand-placed wins over the flag, the same rule `excludeFromIndex` follows —
  * a list she arranged emptying itself because of an edit elsewhere would be the worse surprise.
  * Verified against the live dataset, like the scoping below: placed photos render first in
  * array order, the tail excludes them, and a photo in both lists appears exactly once.
  *
- * ## The empty-string trap is gone, and it went with the string
+ * ## The empty-string trap is gone, and its array cousins are guarded the same way
  *
  * This test used to be `defined(tag) && tag != ""`, and the second term was load-bearing:
  * `defined("")` is true, so a `tag` cleared to an empty string rather than unset took the tag
@@ -62,16 +63,29 @@ import { PHOTO_PROJECTION } from './photo'
  * on `Boolean(parent?.tag)`, which is false at `""` — so the form showed her photographs and
  * the site showed none, with nothing anywhere saying why.
  *
- * `tag` is a reference now, and a reference has no empty-string state: clearing it unsets the
- * field. So `defined(tag._ref)` is exact on its own, and the Studio's `Boolean(parent?.tag._ref)`
- * and this test read the field the same way **by construction** rather than by two workarounds
- * that happen to agree. The history is kept because the shape of that bug — two halves of the
- * system disagreeing about what "empty" means, silently — is the thing to watch for next time,
- * not the specific string.
+ * The field is an ARRAY of references now, and the array has two empty-looking states of its
+ * own, both of which the guard below reads the way the Studio does:
  *
- * `references(^.tag._ref)` replaces `^.tag in tags` and is index-backed. `tag` is dropped from
- * the projection: nothing on the page rendered it, and as a reference it would come back as
- * `{_ref, _type}` rather than anything useful.
+ * - **An empty array is `defined()`**, so `defined(tags)` would take the tag branch and match
+ *   no photograph — the same bug back in a new shape. Counting instead falls through: a
+ *   missing field counts null (falsy against `> 0`), an empty array counts 0.
+ * - **A half-cleared member is `{_key}` with no `_ref`**, and it is publishable — the Studio
+ *   reads it as "no tag" (`hasRealTag` in `gallery.ts`), so a bare `count(tags) > 0` here
+ *   would take the tag branch on a gallery whose form is showing her the hand-picked list.
+ *   `count(tags[defined(@._ref)]) > 0` counts only real references, which is `.some((t) =>
+ *   t._ref)` said in GROQ — the two halves agree about "empty" by construction, which is the
+ *   property the whole section exists to defend.
+ *
+ * The history is kept because the shape of that bug — two halves of the system disagreeing
+ * about what "empty" means, silently — is the thing to watch for next time, not the specific
+ * string.
+ *
+ * `references(^.tags[]._ref)` is index-backed and reads as UNION: a photo carrying any of the
+ * gallery's tags is in, matched once however many of them it carries, so the concatenation
+ * needs no dedupe. It is the same any-of reading the /shots/all filter row gives multiple
+ * selections, and the same `references($tagIds)` the Studio's PhotoOrderInput runs. `tags` is
+ * dropped from the projection: nothing on the page renders it, and as references it would come
+ * back as `[{_ref, _type}]` rather than anything useful.
  */
 export const GALLERY_QUERY = defineQuery(`
   *[_type == "gallery" && slug.current == $slug][0]{
@@ -79,8 +93,8 @@ export const GALLERY_QUERY = defineQuery(`
     description,
     preset,
     "photos": select(
-      defined(tag._ref) => coalesce(leadPhotos[]->{ ${PHOTO_PROJECTION} }, [])
-        + (*[_type == "photo" && references(^.tag._ref) && !(_id in coalesce(^.leadPhotos[]._ref, []))]
+      count(tags[defined(@._ref)]) > 0 => coalesce(leadPhotos[]->{ ${PHOTO_PROJECTION} }, [])
+        + (*[_type == "photo" && references(^.tags[]._ref) && !(_id in coalesce(^.leadPhotos[]._ref, []))]
           | order(_createdAt asc){ ${PHOTO_PROJECTION} }),
       photos[]->{ ${PHOTO_PROJECTION} }
     )

@@ -7,8 +7,8 @@ import { orThrow, sanityFetch } from '@/sanity/fetch'
 import { HOME_QUERY } from '@/sanity/queries/home'
 
 /**
- * The front page: five featured photographs, then three featured pieces of writing — see
- * CLAUDE.md.
+ * The front page: the featured photographs — three to a desktop row, six recommended — then
+ * three featured pieces of writing. See CLAUDE.md.
  *
  * The site name, the byline and the nav are not here. They are chrome on every page and are
  * rendered by the sidebar in the layout. Everything this page does show comes from one request.

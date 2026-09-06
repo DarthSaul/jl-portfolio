@@ -287,6 +287,8 @@ over verbatim, which is what makes the subset check meaningful in the first plac
 
 `npx sanity migrations run <id>`, from `studio/`, against `studio/migrations/<id>/index.ts`.
 The `tag` refactor is the first use — see `create-tag-documents` and `tags-to-references`.
+`gallery-tag-to-tags` (single reference → array) is the third, and the first to run as ONE
+migration: it creates no documents, so the two-run rule below does not apply to it.
 
 Four things about the runner, all read out of `studio/node_modules` or measured on a real run
 rather than assumed, and each of which fails in a way that does not name itself:
@@ -436,7 +438,7 @@ photographs are not clickable, and fail silently otherwise.
 | Route | Contents |
 | --- | --- |
 | `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
-| `/shots/all` | Every photo she has uploaded except those flagged `excludeFromIndex`. Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
+| `/shots/all` | Every photo she has uploaded except those flagged `excludeFromIndex` — and except those whose *every* tag is flagged `tag.excludeFromIndex` (one visible tag keeps a photo in; untagged photos always show). Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
 | `/shots/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
 | `/shots/*?photo=<_id>` | Not a route — the **showcase**. One photograph, alone and centred, on either page above. See *The showcase* below. |
 | `/copy` | Her own posts and links out to others, newest first, interleaved. One leads; the rest are a ledger. The lead is the newest **unless she sets `writingPage.featured`** |
@@ -503,9 +505,10 @@ survives an open/close cycle unchanged.**
 - **`/shots/[slug]` needs no second query for it** — `GALLERY_QUERY` returns the whole array, so
   the id resolves with a `find`. `/shots/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`,
   resolved **on the server** when the id is not in the first page so a shared link paints the
-  photograph in the HTML, and not at all otherwise. That query **restates
-  `excludeFromIndex != true`**: the flag is a rule about the index, and this is how a photograph
-  is reached *through* the index, so ignoring it would be a hole in the flag.
+  photograph in the HTML, and not at all otherwise. That query **restates `INDEX_VISIBILITY`**
+  — the photo's own `excludeFromIndex` and the every-tag-hidden rule both: they are rules about
+  the index, and this is how a photograph is reached *through* the index, so ignoring either
+  would be a hole in the flag.
 - **The index is not rendered while the showcase is open, which destroys the sentinel** — so the
   observer is attached by a **callback ref that returns its own cleanup** (React 19), not in an
   effect at mount. `useCallback([])` for a stable ref identity, plus a ref holding the current
@@ -535,7 +538,7 @@ What the front page renders today, in the order it renders it:
 
 | On the page | Where it lives |
 | --- | --- |
-| The photo grid — exactly 5, each optionally linking to a gallery | `homePage.featuredPhotos` |
+| The photo grid — any number, three to a desktop row, six recommended; each optionally linking to a gallery | `homePage.featuredPhotos` |
 | Featured writing — exactly 3, posts and links mixed | `homePage.featuredWriting` |
 
 Everything above those two is the sidebar, on every page: the site name, the byline and the
@@ -612,8 +615,8 @@ places, which is worse.
 `homePage.featuredPhotos` holds six real-estate-listing photos of a house — the last of the
 stock content, in both datasets. **Deleting them is not the fix; replacing them is.** The strip
 renders whatever the array references, so removing them empties slot 7 rather than improving it.
-Swapping in five of Joan's photographs, in `development`, then `npm run promote`, is a named
-launch blocker in *Open questions*. Everything else on the front page is her real copy.
+Swapping in six of Joan's photographs (any number works; six makes two even desktop rows), in
+`development`, then `npm run promote`, is a named launch blocker in *Open questions*. Everything else on the front page is her real copy.
 
 ## The content model
 
@@ -623,8 +626,8 @@ is a map, not a spec.
 | Type | Shape | Notes |
 | --- | --- | --- |
 | `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
-| `gallery` | title, slug, **navOrder**, description, preset, **tag → ref**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. |
-| `tag` | title, slug | **Hers to add, rename and remove.** Two fields, and it should keep two. Replaced the hardcoded `PHOTO_TAGS` array. |
+| `gallery` | title, slug, **navOrder**, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from tags (union — any of them) **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. |
+| `tag` | title, slug, **excludeFromIndex** | **Hers to add, rename and remove.** Replaced the hardcoded `PHOTO_TAGS` array. `excludeFromIndex` hides it from /shots/all — see the reversal note below. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
 | `homePage` | title, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → `featuredPhoto` objects | Singleton. See *The front page*. The whole introduction — heading, text and photo — has left this document. |
@@ -757,10 +760,21 @@ Things worth knowing before changing any of it:
   across ~250 photographs the shaped fix is a custom input component on that field which reads
   the tag documents and draws the grid back. **Not a plugin**, and not without asking.
   - **Nothing marks which tags are "project" tags and which are browse-only**, and that is
-    deliberate. "Does this tag have a page" is answered by whether a gallery points at it —
-    one fact in one place, rather than a flag on the tag that could disagree with reality.
-    `tag` has exactly two fields and should keep them: no colour, no description, no
-    "show in the filter row" toggle, no ordering field.
+    still deliberate. "Does this tag have a page" is answered by whether a gallery points at
+    it — one fact in one place, rather than a flag on the tag that could disagree with
+    reality. Still no colour, no description, no ordering field.
+
+    **The "no 'show in the filter row' toggle" half of that rule is reversed**, and the
+    reversal is recorded in `tag.ts`. `tag.excludeFromIndex` ("Hide from the All Shots page",
+    default off) hides the tag's chip from the filter row, and hides a photograph from the
+    index only when EVERY tag it carries is hidden — one visible tag keeps it in, and untagged
+    photographs are out of the rule's reach entirely. What keeps it from being the flag the
+    old rule warned about is scope: it states her intent about the *index* and answers no
+    question about galleries, so a hidden tag still fills a gallery — the same narrow-scope
+    bargain `photo.excludeFromIndex` makes. The predicate lives once, as `INDEX_VISIBILITY`
+    in `web/src/sanity/queries/photo.ts`, interpolated into all four index queries. A
+    `?tag=<hidden-slug>` address still filters (a filter is a view of the visible set), but
+    the photographs the tag rule hides stay hidden regardless.
   - **`structure.ts` has two entries, not one.** *Tags* at the top level is where she edits;
     *Browse by tag*, under Photos, drills into a tag's photographs. They are separate because
     the browse list overrides its child pane to show photographs, which leaves no way in to the
@@ -792,8 +806,9 @@ Things worth knowing before changing any of it:
   `FilterBar`'s prop is `TagOption`, read off `ALL_SHOTS_QUERY_RESULT['tagsInUse']` — a
   generated shape, never hand-written, exactly as `PhotoProjection` is.
 - **Two ways a gallery fills itself, and exactly one photo list is visible at a time.** Set
-  `tag` and the page shows every photo carrying it, growing on its own as she tags more.
-  Leave `tag` empty and she picks the photos by hand and drags them into order.
+  one or more `tags` and the page shows every photo carrying ANY of them — union, the same
+  reading the /shots/all filter row gives multiple selections — growing on its own as she
+  tags more. Leave `tags` empty and she picks the photos by hand and drags them into order.
   Setting a tag *hides* the photo list rather than greying it out — and swaps in `leadPhotos`,
   below — so there is one answer on screen to "where do the photos come from" instead of two
   fields and a rule to remember.
@@ -812,9 +827,10 @@ Things worth knowing before changing any of it:
   an alt-text fix must not move a photograph to the end of the page. The cost: "the end"
   means newest-*uploaded* last, so tagging a years-old photo lands it mid-tail by upload
   date; the remedy is placing it, which is always available.
-  A placed photo that later loses the tag deliberately **stays on the page** — hand-placed
+  A placed photo that later loses its tags deliberately **stays on the page** — hand-placed
   wins, the same rule `excludeFromIndex` follows. The picker on `leadPhotos` offers only
-  photos carrying the gallery's tag (`taggedPhotosNotAlreadyChosen` in `photoPicker.ts`).
+  photos carrying any of the gallery's tags (`taggedPhotosNotAlreadyChosen` in
+  `photoPicker.ts`).
 
   **The whole page order is visible in the Studio, not just the placed head.** The stored
   array is only what she has placed, so the default input showed a blank field on a gallery
@@ -823,8 +839,9 @@ Things worth knowing before changing any of it:
   computed tail below it, fetched with the SAME published-only `_createdAt` asc query the
   site runs, plus Place / Place all buttons that append to the array. If the site query's
   tail ever changes, the input's `TAIL_QUERY` changes in the same commit, or the Studio
-  previews an order the page does not render. Its empty state also names the
-  nothing-carries-this-tag case, which softens the "mistyped tag looks like an empty
+  previews an order the page does not render. The tail's caption names the tags the gallery
+  is filling from ("Filling from the tags “X” and “Y”"), and its empty state names the
+  nothing-carries-these-tags case, which softens the "mistyped tag looks like an empty
   gallery" item in *Open questions*.
 
   The field is still *stored* as `leadPhotos` although it no longer only leads — renaming a
@@ -835,16 +852,18 @@ Things worth knowing before changing any of it:
   Both modes resolve to one `photos` array in `queries/shots.ts`, so `/shots/[slug]` never
   branches and the presets only ever see photographs.
 
-  **The empty-string trap that used to sit here is gone, and it went with the string.** The
-  query's guard was `defined(tag) && tag != ""`, and the second term was load-bearing:
-  `defined("")` is true, so a `tag` cleared to an empty string took the tag branch and matched
-  nothing, while the Studio read the same value the opposite way and showed her the photo list.
-  Form full, page empty, nothing anywhere saying why. A reference has no empty-string state, so
-  `defined(tag._ref)` is exact and the two halves agree *by construction*. Both the schema's
-  guards and the validation test `._ref` and not the field — `Boolean({})` is `true`, and a
-  half-cleared reference would otherwise read as "has a tag". Keep the shape of that bug in
-  mind rather than the string: two halves of the system disagreeing, silently, about what
-  "empty" means.
+  **The empty-string trap that used to sit here is gone, and its array cousins are guarded
+  the same way.** The query's guard was `defined(tag) && tag != ""`, and the second term was
+  load-bearing: `defined("")` is true, so a `tag` cleared to an empty string took the tag
+  branch and matched nothing, while the Studio read the same value the opposite way and showed
+  her the photo list. Form full, page empty, nothing anywhere saying why. The field is an
+  array of references now, which has two empty-looking states of its own: an empty array is
+  `defined()`, and a half-cleared member is `[{_key}]` — length 1, no `_ref`, and publishable.
+  So the site guards with `count(tags[defined(@._ref)]) > 0` and the Studio with `hasRealTag`
+  (`.some((t) => t?._ref)`) in `gallery.ts` — the same reading on both sides *by
+  construction*, which is the property the whole paragraph exists to defend. Keep the shape of
+  that bug in mind rather than the string: two halves of the system disagreeing, silently,
+  about what "empty" means.
 
   **The reachable-but-broken state is both at once**, and it takes two steps: pick photos, then
   set a tag. Nothing in the form stops it and the photo list is hidden by then, so a
@@ -1019,8 +1038,10 @@ web/                        ✎ The Next app. Vercel's root directory.
       fetch.ts              ✎ sanityFetch + orThrow + REVALIDATE. Every read goes through it.
       errors.ts             ✎ SanityUnreachableError, MissingDocumentError
       queries/              ✎ GROQ, one file per route
-        photo.ts            ✎ The shared photo projection, and PHOTO_BY_ID_QUERY for the
-                              showcase's deep links. Not a route — see Conventions.
+        photo.ts            ✎ The shared photo projection, INDEX_VISIBILITY (the index's
+                              visible-set predicate, interpolated into all four index
+                              queries), and PHOTO_BY_ID_QUERY for the showcase's deep
+                              links. Not a route — see Conventions.
         nav.ts              ✎ NAV_QUERY — the galleries listed under START. Not a route
                               either: it is chrome, read on every page.
         allShots.ts         ✎ ALL_SHOTS_QUERY (first page, total, tags in use) and
@@ -1774,8 +1795,9 @@ or a positioning control, say so and propose the preset-shaped version instead.
 Unresolved. Don't paper over these — raise them when the relevant work comes up.
 
 - **The going-live checklist is down to one item, and the CORS half is retired.**
-  1. **Replace the front page's six stock house photos** with five of Joan's, in `development`,
-     then `npm run promote`. See the note under *The front page* — replace, do not delete.
+  1. **Replace the front page's six stock house photos** with Joan's own (six recommended —
+     two even desktop rows of three), in `development`, then `npm run promote`. See the note
+     under *The front page* — replace, do not delete.
   2. ~~`npx sanity cors add https://joanatstake.com --no-credentials`~~ — **no longer required.**
      Nothing in the browser talks to Sanity, so no request from `joanatstake.com` ever carries an
      `Origin` header to the Content Lake. See the CORS bullet in *The Studio*. **This stops being
@@ -1864,14 +1886,16 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 - **`homePage.blurb`, `.featuredTitle` and `.featuredSubtitle` are fetched and not rendered.**
   See the note under *The front page*. They need a home, and until they get one `ProseHeading`
   has no caller.
-- **The photo grid's `K` is tuned against five photographs of the shapes currently in
-  `development`.** `home/PhotoStrip.tsx` wraps photographs into rows by a flex basis
-  proportional to each one's aspect ratio; `K` (the `22rem` in the basis) sets roughly how tall
-  a row wants to be before wrapping, and at the current content it produces a 3-then-2 split on
-  a wide screen. Different photographs will pack differently — that is the mechanism working,
-  not breaking. Both `K` and the growth cap beside it are properties of the grid, never of a
-  photograph, so neither is a Rule 2 control — but re-measure them if `featuredPhotos` ever
-  stops being exactly five.
+- ~~**The photo grid's `K` is tuned against five photographs.**~~ **Half retired: the front
+  page's row breaks no longer come from `K` at all.** `home/PhotoStrip.tsx` sets `perRow={3}`
+  on `GalleryGrid`, which chunks the photographs into fixed rows of three from `sm` up
+  (5 → 3+2, 6 → 3+3, 7 → 3+3+1) with each cell `flex-basis: 0` + `flex-grow: var(--r)`, so a
+  row still shares one height at native ratios and any count of photographs produces a working
+  page — which is what let `featuredPhotos` stop being exactly five (six is the recommended
+  count: two even desktop rows). `K` still decides where *gallery* rows break under the
+  wrap-and-fill packing, and on the front page it survives only in the growth cap. Both `K`
+  and the cap remain properties of the grid, never of a photograph — neither is a Rule 2
+  control.
 
   **The cap is `max-w-[calc(var(--r)*var(--k)*1.5)]` and used to be `sm:max-w-[55%]`.** Both
   exist for the degenerate case — a row left holding one photograph, which `flex-grow` stretches

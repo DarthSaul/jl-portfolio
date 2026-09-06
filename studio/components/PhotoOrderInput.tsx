@@ -73,25 +73,30 @@ export function PhotoOrderInput(props: ArrayOfObjectsInputProps) {
     .join(',')
   const placedIds = useMemo(() => (placedKey ? placedKey.split(',') : []), [placedKey])
 
-  const [tail, setTail] = useState<TailPhoto[] | null>(null)
+  // The result is keyed by the tag it was fetched FOR, and `tail` derives to null the moment
+  // `tagRef` stops matching. Without the key, switching the gallery's tag leaves the previous
+  // tag's photos on screen — with live Place buttons — for the length of the new fetch, and
+  // Place must never append a photo from a tag the gallery no longer points at. The
+  // `cancelled` flag alone cannot cover that: it stops the stale write, not the stale render.
+  const [fetched, setFetched] = useState<{tag: string; photos: TailPhoto[]} | null>(null)
   const [failed, setFailed] = useState(false)
+  const tail = fetched && fetched.tag === tagRef ? fetched.photos : null
 
   useEffect(() => {
-    if (!tagRef) {
-      setTail([])
-      return undefined
-    }
+    // No tag: nothing to fetch and nothing to clear — every branch below gates on `tagRef`,
+    // and a stale `fetched` is already unreachable through the derivation above.
+    if (!tagRef) return undefined
     let cancelled = false
     setFailed(false)
     client
       .fetch<TailPhoto[]>(TAIL_QUERY, {tagId: tagRef, placed: placedIds})
       .then((photos) => {
-        if (!cancelled) setTail(photos)
+        if (!cancelled) setFetched({tag: tagRef, photos})
       })
       .catch(() => {
         // The failure state, distinct from the empty state — see the header comment.
         if (!cancelled) {
-          setTail(null)
+          setFetched(null)
           setFailed(true)
         }
       })
@@ -112,7 +117,11 @@ export function PhotoOrderInput(props: ArrayOfObjectsInputProps) {
       ])
       // Optimistic: the effect above refetches and will agree, but waiting for the round
       // trip makes "Place" feel broken on a slow connection.
-      setTail((current) => current?.filter((photo) => !ids.includes(photo._id)) ?? current)
+      setFetched((current) =>
+        current
+          ? {...current, photos: current.photos.filter((photo) => !ids.includes(photo._id))}
+          : current,
+      )
     },
     [onChange],
   )

@@ -805,8 +805,10 @@ Things worth knowing before changing any of it:
   order and can hold every photo in the gallery; any tagged photo she has not placed follows
   in `_createdAt` asc — so a newly tagged photo still appears on its own, at the END of the
   page, which is what keeps the mode's point. The `dateTaken` desc tail went with the change,
-  its `coalesce(dateTaken, '')` null fix included; nothing on a gallery page is ordered by
-  date any more. `_createdAt` asc rather than `_updatedAt`, because the tail must be stable —
+  its `coalesce(dateTaken, '')` null fix included; no gallery page is ordered by the
+  *photograph's* date any more. The tail's `_createdAt` asc is arrival order, not a return of
+  date ordering — kept only so unplaced photos land somewhere deterministic, the end.
+  `_createdAt` asc rather than `_updatedAt`, because the tail must be stable —
   an alt-text fix must not move a photograph to the end of the page. The cost: "the end"
   means newest-*uploaded* last, so tagging a years-old photo lands it mid-tail by upload
   date; the remedy is placing it, which is always available.

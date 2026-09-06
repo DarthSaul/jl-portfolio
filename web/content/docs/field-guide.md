@@ -125,7 +125,7 @@ A gallery is a page of photos on the site. Creating one is the only step — the
 
 **By hand:** leave "Fill from a tag" empty and add photos to the list yourself. **Drag to reorder** — the order in the list is the order on the page. This is the mode for a curated set.
 
-**From a tag:** pick a tag in "Fill from a tag" and the gallery shows every photo carrying it, newest first — tag a new photo and it appears on the page by itself, nothing to update. This is the mode for an ongoing collection. If you want particular photos to open the page, add them to **Put these first** and drag them into order — the rest still follow on their own, newest first.
+**From a tag:** pick a tag in "Fill from a tag" and the gallery brings in every photo carrying it — tag a new photo and it joins the end of the page by itself, nothing to update. This is the mode for an ongoing collection. The order is yours, set in **Photo order**: photos you've placed come first — drag to arrange them — and every other tagged photo is shown underneath, in the order it follows on the page, newest additions last. Press **Place** on any of them (or **Place all**) to bring them into the list you can drag. A photo you've just uploaded shows up there once it's published.
 
 Pick one mode per gallery. If a gallery somehow ends up with both a tag and a hand-picked list, the Studio flags it and explains: only the tag is being used, and clearing it brings your hand-picked list back.
 

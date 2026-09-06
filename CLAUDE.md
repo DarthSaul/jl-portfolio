@@ -623,7 +623,7 @@ is a map, not a spec.
 | Type | Shape | Notes |
 | --- | --- | --- |
 | `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
-| `gallery` | title, slug, **navOrder**, description, preset, **tag → ref**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` arranges the front of a tag-filled gallery. |
+| `gallery` | title, slug, **navOrder**, description, preset, **tag → ref**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from a tag **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. |
 | `tag` | title, slug | **Hers to add, rename and remove.** Two fields, and it should keep two. Replaced the hardcoded `PHOTO_TAGS` array. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
@@ -792,23 +792,44 @@ Things worth knowing before changing any of it:
   `FilterBar`'s prop is `TagOption`, read off `ALL_SHOTS_QUERY_RESULT['tagsInUse']` — a
   generated shape, never hand-written, exactly as `PhotoProjection` is.
 - **Two ways a gallery fills itself, and exactly one photo list is visible at a time.** Set
-  `tag` and the page shows every photo carrying it, newest first, growing on its own as she
-  tags more. Leave `tag` empty and she picks the photos by hand and drags them into order.
+  `tag` and the page shows every photo carrying it, growing on its own as she tags more.
+  Leave `tag` empty and she picks the photos by hand and drags them into order.
   Setting a tag *hides* the photo list rather than greying it out — and swaps in `leadPhotos`,
   below — so there is one answer on screen to "where do the photos come from" instead of two
   fields and a rule to remember.
 
-  **The tag mode's order is arrangeable at the front, and only at the front.** This used to
-  read "the tag mode has no order control and no curation", and she asked for the control.
-  `leadPhotos` ("Put these first", visible only when the tag is set) leads the page in her
-  drag order; every other photo carrying the tag follows, `dateTaken` desc with `_createdAt`
-  as the tiebreak and — a deliberate fix made in the same change — undated photos LAST, via
-  `coalesce(dateTaken, '')`, since GROQ sorts null first on desc and the Studio's own
-  `dateTakenDesc` ordering sends them last. What keeps the mode's point: a newly tagged photo
-  still appears on its own, in the newest-first tail, whether or not she arranges anything.
-  A lead photo that later loses the tag deliberately **stays on the page** — hand-placed wins,
-  the same rule `excludeFromIndex` follows. The picker on `leadPhotos` offers only photos
-  carrying the gallery's tag (`taggedPhotosNotAlreadyChosen` in `photoPicker.ts`).
+  **The tag mode's order is hers, completely — the automatic date ordering is gone.** This
+  has moved twice: first "the tag mode has no order control and no curation", then
+  "arrangeable at the front, newest-first tail", and now the arrangement is the order.
+  `leadPhotos` ("Photo order", visible only when the tag is set) renders first in her drag
+  order and can hold every photo in the gallery; any tagged photo she has not placed follows
+  in `_createdAt` asc — so a newly tagged photo still appears on its own, at the END of the
+  page, which is what keeps the mode's point. The `dateTaken` desc tail went with the change,
+  its `coalesce(dateTaken, '')` null fix included; no gallery page is ordered by the
+  *photograph's* date any more. The tail's `_createdAt` asc is arrival order, not a return of
+  date ordering — kept only so unplaced photos land somewhere deterministic, the end.
+  `_createdAt` asc rather than `_updatedAt`, because the tail must be stable —
+  an alt-text fix must not move a photograph to the end of the page. The cost: "the end"
+  means newest-*uploaded* last, so tagging a years-old photo lands it mid-tail by upload
+  date; the remedy is placing it, which is always available.
+  A placed photo that later loses the tag deliberately **stays on the page** — hand-placed
+  wins, the same rule `excludeFromIndex` follows. The picker on `leadPhotos` offers only
+  photos carrying the gallery's tag (`taggedPhotosNotAlreadyChosen` in `photoPicker.ts`).
+
+  **The whole page order is visible in the Studio, not just the placed head.** The stored
+  array is only what she has placed, so the default input showed a blank field on a gallery
+  whose page renders thirty photographs. `leadPhotos` therefore has a custom input —
+  `studio/components/PhotoOrderInput.tsx` — that renders the default array and then the
+  computed tail below it, fetched with the SAME published-only `_createdAt` asc query the
+  site runs, plus Place / Place all buttons that append to the array. If the site query's
+  tail ever changes, the input's `TAIL_QUERY` changes in the same commit, or the Studio
+  previews an order the page does not render. Its empty state also names the
+  nothing-carries-this-tag case, which softens the "mistyped tag looks like an empty
+  gallery" item in *Open questions*.
+
+  The field is still *stored* as `leadPhotos` although it no longer only leads — renaming a
+  stored field is a content migration bought with nothing, so the Studio label carries the
+  new meaning, the same trade the /copy and /bio renames made.
   Hand-picking is still the mode for "these fifty, in this order".
 
   Both modes resolve to one `photos` array in `queries/shots.ts`, so `/shots/[slug]` never
@@ -1098,6 +1119,12 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
   sanity.cli.ts             ✎ projectId, autoUpdates, schemaExtraction, typegen paths
   structure.ts              ✎ Sidebar shape + SINGLETON_TYPES + PLACED_TYPES
   dataset.ts                ✎ requireDataset() — throws when unset, never defaults
+  components/               ✎ Custom Studio inputs. PhotoOrderInput — gallery.leadPhotos:
+                              the default array plus the computed tail (the SAME query as
+                              the site's, or the Studio previews an order the page does not
+                              render), with Place / Place all to materialise it. Built on
+                              styled-components + Sanity's CSS variables, not @sanity/ui —
+                              that package is transitive and deliberately undeclared.
   promote.mjs               ✎ development → production. Here, not scripts/, because it
                               authenticates as the CLI user and needs no write token.
   .env.example              ✎ SANITY_STUDIO_DATASET only

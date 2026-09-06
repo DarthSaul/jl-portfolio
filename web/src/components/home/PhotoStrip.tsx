@@ -9,16 +9,19 @@ type Home = NonNullable<HOME_QUERY_RESULT>
 /**
  * The featured photographs, as a grid. It opens the front page.
  *
- * ## The layout is the `grid` preset, not a copy of it
+ * ## The layout is the `grid` preset's fixed-rows mode, not a copy of it
  *
- * `presets/GalleryGrid` owns the wrap-and-fill maths and the two numbers that tune it; the long
- * explanation of how photographs of different shapes share a row height without being cropped
- * lives there. This page uses it through `renderPhoto` so each photograph can become a link.
+ * `presets/GalleryGrid` owns the grid maths — how photographs of different shapes share a row
+ * height without being cropped, and the cap that stops a lone photograph ballooning; the long
+ * explanation lives there. This page uses it through `renderPhoto` so each photograph can become
+ * a link, and sets `perRow={3}`: the front page is a composition with a recommended count (six
+ * photos, two even desktop rows), so its row breaks are fixed where a gallery's are left to the
+ * browser — 5 photos render 3+2, 6 render 3+3, 7 render 3+3+1.
  *
- * That is a deliberate reuse rather than a copy. The maths is four non-obvious lines of CSS, and
- * the front page and a gallery page packing photographs *differently* would be a bug nobody would
- * notice for months. It also means the front-page grid and `/shots/<slug>` look like the same site
- * by construction rather than by matching numbers twice.
+ * That is still a deliberate reuse rather than a copy. This file used to say the front page and
+ * a gallery page packed identically by construction; `perRow` retired that claim, but the maths,
+ * the ratio variable and the growth cap live only in `GalleryGrid`, so the two can differ in
+ * where a row ends and in nothing else.
  *
  * Rule 2 is unbothered by a fixed composition reusing a preset. What the rule cares about is that
  * no photograph carries its own size, and none does here — `renderPhoto` changes what wraps a
@@ -67,13 +70,14 @@ export function PhotoStrip({ photos }: { photos: Home['featuredPhotos'] }) {
     <section>
       {/*
         `captions={false}` is the one opt-out on the site. The grid captions photographs by default
-        because a gallery shows what she wrote about them; here it is borrowed as a layout for five
+        because a gallery shows what she wrote about them; here it is borrowed as a layout for
         links into her galleries, and a caption under each would compete with the featured writing
         directly below. The band on hover already names the destination.
       */}
       <GalleryGrid
         photos={slots.map(slot => slot.photo)}
         captions={false}
+        perRow={3}
         renderPhoto={({ photo, index, sizes }) => {
           /*
             `slots[index]` rather than a lookup by `_id`: the grid renders the array it was given,

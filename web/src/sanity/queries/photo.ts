@@ -30,6 +30,28 @@ export const PHOTO_PROJECTION = `
 `
 
 /**
+ * The index's visible set — which photographs /shots/all lists — defined once.
+ *
+ * Two ways she can hide a photograph from the index, and only two: flag the photograph itself
+ * (`photo.excludeFromIndex`), or flag every tag it carries (`tag.excludeFromIndex`). One
+ * visible tag keeps a photograph on the page, and an untagged photograph is always on it —
+ * the tag rule reaches nothing it does not touch. Both flags read `!= true`, so a document
+ * that has never stored the field is visible, which is what made shipping the schema change
+ * a no-op until she ticks a box.
+ *
+ * The `coalesce` is load-bearing: `count()` of a missing field is null, null comparisons are
+ * falsy, and most photographs carry no `tags` field at all — without it the untagged majority
+ * of the index silently vanishes. Verified against the live dataset: with the coalesce the
+ * unfiltered count matches the total; without it, only the tagged photographs survive.
+ *
+ * Interpolated into four queries — the index's page, its total, its "load more" slice, and
+ * the showcase's by-id lookup below — rather than pasted. That reverses the stance
+ * `allShots.ts` used to take against splicing this filter; see the note there for why the
+ * balance moved.
+ */
+export const INDEX_VISIBILITY = `excludeFromIndex != true && (count(coalesce(tags, [])) == 0 || count(tags[@->excludeFromIndex != true]) > 0)`
+
+/**
  * What the projection above resolves to, for `SanityPhoto` to take as a prop.
  *
  * Read off a generated query result rather than written out, because CLAUDE.md forbids a
@@ -56,10 +78,11 @@ export type PhotoProjection = NonNullable<
  * the id with a `find`. This exists for the index, where a shared link can name a photograph
  * that is not in the first page of 24 and never will be until someone scrolls to it.
  *
- * **It restates `excludeFromIndex != true` deliberately.** The flag is a visibility rule about
- * the index, and this query is how a photograph is reached *through* the index — so a query
- * that ignored it would be a hole in the flag rather than an exception to it. She would tick
- * "hide this" and the photograph would still be one URL away.
+ * **It restates `INDEX_VISIBILITY` deliberately.** Both of its halves — the photograph's own
+ * flag and the every-tag-hidden rule — are visibility rules about the index, and this query is
+ * how a photograph is reached *through* the index, so a query that ignored either would be a
+ * hole in the flag rather than an exception to it. She would tick "hide this" and the
+ * photograph would still be one URL away.
  *
  * It deliberately does *not* restate the tag filter. A filter is a view of the set, not the set,
  * so `?tag=life&photo=X` resolves X whether or not X carries the tag — closing the showcase
@@ -70,5 +93,5 @@ export type PhotoProjection = NonNullable<
  * field it filters, and stay well clear of `QueryParams`' reserved keys.
  */
 export const PHOTO_BY_ID_QUERY = defineQuery(`
-  *[_type == "photo" && _id == $photoId && excludeFromIndex != true][0]{ ${PHOTO_PROJECTION} }
+  *[_type == "photo" && _id == $photoId && ${INDEX_VISIBILITY}][0]{ ${PHOTO_PROJECTION} }
 `)

@@ -1,6 +1,6 @@
 import { defineQuery } from 'groq'
 
-import { PHOTO_PROJECTION } from './photo'
+import { INDEX_VISIBILITY, PHOTO_PROJECTION } from './photo'
 
 /**
  * How many photographs arrive per request. Large enough to fill a wide screen, small enough to be
@@ -20,21 +20,22 @@ export const PAGE_SIZE = 24
 /**
  * /shots/all — the index of everything she has uploaded.
  *
- * ## The visible set, defined once
+ * ## The visible set, defined once — now literally once
  *
- * `excludeFromIndex != true` rather than `!excludeFromIndex` or `== false`. The field is
- * optional and new, so the overwhelming majority of photographs do not have it at all, and
- * the question is what GROQ does with a missing field. Verified against the live dataset:
- * `!= true`, `!defined(x) || x == false` and `!(x == true)` all return the full set, so all
- * three are correct — `!= true` is chosen for being the shortest true statement of the intent,
- * which is "hidden only if she said so".
+ * The filter is `INDEX_VISIBILITY` from `queries/photo.ts`: hidden only if she said so, per
+ * photograph or by every one of its tags. Each flag reads `!= true` rather than `!x` or
+ * `== false` because the fields are optional — a missing field must mean visible. Verified
+ * against the live dataset when the photo flag landed: `!= true`, `!defined(x) || x == false`
+ * and `!(x == true)` all return the full set, and `!= true` is the shortest true statement of
+ * the intent.
  *
- * The same predicate appears in both queries below and has to stay identical in both, or the
- * count disagrees with the list and the page paginates towards photographs that are not there.
- * That is the argument for interpolating it, and the argument against is stronger: a GROQ
- * fragment spliced into a filter is invisible to anyone reading the query, and this one is
- * short enough to read twice. `PHOTO_PROJECTION` is interpolated because it is seven lines and
- * appears in six files; a two-term filter in one file is not the same case.
+ * This paragraph used to argue *against* interpolating the predicate: it was two terms in one
+ * file, short enough to read twice, and a GROQ fragment spliced into a filter is invisible to
+ * anyone reading the query. The tag rule reversed the balance — three terms with a coalesce
+ * and a dereference, appearing in two files (the showcase's by-id query restates it) — and
+ * the failure mode of a drifted copy is unchanged: the count disagrees with the list and the
+ * page paginates towards photographs that are not there. Interpolation makes "identical"
+ * mechanical, which is what `PHOTO_PROJECTION` already does one line up.
  *
  * ## Paging
  *
@@ -79,8 +80,11 @@ export const PAGE_SIZE = 24
  * `tagsInUse` powers the filter row and is deliberately computed from photographs rather than
  * being every tag she has made: a filter that returns nothing is worse than a filter that is
  * absent. It ignores `$filterTags` — the row must keep offering the other tags once one is
- * chosen — but it does respect `excludeFromIndex`, so a tag carried only by hidden photographs
- * does not appear.
+ * chosen — but it respects both hide flags: the tag's own `excludeFromIndex != true` drops a
+ * hidden tag's chip, and the photo subquery's flag drops a tag carried only by photographs she
+ * has hidden one by one. The photo subquery deliberately does NOT restate the every-tag-hidden
+ * rule, because it cannot change the answer: any tag that survives the outer filter is
+ * visible, and a photograph carrying a visible tag is on the index by definition.
  *
  * It now returns the tag's name and slug rather than a bare string, and orders by name in GROQ.
  * Both follow from tags being documents: the name is content, and sorting it here deleted a
@@ -90,12 +94,12 @@ export const PAGE_SIZE = 24
  */
 export const ALL_SHOTS_QUERY = defineQuery(`
   {
-    "photos": *[_type == "photo" && excludeFromIndex != true && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]
+    "photos": *[_type == "photo" && ${INDEX_VISIBILITY} && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]
       | order(dateTaken desc, _createdAt desc)[$offset...$end]{ ${PHOTO_PROJECTION} },
 
-    "total": count(*[_type == "photo" && excludeFromIndex != true && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]),
+    "total": count(*[_type == "photo" && ${INDEX_VISIBILITY} && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]),
 
-    "tagsInUse": *[_type == "tag" && _id in array::unique(
+    "tagsInUse": *[_type == "tag" && excludeFromIndex != true && _id in array::unique(
       *[_type == "photo" && excludeFromIndex != true && count(tags) > 0].tags[]._ref
     )] | order(title asc){ title, "slug": slug.current }
   }
@@ -122,11 +126,12 @@ export type TagOption = NonNullable<
  * scroll. The page appends what comes back rather than replacing, so nothing already on
  * screen is re-fetched.
  *
- * The filter predicate is character-identical to the one above, and has to stay that way — if
- * the two ever disagree, `total` counts one set while the page pages through another, and the
- * "Load more" button walks towards photographs that are not there.
+ * The filter predicate is the same `INDEX_VISIBILITY` fragment the queries above interpolate,
+ * and has to stay that way — if the two ever disagree, `total` counts one set while the page
+ * pages through another, and the "Load more" button walks towards photographs that are not
+ * there.
  */
 export const MORE_PHOTOS_QUERY = defineQuery(`
-  *[_type == "photo" && excludeFromIndex != true && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]
+  *[_type == "photo" && ${INDEX_VISIBILITY} && (count($filterTags) == 0 || references(*[_type == "tag" && slug.current in $filterTags]._id))]
     | order(dateTaken desc, _createdAt desc)[$offset...$end]{ ${PHOTO_PROJECTION} }
 `)

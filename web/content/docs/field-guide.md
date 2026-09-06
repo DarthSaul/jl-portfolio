@@ -101,9 +101,11 @@ A tag is a topic: a trip, a theme, a series. Tags do three things:
 
 - They group photos in the Studio so you can find them.
 - They become filter buttons on the site's All Shots page.
-- A gallery can be set to "show everything with this tag" — more in the next section.
+- A gallery can be set to "show everything with these tags" — more in the next section.
 
 Create and rename tags freely under **Tags**. Renaming is safe: every photo carrying the tag follows automatically. The one field to leave alone once it's out in the world is the **web address** — changing it breaks links people have already shared.
+
+A tag can also be kept off the All Shots page: tick **Hide from the All Shots page** on the tag. Its filter button disappears, and a photo is left off the list only when _every_ tag it carries is hidden — a photo that also has a visible tag still shows, and photos with no tags always show. Galleries filled from a hidden tag are unaffected; this is only about the All Shots page.
 
 You can't delete a tag that photos are still using — the Studio will name the photos and ask you to untag them first. That's a guardrail, not a bug.
 
@@ -123,11 +125,11 @@ A gallery is a page of photos on the site. Creating one is the only step — the
 
 ### Two ways to fill a gallery
 
-**By hand:** leave "Fill from a tag" empty and add photos to the list yourself. **Drag to reorder** — the order in the list is the order on the page. This is the mode for a curated set.
+**By hand:** leave "Fill from tags" empty and add photos to the list yourself. **Drag to reorder** — the order in the list is the order on the page. This is the mode for a curated set.
 
-**From a tag:** pick a tag in "Fill from a tag" and the gallery brings in every photo carrying it — tag a new photo and it joins the end of the page by itself, nothing to update. This is the mode for an ongoing collection. The order is yours, set in **Photo order**: photos you've placed come first — drag to arrange them — and every other tagged photo is shown underneath, in the order it follows on the page, newest additions last. Press **Place** on any of them (or **Place all**) to bring them into the list you can drag. A photo you've just uploaded shows up there once it's published.
+**From tags:** pick one or more tags in "Fill from tags" and the gallery brings in every photo carrying any of them — tag a new photo and it joins the end of the page by itself, nothing to update. This is the mode for an ongoing collection. The order is yours, set in **Photo order**: photos you've placed come first — drag to arrange them — and every other tagged photo is shown underneath, in the order it follows on the page, newest additions last (the caption there names the tags the gallery is filling from). Press **Place** on any of them (or **Place all**) to bring them into the list you can drag. A photo you've just uploaded shows up there once it's published.
 
-Pick one mode per gallery. If a gallery somehow ends up with both a tag and a hand-picked list, the Studio flags it and explains: only the tag is being used, and clearing it brings your hand-picked list back.
+Pick one mode per gallery. If a gallery somehow ends up with both tags and a hand-picked list, the Studio flags it and explains: only the tags are being used, and clearing them brings your hand-picked list back.
 
 ![Screenshot: dragging photos to reorder inside a gallery](/docs/gallery-reorder.png)
 
@@ -155,11 +157,11 @@ A pointer to a piece published by someone else (the Times, HuffPost). Headline, 
 
 The front page, edited top-to-bottom in the order it reads:
 
-- **Featured photos** — exactly five, at the top of the page. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked.
+- **Featured photos** — as many as you like, at the top of the page; on a desktop they sit three to a row, so **six photos make two even rows** and that's the number to aim for. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked.
 - **Photos section title and subtitle** — the heading over the photo row (bold, italics, and a link are allowed inside it) and the short text under it.
 - **Featured writing** — exactly three pieces, posts and links mixed however you like, in the order they appear.
 
-![Screenshot: the Home page document with the five featured photo slots](/docs/home-featured.png)
+![Screenshot: the Home page document with the featured photo slots](/docs/home-featured.png)
 
 ### Copy
 

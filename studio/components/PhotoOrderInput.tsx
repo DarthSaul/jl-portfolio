@@ -101,15 +101,27 @@ export function PhotoOrderInput(props: ArrayOfObjectsInputProps) {
     .join(',')
   const placedIds = useMemo(() => (placedKey ? placedKey.split(',') : []), [placedKey])
 
-  // The result is keyed by the tag set it was fetched FOR, and `tail` derives to null the
-  // moment `tagKey` stops matching. Without the key, switching the gallery's tags leaves the
-  // previous set's photos on screen — with live Place buttons — for the length of the new
-  // fetch, and Place must never append a photo from a tag the gallery no longer points at.
-  // The `cancelled` flag alone cannot cover that: it stops the stale write, not the stale
-  // render.
-  const [fetched, setFetched] = useState<(TailResult & {tagKey: string}) | null>(null)
+  // The SET of placed ids, order ignored — a drag is a permutation of the same set and must
+  // not blank the tail while its (needless) refetch runs; a photo added through the default
+  // input's picker is a different set and must.
+  const placedSetKey = useMemo(() => [...placedIds].sort().join(','), [placedIds])
+
+  // The result is keyed by the tag set AND the placed set it was fetched FOR, and `tail`
+  // derives to null the moment either stops matching. Without the tag key, switching the
+  // gallery's tags leaves the previous set's photos on screen — with live Place buttons —
+  // for the length of the new fetch, and Place must never append a photo from a tag the
+  // gallery no longer points at. Without the placed key, a photo placed through the default
+  // input's own picker lingers in the stale tail with a live Place button, and pressing it
+  // inserts a duplicate. The `cancelled` flag alone cannot cover either: it stops the stale
+  // write, not the stale render.
+  const [fetched, setFetched] = useState<
+    (TailResult & {tagKey: string; placedSetKey: string}) | null
+  >(null)
   const [failed, setFailed] = useState(false)
-  const current = fetched && fetched.tagKey === tagKey ? fetched : null
+  const current =
+    fetched && fetched.tagKey === tagKey && fetched.placedSetKey === placedSetKey
+      ? fetched
+      : null
   const tail = current ? current.photos : null
   const tagTitles = current ? current.titles : []
 
@@ -122,7 +134,13 @@ export function PhotoOrderInput(props: ArrayOfObjectsInputProps) {
     client
       .fetch<TailResult>(TAIL_QUERY, {tagIds, placed: placedIds})
       .then(({titles, photos}) => {
-        if (!cancelled) setFetched({tagKey: tagIds.join(','), titles, photos})
+        if (!cancelled)
+          setFetched({
+            tagKey: tagIds.join(','),
+            placedSetKey: [...placedIds].sort().join(','),
+            titles,
+            photos,
+          })
       })
       .catch(() => {
         // The failure state, distinct from the empty state — see the header comment.
@@ -147,10 +165,17 @@ export function PhotoOrderInput(props: ArrayOfObjectsInputProps) {
         ),
       ])
       // Optimistic: the effect above refetches and will agree, but waiting for the round
-      // trip makes "Place" feel broken on a slow connection.
+      // trip makes "Place" feel broken on a slow connection. The placed-set key moves with
+      // it, or the optimistic render would fail its own staleness check and blank the tail.
       setFetched((current) =>
         current
-          ? {...current, photos: current.photos.filter((photo) => !ids.includes(photo._id))}
+          ? {
+              ...current,
+              placedSetKey: [...current.placedSetKey.split(',').filter(Boolean), ...ids]
+                .sort()
+                .join(','),
+              photos: current.photos.filter((photo) => !ids.includes(photo._id)),
+            }
           : current,
       )
     },

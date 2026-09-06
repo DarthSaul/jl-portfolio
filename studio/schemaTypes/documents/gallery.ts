@@ -289,14 +289,21 @@ export default defineType({
       // degraded to a number, never blank. A cover it can sometimes show: the first
       // "Photo order" photo really is the first photo on the page, so it is honest where it
       // exists.
-      const tagCount = Array.isArray(tags) ? tags.length : 0
+      // Only members with a real `_ref` count — the same reading `hasRealTag` gives the
+      // guards, so the preview cannot claim a tag the form says is absent. The positional
+      // title selects can straddle a half-cleared member (`tags.1.title` resolving while
+      // `tags.0` is `{_key}` alone), so any branch that would print a title it does not
+      // actually hold falls back to the count instead of rendering "undefined".
+      const tagCount = (Array.isArray(tags) ? tags : []).filter(
+        (entry) => (entry as {_ref?: string} | null)?._ref,
+      ).length
       const titles = [tagTitle0, tagTitle1].filter(Boolean)
 
       let source: string
       if (tagCount === 0) {
         const count = Array.isArray(photos) ? photos.length : 0
         source = `${count} ${count === 1 ? 'photo' : 'photos'}`
-      } else if (titles.length === 0) {
+      } else if (titles.length < Math.min(tagCount, 2)) {
         source = `Filled from ${tagCount} ${tagCount === 1 ? 'tag' : 'tags'}`
       } else if (tagCount === 1) {
         source = `Everything tagged “${titles[0]}”`

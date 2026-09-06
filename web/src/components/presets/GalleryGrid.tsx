@@ -163,16 +163,19 @@ export function GalleryGrid({
       <ul className="bleed flex flex-col gap-4 px-(--gutter)">
         {rows.map((row, rowIndex) => {
           /*
-            A full row splits the column three ways; a short one — the 3+2 and 3+3+1 cases —
-            gets the wrap-and-fill ladder, since a 2-up row measures about what a packed row
-            does. Decided here and not by the caller because only the chunker knows a row's
-            occupancy.
+            A full row splits the column three ways; a 2-up short row measures about what a
+            packed row does, so it takes the wrap-and-fill ladder. A row left holding ONE
+            photograph can grow all the way to the cap, so below lg its hint stays near full
+            width rather than claiming the two-up 50vw. Decided here and not by the caller
+            because only the chunker knows a row's occupancy.
           */
           const rowSizes
             = sizes
               ?? (row.length === perRow
                 ? '(min-width: 1024px) 370px, (min-width: 640px) 33vw, 92vw'
-                : '(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw')
+                : row.length === 1
+                  ? '(min-width: 1024px) 560px, 92vw'
+                  : '(min-width: 1024px) 560px, (min-width: 640px) 50vw, 92vw')
 
           return (
             /* Keyed by the first photo — a chunk is never empty, but the index type cannot

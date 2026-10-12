@@ -44,7 +44,7 @@ export type SanityResult<Q extends string> =
  * assignable to that, so resolution never goes near it. One signature covers both call shapes.
  *
  * **`next: { revalidate }` explicitly, on every read.** Next's implicit caching only covers
- * fetches discovered *before* a request-time API is used, and `/shots/all` awaits `searchParams`
+ * fetches discovered *before* a request-time API is used, and `/gallery/all` awaits `searchParams`
  * first — so relying on the segment default would cache every route except the one page that
  * pages. Stating it here removes the asymmetry.
  *
@@ -54,7 +54,7 @@ export type SanityResult<Q extends string> =
  * `token`, `cache`, `headers`, `method`, `body`, `timeout`, `next` and more — on the grounds
  * that passing a fetch option as a GROQ parameter is nearly always a mistake. `tag` is Sanity's
  * request tagging. So a GROQ parameter named `$tag` fails with "Type 'string' is not assignable
- * to type 'undefined'", which names the collision not at all. `/shots/all` filters on
+ * to type 'undefined'", which names the collision not at all. `/gallery/all` filters on
  * `$filterTags` for exactly this reason. Check that list before naming a parameter after
  * anything that sounds like a request setting. This is a `@sanity/client` fact and has nothing
  * to do with the framework — it survived the port unchanged and will survive the next one.

@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 
 /**
- * URL helpers shared by the two `/shots/*` pages, on both sides of the server boundary.
+ * URL helpers shared by the two `/gallery/*` pages, on both sides of the server boundary.
  *
  * Pure functions only — no hooks, no `window`. The page reads `searchParams` on the server with
  * these; the view reads `useSearchParams()` on the client with the same ones, so the two halves
@@ -81,7 +81,7 @@ export function showcaseHref(
  * The surrounding view — every parameter except `photo`, sorted so two URLs describing the same
  * view compare equal regardless of the order the parameters happen to appear in.
  *
- * On `/shots/all` that is the filter selection; on a gallery page there is nothing else and this
+ * On `/gallery/all` that is the filter selection; on a gallery page there is nothing else and this
  * is always `''`. Used to decide whether a saved scroll position still describes the list on
  * screen — see `useShowcase`.
  */

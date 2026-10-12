@@ -5,13 +5,14 @@ import { MainColumn } from '@/components/MainColumn'
 import { NavDrawerProvider } from '@/components/NavDrawerContext'
 import { SiteNav } from '@/components/SiteNav'
 import { SiteSidebar } from '@/components/SiteSidebar'
-import { SITE } from '@/content/site'
+import { getSiteSettings } from '@/sanity/siteSettings'
 
 import './globals.css'
 
 /**
- * The title template. `template` appends " · Joan Lebow" to whatever a page sets; `default` is
- * what renders when a page sets nothing.
+ * The title template. `template` appends " · <site name>" to whatever a page sets; `default` is
+ * what renders when a page sets nothing. The site name and description are hers, from
+ * `siteSettings` — so this is `generateMetadata` rather than a static `metadata` export.
  *
  * A page that should *not* get the suffix — the front page and /bio, whose own titles already
  * carry her name — sets `title: { absolute: … }`, which is the App Router spelling of the Nuxt
@@ -20,12 +21,15 @@ import './globals.css'
  * Nuxt needed this at runtime because it could not serialise a function into `app.head`. Next's
  * template is a string with a `%s`-style placeholder, so it is static config and lives here.
  */
-export const metadata: Metadata = {
-  title: {
-    default: SITE.title,
-    template: `%s · ${SITE.title}`,
-  },
-  description: SITE.description,
+export async function generateMetadata(): Promise<Metadata> {
+  const { title, description } = await getSiteSettings()
+  return {
+    title: {
+      default: title,
+      template: `%s · ${title}`,
+    },
+    description,
+  }
 }
 
 /**
@@ -49,13 +53,20 @@ export const metadata: Metadata = {
  * client ones as props (`nav`, `children`) rather than imported by them. A client module cannot
  * import a server one; it can render one it was handed.
  */
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const { title, byline, showPortrait } = await getSiteSettings()
+
   return (
     <html lang="en">
       <body>
         <NavDrawerProvider>
           <div className="mx-auto flex min-h-dvh max-w-shell flex-col bg-canvas text-ink lg:flex-row">
-            <SiteSidebar nav={<SiteNav />} />
+            <SiteSidebar
+              nav={<SiteNav />}
+              title={title}
+              byline={byline}
+              showPortrait={showPortrait}
+            />
             <MainColumn>{children}</MainColumn>
           </div>
         </NavDrawerProvider>

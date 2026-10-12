@@ -6,7 +6,7 @@ import type { ProseText as ProseTextValue } from '~~/sanity.types'
 import { ProseLink } from './ProseLink'
 
 /**
- * Renders a `proseText` field — the front page's blurb, /bio's introduction.
+ * Renders a `proseText` field — /bio's introduction.
  *
  * The rendering is delegated to `<PortableText>` rather than hand-rolled, and it is worth saying
  * why given how small the allowed subset is. Marks in Portable Text are a flat array of ids on

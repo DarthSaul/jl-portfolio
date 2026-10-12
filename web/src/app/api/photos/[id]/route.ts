@@ -2,7 +2,7 @@ import { sanityFetch } from '@/sanity/fetch'
 import { PHOTO_BY_ID_QUERY } from '@/sanity/queries/photo'
 
 /**
- * One photograph by id, for a showcase opened on `/shots/all` past the first page.
+ * One photograph by id, for a showcase opened on `/gallery/all` past the first page.
  *
  * A gallery never needs this — `GALLERY_QUERY` returns its whole array, so the id resolves with a
  * `find`. The index pages, so a link someone shared can name a photograph nobody on this device has

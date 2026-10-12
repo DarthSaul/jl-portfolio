@@ -3,6 +3,7 @@ import type {SchemaTypeDefinition} from 'sanity'
 import aboutPage from './documents/aboutPage'
 import article from './documents/article'
 import contactPage from './documents/contactPage'
+import featuredPage from './documents/featuredPage'
 import gallery from './documents/gallery'
 import homePage from './documents/homePage'
 import photo from './documents/photo'
@@ -26,6 +27,7 @@ export const schemaTypes = [
   // One per route, exactly one document each. studio/structure.ts pins their ids and
   // sanity.config.ts keeps them out of the Create menu.
   homePage,
+  featuredPage,
   writingPage,
   aboutPage,
   contactPage,

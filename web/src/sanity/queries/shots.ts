@@ -3,7 +3,10 @@ import { defineQuery } from 'groq'
 import { PHOTO_PROJECTION } from './photo'
 
 /**
- * /shots/[slug] — one gallery, however it fills itself.
+ * /gallery/[slug] — one gallery, however it fills itself — and /featured, which is the same thing
+ * at a fixed address. Both share `GALLERY_PROJECTION`, because the Studio gives both documents the
+ * same fields (`studio/schemaTypes/galleryFields.ts`) and the site renders both through
+ * `GalleryView`.
  *
  * ## The two modes, resolved in GROQ rather than in the component
  *
@@ -82,13 +85,12 @@ import { PHOTO_PROJECTION } from './photo'
  *
  * `references(^.tags[]._ref)` is index-backed and reads as UNION: a photo carrying any of the
  * gallery's tags is in, matched once however many of them it carries, so the concatenation
- * needs no dedupe. It is the same any-of reading the /shots/all filter row gives multiple
+ * needs no dedupe. It is the same any-of reading the /gallery/all filter row gives multiple
  * selections, and the same `references($tagIds)` the Studio's PhotoOrderInput runs. `tags` is
  * dropped from the projection: nothing on the page renders it, and as references it would come
  * back as `[{_ref, _type}]` rather than anything useful.
  */
-export const GALLERY_QUERY = defineQuery(`
-  *[_type == "gallery" && slug.current == $slug][0]{
+const GALLERY_PROJECTION = `
     title,
     description,
     preset,
@@ -98,5 +100,16 @@ export const GALLERY_QUERY = defineQuery(`
           | order(_createdAt asc){ ${PHOTO_PROJECTION} }),
       photos[]->{ ${PHOTO_PROJECTION} }
     )
-  }
+`
+
+export const GALLERY_QUERY = defineQuery(`
+  *[_type == "gallery" && slug.current == $slug][0]{ ${GALLERY_PROJECTION} }
+`)
+
+/**
+ * /featured — the `featuredPage` singleton. Pinned by `_type` as well as `_id`, because typegen
+ * narrows on `_type` (see `queries/siteSettings.ts`).
+ */
+export const FEATURED_QUERY = defineQuery(`
+  *[_type == "featuredPage" && _id == "featuredPage"][0]{ ${GALLERY_PROJECTION} }
 `)

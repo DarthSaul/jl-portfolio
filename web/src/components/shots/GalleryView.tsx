@@ -38,7 +38,7 @@ type Gallery = NonNullable<GALLERY_QUERY_RESULT>
  * ## Why the showcase needs no second query here
  *
  * `GALLERY_QUERY` returns the whole array, so the id in `?photo=` always resolves with a `find`.
- * `/shots/all` pages, so it can be sent an id it has not loaded and needs a fallback; this cannot.
+ * `/gallery/all` pages, so it can be sent an id it has not loaded and needs a fallback; this cannot.
  * That is the whole difference between the two views.
  */
 const PRESETS = {
@@ -50,10 +50,13 @@ export function GalleryView({
   title,
   preset,
   photos,
+  siteTitle,
 }: {
   title: string
   preset: Gallery['preset']
   photos: NonNullable<Gallery['photos']>
+  /** For the showcase's tab title. See `PhotoShowcase`. */
+  siteTitle: string
 }) {
   const showcase = useShowcase(photos)
 
@@ -101,6 +104,7 @@ export function GalleryView({
               nextHref={showcase.next ? showcase.openHref(showcase.next._id) : null}
               onNavigate={showcase.pushTo}
               onClose={showcase.close}
+              siteTitle={siteTitle}
             />
           )
         : photos.length

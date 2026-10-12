@@ -18,7 +18,7 @@ import { INDEX_VISIBILITY, PHOTO_PROJECTION } from './photo'
 export const PAGE_SIZE = 24
 
 /**
- * /shots/all — the index of everything she has uploaded.
+ * /gallery/all — the index of everything she has uploaded.
  *
  * ## The visible set, defined once — now literally once
  *

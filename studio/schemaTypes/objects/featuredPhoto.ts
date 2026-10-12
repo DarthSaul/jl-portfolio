@@ -24,7 +24,7 @@ import {defineField, defineType} from 'sanity'
  *
  * ## Why the link is a reference and not a path
  *
- * The obvious shape is a text field she types `/shots/mexico-2022` into, and it is the one to
+ * The obvious shape is a text field she types `/gallery/mexico-2022` into, and it is the one to
  * avoid. Nothing validates a string: a typo is a silent 404, and renaming a gallery's address
  * breaks every string that pointed at it with no warning in any of them. A reference cannot
  * point at a gallery that does not exist, Sanity refuses to delete a document something else

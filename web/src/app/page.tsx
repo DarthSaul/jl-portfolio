@@ -89,15 +89,6 @@ export default async function HomePage() {
     <div className="space-y-14 lg:space-y-section">
       <PhotoStrip photos={home.featuredPhotos} />
 
-      {/*
-        Slot 5. Parked, not deleted — `blurb` is still fetched by HOME_QUERY, and so are
-        `featuredTitle` and `featuredSubtitle`. All three are waiting on a decision about where
-        they belong now the page opens with photographs instead of closing with them. Do not delete
-        the fields or the query lines to tidy up; that is a content decision.
-
-        <ProseText value={home.blurb} className="type-body-serif-lg max-w-read" />
-      */}
-
       <FeaturedWriting items={home.featuredWriting} />
     </div>
   )

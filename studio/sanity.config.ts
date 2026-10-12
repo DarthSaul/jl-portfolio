@@ -17,7 +17,7 @@ const SINGLETON_BLOCKED_ACTIONS = new Set(['delete', 'duplicate', 'unpublish'])
  * same photograph drift apart the first time she fixes a typo in one of them.
  *
  * `tag` is the same shape of mistake with a different symptom. Duplicate copies the slug
- * verbatim, so two tag documents end up claiming one web address: the filter row on /shots/all
+ * verbatim, so two tag documents end up claiming one web address: the filter row on /gallery/all
  * shows the same word twice, each showing half the photographs, and **nothing errors** — the
  * slug's uniqueness check runs on the document she is editing, not on the copy Duplicate made
  * for her. A tag is cheap to create from scratch and there is nothing on one worth copying.

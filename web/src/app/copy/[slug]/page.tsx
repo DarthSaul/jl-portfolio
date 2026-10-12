@@ -24,7 +24,7 @@ import { POST_QUERY, POST_SLUGS_QUERY } from '@/sanity/queries/writing'
 /**
  * Prerender every post at build time; anything else is built on first request and then cached.
  *
- * This is free here in a way it would not be on `/shots/[slug]`: that route reads `searchParams`
+ * This is free here in a way it would not be on `/gallery/[slug]`: that route reads `searchParams`
  * for the showcase, which makes it dynamic, and `generateStaticParams` on a dynamic route is inert
  * — it would look like an optimisation and do nothing. See CLAUDE.md.
  */

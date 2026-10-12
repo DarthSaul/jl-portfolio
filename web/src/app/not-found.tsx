@@ -1,10 +1,10 @@
 import Link from 'next/link'
 
 /**
- * The 404. Reached by `notFound()` from `/copy/[slug]` and `/shots/[slug]` when the slug names
+ * The 404. Reached by `notFound()` from `/copy/[slug]` and `/gallery/[slug]` when the slug names
  * no document, and by any address with no route at all.
  *
- * Note what does *not* reach here: a bad or hidden `?photo=` on either `/shots` page. That is a
+ * Note what does *not* reach here: a bad or hidden `?photo=` on either `/gallery` page. That is a
  * query parameter, and CLAUDE.md's rule is that a query parameter must never be able to replace
  * a working gallery with an error screen — so the showcase renders its own "that photo is not
  * here" message with a way back, in place, and the page around it keeps working.
@@ -21,7 +21,7 @@ export default function NotFound() {
       <ul className="flex flex-wrap items-center gap-6">
         {[
           { href: '/', label: 'Start' },
-          { href: '/shots/all', label: 'All shots' },
+          { href: '/gallery/all', label: 'All shots' },
           { href: '/copy', label: 'Copy' },
         ].map(link => (
           <li key={link.href}>

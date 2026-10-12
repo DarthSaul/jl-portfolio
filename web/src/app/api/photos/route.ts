@@ -3,7 +3,7 @@ import { sanityFetch } from '@/sanity/fetch'
 import { MORE_PHOTOS_QUERY, PAGE_SIZE } from '@/sanity/queries/allShots'
 
 /**
- * One further slice of `/shots/all`, for infinite scroll.
+ * One further slice of `/gallery/all`, for infinite scroll.
  *
  * ## Why this exists at all
  *

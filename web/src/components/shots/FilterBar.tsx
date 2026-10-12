@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { TagOption } from '@/sanity/queries/allShots'
 
 /**
- * The tag filter row on /shots/all.
+ * The tag filter row on /gallery/all.
  *
  * DESIGN.md has no filter component, so this is built from the two it does define, used at their
  * stated polarity: `button-outline` (canvas fill, 1px ink border, ink text) for the inactive state
@@ -39,7 +39,7 @@ import type { TagOption } from '@/sanity/queries/allShots'
  * are already here. Same page, two kinds of query parameter, two mechanisms — and that is the
  * distinction to preserve if either is ever touched.
  *
- * **`prefetch={false}` is not a micro-optimisation.** `/shots/all` is a dynamic route, so Next
+ * **`prefetch={false}` is not a micro-optimisation.** `/gallery/all` is a dynamic route, so Next
  * prefetching each chip as it enters the viewport would fire a full server render of the page —
  * including its Sanity read — once per chip, before anyone clicks anything.
  *
@@ -60,18 +60,18 @@ const BASE
  * identically — the same instinct that keeps the unfiltered page free of an empty parameter.
  *
  * The `tag` key is dropped entirely rather than set to empty when nothing is left, so clearing the
- * last chip lands on the canonical `/shots/all`.
+ * last chip lands on the canonical `/gallery/all`.
  */
 function toggleHref(active: string[], slug: string): string {
   const next = active.includes(slug)
     ? active.filter(value => value !== slug)
     : [...active, slug].sort()
 
-  if (!next.length) return '/shots/all'
+  if (!next.length) return '/gallery/all'
 
   const params = new URLSearchParams()
   for (const tag of next) params.append('tag', tag)
-  return `/shots/all?${params.toString()}`
+  return `/gallery/all?${params.toString()}`
 }
 
 export function FilterBar({
@@ -121,7 +121,7 @@ export function FilterBar({
         {active.length > 0 && (
           <li>
             <Link
-              href="/shots/all"
+              href="/gallery/all"
               prefetch={false}
               className="type-body-sm-strong inline-block px-2 py-2 uppercase tracking-[0.1em] text-muted underline transition-colors hover:text-ink"
             >

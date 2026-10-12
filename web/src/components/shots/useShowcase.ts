@@ -11,8 +11,8 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  *
  * ## Why it is a query parameter and not a route
  *
- * `?photo=<_id>` on whichever `/shots/*` page you were already on. The obvious alternative is a
- * nested route — `/shots/[slug]/[photo]` — and it is rejected for what it would cost `/shots/all`,
+ * `?photo=<_id>` on whichever `/gallery/*` page you were already on. The obvious alternative is a
+ * nested route — `/gallery/[slug]/[photo]` — and it is rejected for what it would cost `/gallery/all`,
  * which holds two things a route change destroys: `appended`, every photograph loaded past the
  * first page, and the `IntersectionObserver` driving it.
  *
@@ -21,7 +21,7 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  *
  * ## Why `history.pushState` and not `<Link>`
  *
- * Both `/shots/*` routes are dynamic — they read `searchParams` on the server so a deep link
+ * Both `/gallery/*` routes are dynamic — they read `searchParams` on the server so a deep link
  * renders the photograph as the page. That makes a `<Link>` to `?photo=X` a **real navigation**:
  * the RSC payload is refetched and the whole first page of `ALL_SHOTS_QUERY` re-runs, on every
  * open *and* every close. On a ~200 kB LQIP payload that is the exact cost the paging exists to
@@ -141,7 +141,7 @@ export function useShowcase(photos: PhotoProjection[]) {
    * stays on screen while the showcase is open, and `FilterBar`'s links drop `photo` entirely — so
    * clicking a tag from inside the showcase closes it *and* changes the list underneath in one
    * navigation. Restoring a position measured against the old list would drop the visitor into the
-   * middle of a different set of photographs; worse, it would land after `/shots/all`'s own
+   * middle of a different set of photographs; worse, it would land after `/gallery/all`'s own
    * scroll-to-top on a filter change and silently undo it. When the view has moved, the position
    * is not ours to restore and the page's own handling wins.
    *

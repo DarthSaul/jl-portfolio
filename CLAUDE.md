@@ -86,7 +86,7 @@ Consequences to keep in mind:
   `sanity dev`: `npx sanity cors add <origin> --credentials`.
 - **The *app* needs no CORS entry at all any more, and that is a property worth defending.**
   Nothing in the browser talks to Sanity: every read happens on the server, and the one that
-  used to happen after hydration — "load more" on /shots/all — goes through `app/api/photos`.
+  used to happen after hydration — "load more" on /gallery/all — goes through `app/api/photos`.
   A server request sends no `Origin` header, so the allowlist cannot apply to the app.
 
   Two app origins are still registered, `https://*.vercel.app` and `http://localhost:3000`,
@@ -401,7 +401,7 @@ Galleries hold an **array of references** to photo documents.
 Never embed an image inside a gallery document. Never inline an image field into a gallery
 array item. Never copy alt text or caption onto the reference.
 
-The same photograph appears on `/shots/all` and on a gallery page. It must be **one record with one
+The same photograph appears on `/gallery/all` and on a gallery page. It must be **one record with one
 alt text**, or the two copies drift apart the first time she fixes a typo in one of them.
 
 If a caption genuinely needs to differ by context, that is a discussion to have — not
@@ -420,7 +420,7 @@ page builder — that is the exact thing this project exists to replace.
 Adding a preset means two changes, always together:
 
 1. A new component in `web/src/components/presets/`, satisfying `GalleryPresetProps`.
-2. A new option in the hard-coded preset list in the gallery schema.
+2. A new option in the hard-coded preset list, `LAYOUT_PRESETS` in `studio/schemaTypes/galleryFields.ts` (shared by `gallery` and `featuredPage`).
 
 The schema field is a `string` with a fixed `options.list`. It is never a free-text field.
 A preset value that has no matching component must be impossible — and it is: the `PRESETS` map
@@ -438,9 +438,10 @@ photographs are not clickable, and fail silently otherwise.
 | Route | Contents |
 | --- | --- |
 | `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
-| `/shots/all` | Every photo she has uploaded except those flagged `excludeFromIndex` — and except those whose *every* tag is flagged `tag.excludeFromIndex` (one visible tag keeps a photo in; untagged photos always show). Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
-| `/shots/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
-| `/shots/*?photo=<_id>` | Not a route — the **showcase**. One photograph, alone and centred, on either page above. See *The showcase* below. |
+| `/gallery/all` | Every photo she has uploaded except those flagged `excludeFromIndex` — and except those whose *every* tag is flagged `tag.excludeFromIndex` (one visible tag keeps a photo in; untagged photos always show). Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
+| `/gallery/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
+| `/featured` | The `featuredPage` singleton — **a gallery with a fixed address**. Same fields (`studio/schemaTypes/galleryFields.ts`), same query projection, same `GalleryView`, showcase included; it is a top-level menu item rather than one listed under GALLERIES. A missing document is a 500, like `/` and `/bio`. |
+| `/gallery/*?photo=<_id>`, `/featured?photo=<_id>` | Not a route — the **showcase**. One photograph, alone and centred, on any page above. See *The showcase* below. |
 | `/copy` | Her own posts and links out to others, newest first, interleaved. One leads; the rest are a ledger. The lead is the newest **unless she sets `writingPage.featured`** |
 | `/copy/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
 | `/bio` | Her bio — prose with photographs in it. Same body shape as a `post`. |
@@ -451,29 +452,32 @@ types are still `post`, `article`, `writingPage` and `aboutPage`, the queries ar
 `WRITING_QUERY` and `ABOUT_QUERY`, and the components are still `components/writing/`. Renaming
 a Sanity document type is a content migration bought with nothing, and the Studio labels carry
 her words instead (*Copy page*, *Copy post*, *Copy link*, *Bio*). `next.config.ts` `redirects()`
-307s the old three addresses, including `/shots/everything`. (307, not 302: Next's shorthand has
-no 302, and the property that matters — temporary, not browser-cached — is the same.)
+307s the old addresses: `/writing`, `/about`, `/shots/everything`, and every `/shots/*`, which
+became `/gallery/*` on 2026-10-11 (`/shots/all` → `/gallery/all`). The rule order is
+load-bearing — see `next.config.ts`. (307, not 302: Next's shorthand has no 302, and the property
+that matters — temporary, not browser-cached — is the same.) The same internals rule held for that
+rename: `components/shots/`, `queries/shots.ts` and `allShots.ts` kept their names.
 
-The `Start` nav item was going to become `Shots` in the same pass and was deferred. It still
-says START and still points at `/`; only the sub-item under it changed, from EVERYTHING to
-ALL SHOTS.
+**START is no longer the galleries' parent.** It is a plain link to `/`, and the galleries hang
+under GALLERIES, a top-level item that is a toggle and not a page. See *The front page* for the
+menu.
 
 ## The showcase
 
-Clicking any photograph on `/shots/all` or `/shots/<slug>` opens it alone and centred, at
+Clicking any photograph on `/gallery/all` or `/gallery/<slug>` opens it alone and centred, at
 `?photo=<_id>` on the page you were already on. The front page is the exception — its
 photographs are links into galleries, and `home/PhotoStrip.tsx` keeps its own slot.
 
 **It is a query parameter and not a route, and the reason is measured rather than aesthetic.**
-On `/shots/all` the page holds two things a route change would destroy: `appended` — every
+On `/gallery/all` the page holds two things a route change would destroy: `appended` — every
 photograph loaded past the first page — and the `IntersectionObserver` driving it. A nested
-route (`/shots/[slug]/[photo]`) would unmount the index and mean lifting the accumulator into
+route (`/gallery/[slug]/[photo]`) would unmount the index and mean lifting the accumulator into
 shared state plus hand-rolled scroll restoration, for a prettier address. It also composes:
 `?tag=life&photo=X` closes back to the filter you came from.
 
 **The navigation is `window.history.pushState`, and that is the load-bearing part.** Nuxt got
 "a query-only change does not re-run the page" for free, because it keyed a page by its
-interpolated path rather than by `fullPath`. Next has no such rule — both `/shots/*` routes are
+interpolated path rather than by `fullPath`. Next has no such rule — both `/gallery/*` routes are
 dynamic, so a `<Link>` to `?photo=X` is a real navigation that refetches the RSC payload and
 re-runs `ALL_SHOTS_QUERY` on **every open and every close**. On a ~200 kB LQIP payload that is
 the exact cost the paging exists to avoid, paid on a UI gesture.
@@ -486,7 +490,7 @@ Forward across those entries stay soft navigations. So the property Nuxt inherit
 survives an open/close cycle unchanged.**
 
 - **It is not a preset**, and must never join `LAYOUT_PRESETS` or the `PRESETS` map. She never
-  chooses it; it is a behaviour of every photograph on `/shots/*`, like the filter row.
+  chooses it; it is a behaviour of every photograph on `/gallery/*`, like the filter row.
 - **Sizing is a bound, not a crop.** `--showcase-h` (an `@utility` in `globals.css`) times the
   photograph's own `--ar` gives a `max-width`, so the photograph fills whichever dimension runs
   out first with its ratio intact. No `crop`, no `CROPS` entry, no `object-cover`, no new
@@ -502,8 +506,8 @@ survives an open/close cycle unchanged.**
   - **`FilterBar` is the deliberate opposite**: a tag change *must* reach the server, because it
     is a different set, a different first page and a different total. Same page, two kinds of
     query parameter, two mechanisms — preserve that distinction if either is touched.
-- **`/shots/[slug]` needs no second query for it** — `GALLERY_QUERY` returns the whole array, so
-  the id resolves with a `find`. `/shots/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`,
+- **`/gallery/[slug]` needs no second query for it** — `GALLERY_QUERY` returns the whole array, so
+  the id resolves with a `find`. `/gallery/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`,
   resolved **on the server** when the id is not in the first page so a shared link paints the
   photograph in the HTML, and not at all otherwise. That query **restates `INDEX_VISIBILITY`**
   — the photo's own `excludeFromIndex` and the every-tag-hidden rule both: they are rules about
@@ -531,7 +535,7 @@ survives an open/close cycle unchanged.**
 **The numbered slots are gone, and this section is kept because what replaced them is
 smaller.** The page began as seven fixed slots mirroring the Squarespace site it replaces,
 numbered 1–7 in `homePage`'s field order. Slots 1–3 became site chrome on every page; slot 4
-moved to `/bio`; and two more are parked. Numbering three surviving fields against a scheme
+moved to `/bio`; and the rest were removed. Numbering the surviving fields against a scheme
 that no longer describes the page was costing more than it explained.
 
 What the front page renders today, in the order it renders it:
@@ -545,12 +549,13 @@ Everything above those two is the sidebar, on every page: the site name, the byl
 nav. The byline is on `siteSettings` rather than `homePage` precisely because of that.
 "Featured Writing" is a hardcoded heading in the component, not a field.
 
-**Three fields are fetched and not rendered, and none of them is dead.** `blurb` sits as a
-commented line in `app/page.tsx`; `featuredTitle` and `featuredSubtitle` came off the photo row
-when it became a grid, and `ProseHeading` has had no caller since. All three are still in the
-schema and still in `HOME_QUERY`, waiting on a decision about where they belong now the page
-opens with photographs instead of closing with them. Do not delete the fields or the query
-lines to tidy up — that is a content decision, not a cleanup.
+**`blurb`, `featuredTitle` and `featuredSubtitle` are gone.** They were fetched and not
+rendered for months, parked while their place on the page was decided, and this file said not to
+delete them because that was a content decision. On 2026-10-11 the decision was made: nothing on
+the site used them and they confused her in the Studio. The fields, the `HOME_QUERY` lines,
+`ProseHeading` (whose only caller was `featuredTitle`) and the stored values all went —
+the last by `migrations/unset-home-parked-fields`, drafts included. The old copy is in the
+pre-migration export, `studio/.promote/development-before-featured-2026-10-11.tar.gz`.
 
 **The whole introduction left this page.** `introHeading` and `intro` are `aboutPage`'s fields
 now and open `/bio`; the component that renders them moved with them, from `home/Hero.vue` to
@@ -559,24 +564,54 @@ has no photo field by design, and photographs on that page come from the body. N
 front page shows a photograph of her any more, which is the intended end state rather than a
 gap: the page opens with her work.
 
-**Status: the site name and byline still do not read from Sanity.** They come from
-`web/src/content/site.ts`, because no `siteSettings` document exists in either dataset — the
-type is in the schema, nothing has been created against it. Wiring them means creating the
-singleton and giving the layout a query, which is site chrome rather than front-page work and
-touches every route.
+**The site's words read from Sanity: `siteSettings`.** The site name, byline, description,
+the six menu labels (START, GALLERIES, FEATURED, ALL SHOTS, COPY, BIO), the order of the five
+top-level menu items, the gallery order under GALLERIES and a switch for the sidebar portrait are
+all fields on that singleton, read through `getSiteSettings()` in
+`web/src/sanity/siteSettings.ts` — by the root layout (metadata and sidebar), by `SiteNav` (the
+labels and order) and by the `/gallery/*` and `/featured` pages (the showcase's tab-title
+suffix). The document was
+created on 2026-10-10 in `development` by `studio/scripts/seed-site-settings.ts`, from the text
+`content/site.ts` held and the `navOrder` numbers on the galleries, so the site read the same
+before and after the switch.
+
+**`getSiteSettings()` falls back, field by field, to `SITE_FALLBACK` in `content/site.ts`** —
+on a failed read, a missing document, or an empty field. That copy is not the source and goes
+stale the moment she edits a field; it exists so a Sanity outage leaves a sidebar with a name in
+it. The cost is that a broken settings read *looks like an edit that did not stick*: her old
+text comes back. Both cases log `siteSettings: …` naming which one it was — check the server log
+before assuming the Studio lost something. Why it swallows rather than throws: an error in the
+root layout bypasses `error.tsx` entirely, so a throw here would replace every page, including
+`/docs` and the 404, with Next's bare error screen.
+
+One consequence of the layout reading Sanity: **`/docs` and `/_not-found` now revalidate every
+60s rather than being fully static.** Harmless — the markdown is still read from the deployment's
+own disk — but it is why `next build` lists a `1m` against them.
 
 **Slot 3, the nav, is no longer purely frontend — and that reverses a decision this file used
 to state flatly.** It said the nav was frontend-only by design and stayed there, and that held
 while every route was known at build time. It stopped holding the moment she could create a
 gallery and expect a page to exist for it: the route table is now partly hers.
 
-The reversal is deliberately partial, and the split is the thing to preserve. The three
-top-level items are still hardcoded in `content/site.ts`, because they are the shape of the
-site. Only the gallery sub-items under START come from Sanity, via `queries/nav.ts`. One
-consequence worth knowing: `SiteNav` is the only place on the site that **swallows a query
-error**. Every route throws on a failed Sanity read, because a page with no content is broken;
+The reversal is deliberately partial, and the split is the thing to preserve. The five
+top-level items are still hardcoded in `content/site.ts` (`SITE.nav`), because they are the shape
+of the site: START (`/`), GALLERIES (no route — the heading the galleries are listed under, and a
+toggle), FEATURED (`/featured`), COPY (`/copy`) and BIO (`/bio`). Their *labels* and their
+*order* are hers (`siteSettings.navLabels`, `.menuOrder`), because a label is a name, an order is
+an arrangement, and a route she could change would be a page that can vanish. `menuOrder` is a
+drag-only list in the Studio (`options.disableActions` removes add, remove and duplicate; the
+`page` field is read-only), and `orderNav` in `content/site.ts` enforces the same on read —
+unknown or repeated keys dropped, and a missing item inserted after the item it follows in the
+default order — so no stored value can produce a menu missing an item, and an item added to the
+site later lands beside its default neighbour rather than at the bottom of her menu.
+`studio/scripts/seed-site-settings.ts` writes that same insertion into the stored list, which is
+how GALLERIES and FEATURED reached `development` on 2026-10-11; the Studio would otherwise show
+three items and fail validation. The galleries under GALLERIES come from Sanity, via
+`queries/nav.ts`. One consequence worth knowing: `SiteNav` is one of exactly **two
+places on the site that swallow a query error** — the other is `getSiteSettings()`, which it
+calls. Every route throws on a failed Sanity read, because a page with no content is broken;
 this is chrome on every page, so a failure costs the gallery links and leaves the site
-navigable rather than taking down every route at once.
+navigable, under its fallback labels, rather than taking down every route at once.
 
 **The nav is split across two files**, and the seam is the server/client boundary: `SiteNav.tsx`
 is an async Server Component that runs `NAV_QUERY`, and `SiteNavList.tsx` is the `'use client'`
@@ -587,27 +622,44 @@ Three things about that sub-list — the first in `SiteNav.tsx`, the other two i
 `SiteNavList.tsx` (an earlier version of this list put all three in the second file, which was
 wrong even then):
 
-- **Its order is the query's, and hers.** `NAV_QUERY` orders by
-  `coalesce(navOrder, 999999) asc, title asc` — `navOrder` is "Menu position" in the Studio, an
-  optional number on `gallery`, lowest first. The coalesce sentinel is load-bearing: GROQ sorts
-  null FIRST on asc, so without it an unnumbered gallery would jump to the top instead of
-  falling to the end A–Z. `SiteNav.tsx` appends ALL SHOTS at the bottom and reorders nothing.
-  The `PINNED_FIRST` slug pin that used to hold `life` at the top — app code naming one of her
-  documents — is gone; the field is that pin become hers, exactly the "ordering field on
-  `gallery`" this paragraph used to defer.
-- **It collapses**, via a button beside START rather than by making START itself the toggle —
-  a link that also expands is the classic nav trap where a keyboard user reaches the section
-  and never the page. Open by default; the state is plain component state and survives
-  client-side navigation because App Router preserves layouts across it, so `SiteNavList` never
-  unmounts.
+- **Its order is the query's, and hers: a drag list in Site settings.** `siteSettings.galleryOrder`
+  ("Gallery order", under the Menu tab) is an array of strong references to galleries. `NAV_QUERY`
+  returns two legs that `SiteNav.tsx` concatenates: `placed`, her list in her order, and `rest`,
+  every published gallery she has not placed, A–Z — so a new gallery appears at the end of the
+  menu on its own until she drags it somewhere. ALL SHOTS is appended last, and nothing is
+  reordered in code.
+  - It replaced `gallery.navOrder` ("Menu position"), an optional number on each gallery that
+    she had to keep consistent with the others by hand. The numbers seeded the list and were
+    then removed by `migrations/unset-gallery-nav-order`.
+  - **The Studio shows the whole menu, not just the placed part.** `GalleryOrderInput` renders
+    the array and then the unplaced galleries with Place / Place all — the `PhotoOrderInput`
+    pattern, sharing `components/orderInputParts.ts`. Its `TAIL_QUERY` must stay the same query
+    as `NAV_QUERY`'s `rest` leg, or the Studio previews a menu the site does not render.
+  - **The `coalesce(…, [])` in `rest` is load-bearing**, measured: with no settings document or
+    an empty list, `galleryOrder[]._ref` is null, `_id in null` is null rather than false, and
+    the filter drops *every* gallery — an empty menu instead of an A–Z one.
+  - **Both settings queries filter on `_type` as well as `_id`.** Typegen narrows on `_type` and
+    not on `_id`, so `*[_id == "siteSettings"]` alone typed as a union over every document type
+    and the `placed` leg as `Array<null>`.
+  - Strong references mean deleting a gallery that is in the menu is refused, and Sanity names
+    Site settings as the reason — the same guardrail tags have. She removes it from the list
+    first.
+- **It collapses, and GALLERIES itself is the toggle** — a real `<button>`, because GALLERIES is
+  not a page. Until 2026-10-11 the galleries hung under START, which *was* a page, so the toggle
+  had to be a separate chevron: a link that also expands is the classic nav trap where a keyboard
+  user reaches the section and never the page. Giving the group its own heading removed the trap
+  instead of working around it, and made a nested `<ul>` honest — `/gallery/<slug>` was never a
+  child of `/`, which is why the group used to be a sibling `<li>` styled to look nested. Open by
+  default; the state is plain component state and survives client-side navigation because App
+  Router preserves layouts across it, so `SiteNavList` never unmounts.
 - **`hidden={!open}`, never conditional rendering, on the group.** The button's `aria-controls`
   names the list by id, and removing the element would leave that attribute pointing at nothing
   exactly when the group is closed — which is when it is being read.
 
 **Slots 1–3 are no longer a header.** They are the top of the left sidenav — `SiteSidebar.tsx`
-— on every page, and a hamburger drawer below `lg`. That does not change where they read from
-or what would have to happen to wire them to `siteSettings`; it changes only which file to
-open. One consequence worth knowing: the byline sits in the collapsible part of the sidebar, so
+— on every page, and a hamburger drawer below `lg`. `SiteSidebar` is a client component, so it
+never reads Sanity itself: the layout passes the name, byline and portrait switch down as
+props. One consequence worth knowing: the byline sits in the collapsible part of the sidebar, so
 on a phone it is visible only while the nav is open. The alternative was the same string in two
 places, which is worse.
 
@@ -620,25 +672,26 @@ Swapping in six of Joan's photographs (any number works; six makes two even desk
 
 ## The content model
 
-Thirteen types. The schema files in `studio/schemaTypes/` are the source of truth; this table
+Fourteen types. The schema files in `studio/schemaTypes/` are the source of truth; this table
 is a map, not a spec.
 
 | Type | Shape | Notes |
 | --- | --- | --- |
 | `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
-| `gallery` | title, slug, **navOrder**, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. Fills from tags (union — any of them) **or** a hand-picked list — see *Two ways a gallery fills itself*. `navOrder` is "Menu position" in the nav; `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. |
-| `tag` | title, slug, **excludeFromIndex** | **Hers to add, rename and remove.** Replaced the hardcoded `PHOTO_TAGS` array. `excludeFromIndex` hides it from /shots/all — see the reversal note below. |
+| `gallery` | title, slug, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. The preset and fill fields are `galleryFields.ts`, shared with `featuredPage`. Fills from tags (union — any of them) **or** a hand-picked list — see *Two ways a gallery fills itself*. `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. Its place in the menu is not on the gallery — see `siteSettings.galleryOrder`. |
+| `tag` | title, slug, **excludeFromIndex** | **Hers to add, rename and remove.** Replaced the hardcoded `PHOTO_TAGS` array. `excludeFromIndex` hides it from /gallery/all — see the reversal note below. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
-| `homePage` | title, blurb, featuredWriting → refs, featuredTitle, featuredSubtitle, featuredPhotos → `featuredPhoto` objects | Singleton. See *The front page*. The whole introduction — heading, text and photo — has left this document. |
+| `homePage` | title, featuredPhotos → `featuredPhoto` objects, featuredWriting → refs | Singleton. See *The front page*. The whole introduction — heading, text and photo — has left this document, and so have `blurb`, `featuredTitle` and `featuredSubtitle`. |
+| `featuredPage` | title, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Singleton, at /featured. A gallery with a fixed address and no slug: every field after `description` is `galleryFields.ts`, the same definitions `gallery` uses, so the two cannot drift. |
 | `writingPage` | title, intro, **featured → ref** | Singleton. Posts and articles are queried, not listed by hand. `featured` is optional; empty means the newest leads. |
 | `aboutPage` | title, introHeading, intro, body | Singleton. Body is prose + `postPhoto`, like `post`. The heading and intro came from `homePage`. Called **About** in the Studio. |
 | `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
-| `siteSettings` | title, byline, description, shareImage → ref, links | Singleton |
+| `siteSettings` | title, byline, description, **showPortrait**, shareImage → ref, links, **navLabels**, **menuOrder**, **galleryOrder → refs** | Singleton, two tabs (Site, Menu). The sidebar's words, the menu labels, the order of the five top-level items and the gallery order under GALLERIES — see *The front page*. `shareImage` is recommended, not required (custom-rule warning, per the typegen note in *Commands*); nothing renders it yet. |
 | `link` | label, url | Object. Used only by `siteSettings.links`. |
 | `postPhoto` | photo → ref, layout | Object. A photo between paragraphs of any body — `post` or `aboutPage`. `layout` is a two-value **preset**, not a positioning control — see below. |
 | `featuredPhoto` | photo → ref, gallery → ref (optional) | Object. One slot in the front-page grid, and where it links. |
-| `proseText` | array of one restricted block | The rich-text type. Used by `homePage.intro`, `.blurb`, `.featuredTitle` and `.featuredSubtitle`. |
+| `proseText` | array of one restricted block | The rich-text type. Used by `aboutPage.intro`. |
 
 **`post` and `article` split her writing by where it lives**, and that is the only thing
 that distinguishes them. An `article` points at a piece someone else published — the New
@@ -752,7 +805,7 @@ Things worth knowing before changing any of it:
     biggest thing the change buys, and it is why the references are not weak.
 
   What still costs something is the **slug**, which is the `?tag=` in a shared address and what
-  `/shots/all` filters on. Change names freely; leave addresses alone.
+  `/gallery/all` filters on. Change names freely; leave addresses alone.
 
   **The cost, which is real and lands on her:** a reference array cannot render as a checkbox
   grid, so tagging a photograph is now "Add item → search → pick" rather than one tick. Weighed
@@ -785,7 +838,7 @@ Things worth knowing before changing any of it:
     and nothing errors — the slug uniqueness check runs on the document she is editing, not on
     the copy Duplicate made.
 - **`excludeFromIndex` is a boolean on `photo`, deliberately not a tag.** It hides a photograph
-  from `/shots/all` and from nowhere else — she asked for it so an article's cover photo
+  from `/gallery/all` and from nowhere else — she asked for it so an article's cover photo
   need not appear among her photography. It was very nearly an "Exclude" *tag*, and the reason
   it is not is what tags have become: a tag is a topic, it generates a browse list, and a
   gallery can be pointed at one. An "Exclude" value sitting between "Mexico 2022" and "Street"
@@ -807,7 +860,7 @@ Things worth knowing before changing any of it:
   generated shape, never hand-written, exactly as `PhotoProjection` is.
 - **Two ways a gallery fills itself, and exactly one photo list is visible at a time.** Set
   one or more `tags` and the page shows every photo carrying ANY of them — union, the same
-  reading the /shots/all filter row gives multiple selections — growing on its own as she
+  reading the /gallery/all filter row gives multiple selections — growing on its own as she
   tags more. Leave `tags` empty and she picks the photos by hand and drags them into order.
   Setting a tag *hides* the photo list rather than greying it out — and swaps in `leadPhotos`,
   below — so there is one answer on screen to "where do the photos come from" instead of two
@@ -849,7 +902,7 @@ Things worth knowing before changing any of it:
   new meaning, the same trade the /copy and /bio renames made.
   Hand-picking is still the mode for "these fifty, in this order".
 
-  Both modes resolve to one `photos` array in `queries/shots.ts`, so `/shots/[slug]` never
+  Both modes resolve to one `photos` array in `queries/shots.ts`, so `/gallery/[slug]` never
   branches and the presets only ever see photographs.
 
   **The empty-string trap that used to sit here is gone, and its array cousins are guarded
@@ -890,28 +943,19 @@ Things worth knowing before changing any of it:
   writing carries meaning plain text cannot: italicised titles and links out. The two bodies
   are the same shape and the same exception — a bio is prose with photographs in it, which is
   what `post.body` already was.
-  - **`homePage.featuredTitle` and `.featuredSubtitle` are `proseText` too**, and the title
-    is the one *heading* on the site that can carry emphasis. Her own copy asked for it:
-    "Getting a Handle on @joanatstake" wants the handle set apart. Nothing was added to
-    `proseText` to allow it — the type already offered bold, italic and a link, and this
-    only widened which fields use it. Reach for the same move before ever adding a mark.
-  - **A rich-text heading needs `ProseHeading`, not `ProseText`.** Portable Text renders one
-    element per block, and a `normal` block is a `<p>` — so pointing `ProseText` at a heading
-    produces a `<div>` wrapping a `<p>` that merely looks like one, with nothing in the
-    document outline. `ProseHeading` makes the `<h2>` the real element and overrides
-    `components.block.normal` so a block renders as nothing but its children.
-    - The reason it needs its own root element at all: **`<PortableText>` renders no wrapper of
-      its own**, so there is nothing for a heading's element or a wrapper's vertical rhythm to
-      sit on unless the caller supplies one. That is what the `<div>` in `ProseText` is for.
-    - **The Vue version of that note described a trap, and the trap is gone.** `SanityContent`
-      set `inheritAttrs: false`, so a `class` handed to it was silently dropped — and the
-      block components needed `inheritAttrs = false` of their own or every render warned about
-      block props landing on the element as junk attributes. React passes only what a component
-      destructures, so both halves simply do not exist. What survives is the *structural* half:
-      the wrapper is still required, and typography classes are now an explicit `className`
-      prop rather than attribute fallthrough.
-    - `featuredTitle` is capped at one block by `rule.max(1)`, because Enter in the editor
-      otherwise makes a second paragraph that would render inside the same heading.
+  - **`proseText`'s one user is `aboutPage.intro`.** `homePage.blurb`, `.featuredTitle` and
+    `.featuredSubtitle` used it too, and were removed on 2026-10-11 — see *The front page*.
+    `featuredTitle` was the one *heading* that could carry emphasis, rendered through a
+    `ProseHeading` component that went with it. If a rich-text heading ever comes back, the
+    lesson it taught: Portable Text renders one element per block and a `normal` block is a
+    `<p>`, so a heading needs its own component that makes the `<h2>` the real element and
+    renders each block as nothing but its children — `ProseText` would give a `<p>` that merely
+    looks like one. Cap the field at one block with `rule.max(1)`.
+  - **`<PortableText>` renders no wrapper of its own**, so there is nothing for a wrapper's
+    vertical rhythm to sit on unless the caller supplies one. That is what the `<div>` in
+    `ProseText` is for. (The Vue version of this note described an `inheritAttrs` trap that
+    dropped a `class` silently; React passes only what a component destructures, so it does not
+    exist. Typography classes are an explicit `className` prop.)
   - The restriction is the whole point, and it lives in `objects/proseText.ts`. **The
     `styles`, `lists` and `marks` arrays REPLACE Sanity's defaults rather than extending
     them** — the same trap as `photo.image.options.metadata`, failing the same quiet way.
@@ -925,9 +969,9 @@ Things worth knowing before changing any of it:
     already used leaves blocks whose style no longer matches the list.
   - **`rule.max(n)` changes meaning when a field becomes `proseText`: it counts characters on
     a `string`/`text` and array *members* on Portable Text.** A carried-over `rule.max(500)`
-    keeps validating and silently guards nothing — the same line, quietly weakened. That is
-    why `featuredSubtitle`'s length guard is a hand-written `rule.custom` that walks down to
-    the spans, where the text actually lives.
+    keeps validating and silently guards nothing — the same line, quietly weakened. A length
+    guard on Portable Text has to be a hand-written `rule.custom` that walks down to the spans,
+    where the text actually lives (the removed `featuredSubtitle` had one).
   - **`postPhoto.layout` is a preset, and it is the one place that distinction has been
     tested.** The object's own comment used to end "do not add a width, a size, an alignment or
     a 'full bleed' toggle to it", and a full-width option looks exactly like the last of those.
@@ -1018,16 +1062,19 @@ web/                        ✎ The Next app. Vercel's root directory.
                               the body, as postPhoto members; there is no photo field.
       copy/page.tsx         ✎ LIVE — /copy : posts and links out, newest first
       copy/[slug]/page.tsx  ✎ LIVE — one post, body and all. generateStaticParams.
-      shots/all/page.tsx    ✎ LIVE — the index of every photo. STATIC ROUTE, so it shadows
+      gallery/all/page.tsx  ✎ LIVE — the index of every photo. STATIC ROUTE, so it shadows
                               [slug] — gallery.ts refuses that slug. Server half only: it
                               owns searchParams, the first page and the deep-link lookup.
-      shots/[slug]/page.tsx ✎ LIVE — one gallery, through its preset. No shots/page.tsx:
-                              /shots itself was a stub and is gone, so it 404s while its
-                              children do not.
+      gallery/[slug]/page.tsx ✎ LIVE — one gallery, through its preset. No gallery/page.tsx:
+                              /gallery itself is not a page (GALLERIES in the menu is a
+                              toggle, not a link), so it 404s while its children do not.
+      featured/page.tsx     ✎ LIVE — /featured : the featuredPage singleton, through the same
+                              GalleryView and query projection as a gallery.
       contact/page.tsx        Not built. Text and links only — see Non-goals.
       docs/page.tsx         ✎ LIVE — /docs : the Field Guide, from content/docs/. Unlisted
-                              and noindexed; fully static (no fetch, no dynamic APIs), so
-                              the markdown is read at build and updates ship with deploys.
+                              and noindexed. The page itself makes no fetch, so the markdown
+                              updates ship with deploys; it revalidates every 60s only because
+                              the root layout reads siteSettings.
       admin/route.ts        ✎ 302 redirect to SANITY_STUDIO_URL. force-dynamic — see below.
       api/photos/route.ts   ✎ One further slice, for infinite scroll. The site's ONLY
                               endpoint the browser calls, and the reason no env var is public.
@@ -1052,12 +1099,18 @@ web/                        ✎ The Next app. Vercel's root directory.
         home.ts             ✎
         shots.ts            ✎ GALLERY_QUERY — one gallery, both fill modes resolved to one
                               `photos` array. Read the `^` scoping notes before editing it.
+                              FEATURED_QUERY — /featured, through the same GALLERY_PROJECTION.
         writing.ts          ✎ WRITING_QUERY (the list, plus the featured piece), POST_QUERY
                               (one post) and POST_SLUGS_QUERY (generateStaticParams). Owns
                               WRITING_ITEM_PROJECTION, which home.ts imports — the front
                               page's cards are the same union.
         about.ts            ✎ ABOUT_QUERY — the bio, body dereferenced
+        siteSettings.ts     ✎ SITE_SETTINGS_QUERY. Chrome, not a route. Never called directly —
+                              go through sanity/siteSettings.ts, where the fallback lives.
         contact.ts            Not built.
+      siteSettings.ts       ✎ getSiteSettings() — React cache(), merges each field over
+                              SITE_FALLBACK, swallows and logs a failed read. One of the two
+                              error-swallowing call sites; SiteNav is the other.
     components/
       SanityPhoto.tsx       ✎ The only place an <img> is emitted for a photograph (see
                               conventions). Deliberately not next/image.
@@ -1067,9 +1120,10 @@ web/                        ✎ The Next app. Vercel's root directory.
                               SiteHeader and no SiteFooter; this replaced both. Owns every
                               drawer effect.
       SiteNav.tsx           ✎ async Server Component. Runs NAV_QUERY and swallows its error —
-                              the only place on the site that does.
+                              one of two places on the site that do (getSiteSettings is the
+                              other, and this calls it for the labels).
       SiteNavList.tsx       ✎ 'use client'. The nav itself: usePathname for the active state,
-                              and the collapse toggle.
+                              and the collapse toggle (GALLERIES).
       MainColumn.tsx        ✎ 'use client'. <main inert={isOpen}> and nothing else.
       NavDrawerContext.tsx  ✎ 'use client'. Drawer state and actions ONLY — no effects; it
                               has three consumers, so an effect here would be three listeners.
@@ -1077,9 +1131,6 @@ web/                        ✎ The Next app. Vercel's root directory.
                               path (CC0). Named Site* because content/site.ts already exports
                               a `SocialIcon` *type* and the two would collide.
       ProseText.tsx         ✎ Renders a proseText field via <PortableText>
-      ProseHeading.tsx      ✎ The same, as a real <h2> — see the note above. NO CALLER right
-                              now: it rendered homePage.featuredTitle above the photographs,
-                              and that field is looking for a new home. Not dead code yet.
       ProseLink.tsx         ✎ The `hyperlink` annotation inside one. One of --color-link's
                               two users — docs/DocsMarkdown's link renderer is the other,
                               and the two share their classes verbatim.
@@ -1097,13 +1148,13 @@ web/                        ✎ The Next app. Vercel's root directory.
                               WritingLink — post vs article destination, one place, now used
                               by FeaturedWriting too. Named `writing/` still: only the route
                               said /writing.
-      shots/                ✎ FilterBar — the tag filters on /shots/all, built from
+      shots/                ✎ FilterBar — the tag filters on /gallery/all, built from
                               DESIGN.md's button-outline / button-primary pair. Real <Link>s,
                               so the filter is in the URL, shareable, and reaches the server.
                               Multi-select with a CLEAR that appears only when something is
                               selected; there is no ALL chip.
                               AllShotsView / GalleryView — the 'use client' halves of the two
-                              /shots pages. GalleryView holds the PRESETS map.
+                              /gallery pages. GalleryView holds the PRESETS map.
                               PhotoShowcase — one photograph alone, and every effect that
                               goes with it. PhotoLink — the clickable wrapper both views drop
                               into a preset's renderPhoto; a plain <a>, never <Link>.
@@ -1122,8 +1173,10 @@ web/                        ✎ The Next app. Vercel's root directory.
                               server-rendered, no scroll-spy. All Server Components.
     content/                ✎ Site chrome only. tags.ts is gone — a tag's name is content
                               now and arrives with the query.
-      site.ts               ✎ Wordmark, tagline, nav, social links. Deliberately never CMS
-                              content. (Was "footer links" — there is no footer any more.)
+      site.ts               ✎ The menu's routes (labels are hers, in siteSettings), social
+                              links, copyright. Plus SITE_FALLBACK: her name, byline,
+                              description and menu labels as shown ONLY when siteSettings
+                              cannot be read. Not the source — do not chase her edits into it.
     lib/                    ✎ date.ts — formatDate/formatShortDate. UTC note in it.
                               photo.ts — photoRatio(), shared by GalleryGrid and the showcase.
                               showcase.ts — readTags/readPhotoId/showcaseHref/viewKey/
@@ -1146,6 +1199,16 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
                               render), with Place / Place all to materialise it. Built on
                               styled-components + Sanity's CSS variables, not @sanity/ui —
                               that package is transitive and deliberately undeclared.
+                              GalleryOrderInput — siteSettings.galleryOrder, the same shape
+                              one level up; its TAIL_QUERY must match NAV_QUERY's `rest`.
+                              orderInputParts.ts — the styled pieces and randomKey both share.
+  scripts/                  ✎ One-off `sanity exec … --with-user-token` jobs, CLI-user auth
+                              like the migrations. seed-site-settings.ts — brings the
+                              siteSettings and featuredPage singletons up to the current
+                              schema: creates them if missing, fills unset fields (setIfMissing,
+                              labels by path) and inserts new menuOrder items beside their
+                              default neighbours. Idempotent; run it BEFORE
+                              unset-gallery-nav-order on any dataset that lacks siteSettings.
   promote.mjs               ✎ development → production. Here, not scripts/, because it
                               authenticates as the CLI user and needs no write token.
   .env.example              ✎ SANITY_STUDIO_DATASET only
@@ -1158,11 +1221,17 @@ studio/                     ✎ Sanity Studio. Standalone, deployed separately.
                               that order, and never merged: `migrations run` submits
                               transactions concurrently, so a reference written in the same
                               run that creates its target fails on integrity partway through.
+                              gallery-tag-to-tags, then unset-gallery-nav-order (after the
+                              seed script above, which reads the numbers it deletes).
+                              unset-home-parked-fields — removed homePage.blurb,
+                              .featuredTitle and .featuredSubtitle.
   schemaTypes/
     index.ts                ✎ Schema registry
     photoPicker.ts          ✎ excludeAlreadyChosen — shared reference-picker filter
+    galleryFields.ts        ✎ LAYOUT_PRESETS (Rule 2), the two fill modes and their
+                              validation — shared by gallery and featuredPage.
     documents/              ✎ photo, gallery, tag, post, article,
-                              homePage, writingPage, aboutPage,
+                              homePage, featuredPage, writingPage, aboutPage,
                               contactPage, siteSettings
     objects/                ✎ link, postPhoto, proseText, featuredPhoto
 
@@ -1273,8 +1342,9 @@ what lets a call site override with `tracking-[0.1em]`, and the same ordering me
 `type-display-sm lg:type-display-md` would leak the smaller token's *omitted* properties past
 the breakpoint. Responsive steps live inside the token, via `@variant`.
 
-**No token carries `text-transform`.** `SITE.nav` stores sentence-case labels deliberately, so
-assistive tech reads "Copy" rather than spelling it out, and a transform hidden inside a type
+**No token carries `text-transform`.** The menu labels and byline are stored sentence case
+deliberately — the Studio fields tell her to type them normally — so assistive tech reads
+"Copy" rather than spelling it out, and a transform hidden inside a type
 token is how that decision gets lost. `uppercase` stays a class at the call site, beside the
 text it changes. The failure when this is forgotten is quiet and looks like a bug in the font:
 a token whose tracking assumes capitals renders as wide-spaced lowercase.
@@ -1403,7 +1473,7 @@ that.** `QueryParams` in `@sanity/client` declares a list of keys as `never` —
 more — on the grounds that passing one as a GROQ parameter is nearly always a mistake. `tag` is
 Sanity's request tagging. A parameter named `$tag` therefore fails with **"Type 'string' is not
 assignable to type 'undefined'"**, which names the overload the call fell through to and says
-nothing about the collision. `/shots/all` filters on `$filterTags` for exactly this reason.
+nothing about the collision. `/gallery/all` filters on `$filterTags` for exactly this reason.
 Check that list before naming a parameter after anything that sounds like a request setting.
 **This is a `@sanity/client` fact and not a framework one** — it survived the port from Nuxt
 unchanged and will survive the next one.
@@ -1419,16 +1489,18 @@ prints the interval per route.
 **There is deliberately no `export const revalidate` on any page**, and two reasons:
 
 - Next's implicit caching only covers fetches discovered *before* a request-time API is used,
-  and `/shots/all` awaits `searchParams` first. Relying on the segment default would cache every
+  and `/gallery/all` awaits `searchParams` first. Relying on the segment default would cache every
   route except the one page that pages. Stating it on the fetch removes the asymmetry.
 - A segment export must be a **literal**, read by static analysis rather than evaluated —
   `export const revalidate = REVALIDATE` fails the build with "Invalid segment configuration
   export". So it would mean the number in two places, with the second copy unable to reference
   the first.
 
-**Both `/shots/*` routes are dynamic, and that is a decision.** They read `searchParams` for the
-showcase. `generateStaticParams` there would look like an optimisation and do nothing, which is
-why it is absent from `/shots/[slug]` and present on `/copy/[slug]`. What it costs is one React
+**Both `/gallery/*` routes and `/featured` are dynamic, and that is a decision.** They read
+`searchParams` for the showcase. `/featured` has no dynamic segment, so it awaits `searchParams` in
+the page body to say so — without that Next prerenders it and the showcase's `useSearchParams()`
+fails the build. `generateStaticParams` there would look like an optimisation and do nothing, which is
+why it is absent from `/gallery/[slug]` and present on `/copy/[slug]`. What it costs is one React
 render per request; it is *not* a Sanity request per request, because the read comes from the
 Data Cache. What it buys is in *The showcase*: a shared `?photo=` link server-renders the
 photograph, with its caption as the `<title>`.
@@ -1451,6 +1523,7 @@ second check stays a second check and stays at the call site, **where the answer
 | --- | --- | --- |
 | `homePage` | 500, `MissingDocumentError` | A singleton the Studio will not let her delete — the dataset is wrong. |
 | `aboutPage` | 500, `MissingDocumentError` | Same. |
+| `featuredPage` | 500, `MissingDocumentError` | Same — and the menu links to `/featured` on every page. |
 | `writingPage` | *nothing* | It holds a tab title and an optional intro; the page's content is the list beside it. Absent costs a paragraph. |
 | a `post` / `gallery` by slug | 404, `notFound()` | Nothing guarantees the document exists; the address may be mistyped or changed. |
 | a `?photo=` id | **a message in place** | A query parameter must never replace a working page with an error screen. |
@@ -1464,10 +1537,13 @@ Two things this gave up, both deliberately:
   the real error, with its `cause`, is in the Vercel function log. That is the same hardening
   Nuxt did, and the reason the page prints the digest.
 
-`SiteNav` is the **only** place that swallows a query error, and it does not use `orThrow`. The
-nav is chrome on every page: a Sanity outage taking down the whole site because four gallery
-links could not be listed would be worse than the failure it reports. That exception is now more
-conspicuous, not less, because it is the one call site that opts out of the helper.
+**Exactly two call sites swallow a query error, and neither uses `orThrow`:** `SiteNav` and
+`getSiteSettings()` in `sanity/siteSettings.ts`. Both are chrome on every page: a Sanity outage
+taking down the whole site because four gallery links or a byline could not be read would be
+worse than the failure it reports — and `getSiteSettings()` runs in the root layout, where a
+throw would bypass `error.tsx` altogether. A failed nav read means no gallery links; a failed
+settings read means `SITE_FALLBACK`'s text, logged. A third such call site needs the same
+argument made for it, out loud.
 
 ### Server and client
 
@@ -1540,7 +1616,9 @@ at all** — every candidate width is capped at the asset's own, and for a crop 
 can fill *at that ratio*, so a 599px original is offered at 400w and 599w and stops.
 
 The same argument covers `public/joan-animated.png` in the sidebar: a static file, already at
-the size it renders, with no second pipeline needed to serve it.
+the size it renders, with no second pipeline needed to serve it. It renders only when
+`siteSettings.showPortrait` is on, which defaults to off — she did not like it and may want it
+back. The file and the `<img>` stay either way, so the grep below is unaffected.
 
 **Every *photograph* renders through one `<img>`, and `grep -rl "<img" web/src` is the check.**
 It finds three *files*, and the count is the thing to read rather than the number: `SanityPhoto`;
@@ -1586,13 +1664,13 @@ From **`web/`** — the Next app:
 | `npm run typecheck` | `next typegen && tsc --noEmit` | ✎ works |
 
 **`next typegen` is not optional in that last one.** It writes `.next/types/routes.d.ts`, where
-the global `PageProps<'/shots/[slug]'>` and `RouteContext<'/api/photos/[id]'>` live. A cold
+the global `PageProps<'/gallery/[slug]'>` and `RouteContext<'/api/photos/[id]'>` live. A cold
 `tsc --noEmit` without it fails on every page and route-handler signature.
 
 `npm run build` reports each route's rendering mode, and that output is worth reading rather
 than skimming: `○`/`●` are prerendered, `ƒ` is dynamic. `/`, `/bio`, `/copy` and the
-`/copy/[slug]` pages should be prerendered with a 1m revalidate; `/shots/*`, `/admin` and
-`/api/photos*` should be dynamic. A content route silently becoming dynamic means something
+`/copy/[slug]` pages should be prerendered with a 1m revalidate; `/gallery/*`, `/featured`,
+`/admin` and `/api/photos*` should be dynamic. A content route silently becoming dynamic means something
 started reading a request-time API.
 
 From **`studio/`** — the Sanity Studio:
@@ -1776,7 +1854,7 @@ don't add a dependency that anticipates them.
 - **No freeform page builder.** No drag-and-drop, no canvas, no per-photo position/size/crop controls, no arbitrary section nesting. See Rule 2.
 - **No long-form writing by anyone else, and no rich text beyond `post.body` and `proseText`.** This non-goal used to read "no long-form writing in the CMS, no post type" and it was wrong — it assumed all her writing lived on someone else's site. Half of it does, and `article` covers that. The other half is ~15 pieces she self-published on the Squarespace site being replaced; they have nowhere to go, so `post` exists. What still holds: `article` stays body-less, and **the block config stays as short as it is** — one style, two decorators, one annotation. Adding a style, a decorator or a block type is a decision with a cost, not a default.
 
-  This used to also read "prose fields elsewhere stay plain `text`", and that clause is gone: `homePage.featuredTitle` and `.featuredSubtitle` became `proseText` when her front-page copy turned out to need an italic and a link. Nothing was added to the type to allow it. The line worth defending was never *which fields* use `proseText` — it is what `proseText` is allowed to contain, which is unchanged. Widening the former is a normal content decision; widening the latter is the one that needs an argument.
+  This used to also read "prose fields elsewhere stay plain `text`", and that clause is gone: `homePage.featuredTitle` and `.featuredSubtitle` (since removed) became `proseText` when her front-page copy turned out to need an italic and a link. Nothing was added to the type to allow it. The line worth defending was never *which fields* use `proseText` — it is what `proseText` is allowed to contain, which is unchanged. Widening the former is a normal content decision; widening the latter is the one that needs an argument.
 
 ## Working agreements
 
@@ -1860,7 +1938,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   the right shape at all.** If a minute feels wrong to her, the answer is a Sanity webhook doing
   on-demand revalidation, which costs a secret, an endpoint and a hook to configure. Do not reach
   for it before she says the delay is a problem.
-- **`cacheComponents` (PPR) is the thing that would let `/shots/[slug]` be static *and*
+- **`cacheComponents` (PPR) is the thing that would let `/gallery/[slug]` be static *and*
   server-render its showcase.** Today it is dynamic, because reading `searchParams` makes it so —
   see *Caching* for why that is the right trade at this size. A static shell with a dynamic hole
   would get both. It was deliberately not taken on inside a framework port: enabling it removes
@@ -1883,9 +1961,9 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   enough: Sanity's reference integrity reads *stored data*, not the schema, so the value left
   behind on `homePage` would have kept that photograph undeletable in the Studio with nothing
   on screen explaining why. The field was unset on the document as well.
-- **`homePage.blurb`, `.featuredTitle` and `.featuredSubtitle` are fetched and not rendered.**
-  See the note under *The front page*. They need a home, and until they get one `ProseHeading`
-  has no caller.
+- ~~**`homePage.blurb`, `.featuredTitle` and `.featuredSubtitle` are fetched and not
+  rendered.**~~ **Settled: removed**, fields, query lines, `ProseHeading` and stored values. See
+  the note under *The front page*.
 - ~~**The photo grid's `K` is tuned against five photographs.**~~ **Half retired: the front
   page's row breaks no longer come from `K` at all.** `home/PhotoStrip.tsx` sets `perRow={3}`
   on `GalleryGrid`, which chunks the photographs into fixed rows of three from `sm` up
@@ -1922,7 +2000,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   She trades a checkbox grid for a reference picker — see the tag bullets in *The content
   model*. Watch it across a real upload session. The no-dependency fix is a custom input
   component on `photo.tags`; reaching for a plugin instead is a dependency and needs asking.
-- **Infinite scroll on /shots/all gives up one thing that was not recoverable.** The
+- **Infinite scroll on /gallery/all gives up one thing that was not recoverable.** The
   filter lives in the URL and is shareable; scroll depth does not, so a refresh returns you to
   the first 24. Recording depth in the URL was considered and dropped, because restoring it
   means fetching every photograph up to that point in one request — the exact cost the paging
@@ -1934,11 +2012,11 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
   she is expected to upload ~250. The number that matters is not the document count but the
   LQIP payload — roughly a kilobyte per photo — so re-measure the first-page weight once the
   real set is in, rather than assuming 24 is still right.
-- ~~**Nav ordering is title A–Z.**~~ **Settled: the order is hers.** She asked for it, which is
-  the answer the old question was waiting on: `navOrder` ("Menu position"), an optional number
-  on `gallery`, lowest first, unnumbered galleries after A–Z, ALL SHOTS still appended last in
-  code. Validation is warnings only, so a strange number can rearrange a menu but never block a
-  publish. The `PINNED_FIRST` pin went with it. See `queries/nav.ts`.
+- ~~**Nav ordering is title A–Z.**~~ **Settled: the order is hers, and it moved once.** She
+  asked for it, and it first landed as `navOrder` ("Menu position"), a number on each gallery.
+  Her feedback on that was that numbering galleries one by one was fiddly, so it became a drag
+  list in Site settings (`siteSettings.galleryOrder`), with unplaced galleries following A–Z.
+  ALL SHOTS is still appended last in code. See `queries/nav.ts` and *The front page*.
 - **A gallery with a tag nothing carries yet renders "No photos here yet."** That is a real and
   legitimate state — she can make the page before tagging the photographs — but it is also what
   a mistyped tag looks like, and the two are indistinguishable from the page. If that bites, the
@@ -1953,8 +2031,7 @@ Unresolved. Don't paper over these — raise them when the relevant work comes u
 
   It brought one improvement worth using: **`InferComponents<T>`** derives each handler's
   `value` type from the TypeGen result, so a schema rename fails at the `components` map instead
-  of falling through to an unknown-type renderer. `ProseBody`, `ProseText` and `ProseHeading`
-  all use it. `InferStrictComponents` goes further and *requires* a handler per custom type —
+  of falling through to an unknown-type renderer. `ProseBody` and `ProseText` both use it. `InferStrictComponents` goes further and *requires* a handler per custom type —
   worth considering for `ProseBody`, which has exactly one.
 - **Porting the Squarespace posts.** ~15 of them, and the schema is ready for them but the
   content is not. Every Squarespace date reads `January 01, 2030`, so real dates have to be

@@ -23,11 +23,6 @@ import type { PortableTextMarkComponentProps } from '@portabletext/react'
  * annotation that only appears inside prose; there, on links inside the Field Guide's body,
  * which is the same kind of copy in a different source format. The two share their classes
  * verbatim — change both or neither.
- *
- * `ProseHeading` is the one caller that can reach this from outside running prose — it renders
- * `homePage.featuredTitle`, which is `proseText` and can carry a link. That field is not rendered
- * anywhere at the moment; whatever component picks it up needs to neutralise both the colour and
- * the underline.
  */
 export function ProseLink({
   value,

@@ -24,7 +24,7 @@ import {defineField, defineType} from 'sanity'
  *    references are not weak.
  *
  * What still costs something is changing the `slug`. It is the `?tag=` in a shared address and
- * it is what /shots/all filters on, so it is the one field with a URL behind it. Change names
+ * it is what /gallery/all filters on, so it is the one field with a URL behind it. Change names
  * freely; leave addresses alone. That is the same bargain `gallery.slug` offers, said the same
  * way in its description.
  *
@@ -36,12 +36,12 @@ import {defineField, defineType} from 'sanity'
  * that still holds: there is still no colour, no description and no ordering field. The toggle
  * exists now, as `excludeFromIndex`, because she needs tags that organise without publishing —
  * a tag can fill a gallery, or group photographs she is still sorting, without announcing
- * itself on /shots/all.
+ * itself on /gallery/all.
  *
  * What keeps it from being the flag the old argument warned about is scope. It states her
  * intent about the *index* and nothing else. It answers no question about galleries, so it
  * cannot disagree with "does this tag have a page" — that is still answered by whether a
- * gallery points at it, one fact in one place. The semantics on /shots/all: the tag's filter
+ * gallery points at it, one fact in one place. The semantics on /gallery/all: the tag's filter
  * button disappears, and a photograph is hidden only when EVERY tag it carries is hidden — one
  * visible tag keeps it on the page, and an untagged photograph was never in this rule's reach.
  * A gallery filled from a hidden tag is untouched, the same narrow-scope bargain
@@ -80,7 +80,7 @@ export default defineType({
       type: 'slug',
       description:
         'The end of this tag’s address, e.g. “mexico-2022” makes ' +
-        '/shots/all?tag=mexico-2022. Do NOT use spaces or special characters; only letters, numbers and hyphens. ' +
+        '/gallery/all?tag=mexico-2022. Do NOT use spaces or special characters; only letters, numbers and hyphens. ' +
         'Press Generate to make one from the name. Changing it later breaks any link someone has already shared.',
       // Uniqueness comes from the `slug` type's own per-type check, exactly as gallery.slug
       // relies on it. A custom `isUnique` here would be a second implementation of something

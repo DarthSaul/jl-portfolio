@@ -54,8 +54,22 @@ import { SiteSocialIcon } from './SiteSocialIcon'
  * import it — a client module has no way to await a server one. The root layout renders
  * `<SiteSidebar nav={<SiteNav />} />` instead, which is the ordinary composition escape hatch:
  * the element is created on the server and passed through as an already-rendered child.
+ *
+ * Her words arrive the same way, for the same reason: `title`, `byline` and `showPortrait` are
+ * `siteSettings` fields, read by the layout through `getSiteSettings()` and handed down as plain
+ * props. This file never touches Sanity.
  */
-export function SiteSidebar({ nav }: { nav: ReactNode }) {
+export function SiteSidebar({
+  nav,
+  title,
+  byline,
+  showPortrait,
+}: {
+  nav: ReactNode
+  title: string
+  byline: string
+  showPortrait: boolean
+}) {
   const { isOpen, close, toggle } = useNavDrawer()
   const toggleBtn = useRef<HTMLButtonElement>(null)
 
@@ -146,7 +160,7 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
       <div className="flex h-bar shrink-0 items-center justify-between border-b border-hairline px-5 lg:h-auto lg:block lg:border-b-0 lg:px-8 lg:pt-14">
         <h1 className="type-display-sm lg:type-display-md">
           <Link href="/" className="text-ink transition-opacity hover:opacity-60">
-            {SITE.title}
+            {title}
           </Link>
         </h1>
 
@@ -205,9 +219,9 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
         {/*
           `uppercase` is a class rather than part of the type token, deliberately: the tokens
           carry no `text-transform` so that the decision stays visible beside the text it changes.
-          `SITE.nav` and this line both depend on that.
+          The menu labels and this line both depend on that — she types them in sentence case.
         */}
-        <p className="type-body-sm uppercase tracking-[0.18em] text-muted">{SITE.tagline}</p>
+        <p className="type-body-sm uppercase tracking-[0.18em] text-muted">{byline}</p>
 
         <div className="mt-10">{nav}</div>
 
@@ -248,16 +262,26 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
           fits within the bound; lowercase `-z` takes an exact width and height and will happily
           squash the picture to reach them.
         */}
-        <div className="mt-12 lg:mt-auto lg:pt-12">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/joan-animated.png"
-            alt="Illustrated portrait of Joan Lebow"
-            width={196}
-            height={250}
-            className="max-h-[125px] w-auto"
-          />
-        </div>
+        {/*
+          Off by default, and hers to turn on: `siteSettings.showPortrait`. She did not like it
+          as it stood and may want it back, so it is a switch rather than a deletion. The file
+          stays in `web/public/` and this file stays in CLAUDE.md's `<img>` list either way.
+
+          When it is off, the wrapper goes with it, so the socials below take over its spacing —
+          including the `lg:mt-auto` that pins the bottom group to the foot of the column.
+        */}
+        {showPortrait && (
+          <div className="mt-12 lg:mt-auto lg:pt-12">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/joan-animated.png"
+              alt={`Illustrated portrait of ${title}`}
+              width={196}
+              height={250}
+              className="max-h-[125px] w-auto"
+            />
+          </div>
+        )}
 
         {/*
           Bare glyphs rather than filled circles. `{rounded.full}` is the one radius DESIGN.md
@@ -265,7 +289,7 @@ export function SiteSidebar({ nav }: { nav: ReactNode }) {
           page whose only other mark is a 1px hairline reads as four buttons demanding attention,
           so the shape is kept for the hit area and the fill is not drawn.
         */}
-        <ul className="mt-6 flex items-center gap-5">
+        <ul className={`flex items-center gap-5 ${showPortrait ? 'mt-6' : 'mt-12 lg:mt-auto lg:pt-12'}`}>
           {SITE.social.map(link => (
             <li key={link.href}>
               {/*

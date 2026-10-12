@@ -118,7 +118,7 @@ export const POST_QUERY = defineQuery(`
  * `defined(slug.current)` because a draft can exist without one, and a `params` entry of
  * `undefined` builds a route at the literal address `/copy/undefined`.
  *
- * Note what this is *not* used for: `/shots/[slug]` has no equivalent, and deliberately. That
+ * Note what this is *not* used for: `/gallery/[slug]` has no equivalent, and deliberately. That
  * route reads `searchParams` for the showcase, which makes it dynamic, and a `generateStaticParams`
  * on a dynamic route is inert — it would look like an optimisation and do nothing. See CLAUDE.md.
  */

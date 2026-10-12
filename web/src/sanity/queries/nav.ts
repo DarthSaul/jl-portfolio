@@ -1,53 +1,62 @@
 import { defineQuery } from 'groq'
 
 /**
- * The galleries listed in the sidenav, under START.
+ * The galleries listed in the sidenav, under GALLERIES.
  *
  * Not a route — the second file here that isn't, after `photo.ts`, and for a comparable
- * reason: this is chrome, read by `SiteSidebar.vue` on every page rather than by one of them.
+ * reason: this is chrome, read by `SiteNav` on every page rather than by one of them.
  *
  * ## This is the nav becoming CMS content, which it deliberately was not
  *
- * `content/site.ts` says of its nav array that it "changes when we change the route table, not
- * when she edits a page", and CLAUDE.md called slot 3 frontend-only by design. That held while
- * every route was known at build time. It stops holding the moment she can create a gallery and
- * expect a page to exist for it — the route table is now partly hers.
+ * `content/site.ts` holds the menu's routes because they "change when we change the route
+ * table, not when she edits a page". That held while every route was known at build time. It
+ * stops holding the moment she can create a gallery and expect a page to exist for it — the
+ * route table is now partly hers.
  *
- * The reversal is deliberately partial, and the split is worth keeping: the four top-level
- * items are still hardcoded, because they are the shape of the site. Only the sub-items below
- * START come from here. So a Sanity outage costs the gallery links and leaves the site
- * navigable, which is why `SiteSidebar` treats a failed query as "no sub-items" rather than
- * throwing.
+ * The reversal is deliberately partial, and the split is worth keeping: the top-level items are
+ * still routes in code (their *labels* are hers, via `siteSettings.navLabels`), because they are
+ * the shape of the site. Only the items under GALLERIES come from here. So a Sanity outage costs
+ * the gallery links and leaves the site navigable, which is why `SiteNav` treats a failed query
+ * as "no sub-items" rather than throwing.
  *
- * ## Creating a gallery is the only control
+ * ## Creating a gallery is the only control over whether it is listed
  *
  * There is no "show in nav" toggle and no publish checkbox. A gallery exists, therefore it has
  * a page, therefore it is listed — one action with three consequences rather than three
- * switches that can disagree. Taking one off the site means deleting it, or clearing its tags
- * and emptying it, which the validation in `gallery.ts` will then flag.
+ * switches that can disagree. Taking one off the site means deleting it.
  *
- * There was a `shotsPage.galleries` field that gated which galleries a /shots page listed. Both
- * that page and that document type are gone: the page was a stub, and a second control over
- * which galleries appear would now contradict the one above.
+ * ## The order is hers, via `siteSettings.galleryOrder`
  *
- * ## The order is hers, via `navOrder`
+ * A drag list in Site settings → Menu ("Gallery order"). It replaced `gallery.navOrder`, a number
+ * on each gallery that she had to keep consistent with the others by hand.
  *
- * This used to be title A–Z with one gallery pinned first in `SiteNav.tsx`, and the ordering
- * question was deliberately left open. She answered it: `navOrder` ("Menu position" in the
- * Studio) is an optional number on `gallery`, lowest first. The `coalesce` sentinel is
- * load-bearing — GROQ sorts null FIRST on asc, so without it a gallery she has not numbered
- * would jump to the top rather than fall to the end. Numberless galleries sort after every
- * numbered one, A–Z, so a menu with no numbers at all reads exactly as it did before.
+ * Two legs, concatenated in `SiteNav`:
  *
- * The whole order lives in this query on purpose: `SiteNav.tsx` appends ALL SHOTS and reorders
- * nothing, so there is one place deciding the menu rather than a query and a component sharing
- * the job.
+ * - `placed` — her list, in her order. A reference whose gallery has lost its slug is dropped
+ *   rather than rendered as a link to nowhere.
+ * - `rest` — every published gallery she has not placed, A–Z. This is what makes a new gallery
+ *   appear in the menu without her doing anything, at the end, until she drags it somewhere.
+ *   **It must stay the same query as `TAIL_QUERY` in `studio/components/GalleryOrderInput.tsx`**,
+ *   or the Studio previews a menu the site does not render.
+ *
+ * The `coalesce(…, [])` is load-bearing: with no `siteSettings` document, or an empty list,
+ * `galleryOrder[]._ref` is null, and `_id in null` is null rather than false — so `!(…)` would be
+ * null too, and the filter would drop every gallery instead of keeping them all.
  */
-export const NAV_QUERY = defineQuery(`
-  *[_type == "gallery" && defined(slug.current)]
-    | order(coalesce(navOrder, 999999) asc, title asc){
+export const NAV_QUERY = defineQuery(`{
+  "placed": *[_type == "siteSettings" && _id == "siteSettings"][0]
+    .galleryOrder[defined(@->slug.current)]->{
+      _id,
+      title,
+      "slug": slug.current
+    },
+  "rest": *[
+    _type == "gallery"
+    && defined(slug.current)
+    && !(_id in coalesce(*[_type == "siteSettings" && _id == "siteSettings"][0].galleryOrder[]._ref, []))
+  ] | order(title asc){
     _id,
     title,
     "slug": slug.current
   }
-`)
+}`)

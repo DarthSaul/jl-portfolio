@@ -39,14 +39,6 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  * `aria-label` carries the destination, because a link whose only content is an image would
  * otherwise be announced as the photograph's alt text with no hint that it goes anywhere.
  *
- * ## The title and subtitle used to live here
- *
- * `featuredTitle` and `featuredSubtitle` were rendered above the row, through `ProseHeading` and
- * `ProseText`. Both are still in the schema and still fetched by `HOME_QUERY`; neither is rendered
- * anywhere at the moment, pending a decision about where they belong now that the photographs open
- * the page instead of closing it. `ProseHeading` has no other caller and is waiting on the same
- * decision — it is not dead code yet.
- *
  * The name is now a lie worth fixing the next time this file is opened for another reason: it has
  * not been a strip since it became a grid.
  */
@@ -90,7 +82,7 @@ export function PhotoStrip({ photos }: { photos: Home['featuredPhotos'] }) {
 
           return (
             <Link
-              href={`/shots/${gallery.slug}`}
+              href={`/gallery/${gallery.slug}`}
               aria-label={`${gallery.title} — see the photos`}
               className="group relative block"
             >

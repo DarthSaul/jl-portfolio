@@ -40,10 +40,7 @@ import { WRITING_ITEM_PROJECTION } from './writing'
 export const HOME_QUERY = defineQuery(`
   *[_type == "homePage"][0]{
     title,
-    blurb,
     featuredWriting[]->{ ${WRITING_ITEM_PROJECTION} },
-    featuredTitle,
-    featuredSubtitle,
     featuredPhotos[]{
       _key,
       photo->{ ${PHOTO_PROJECTION} },

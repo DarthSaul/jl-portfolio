@@ -5,7 +5,7 @@ import { isModifiedEvent } from '@/lib/showcase'
 import type { PhotoProjection } from '@/sanity/queries/photo'
 
 /**
- * One clickable photograph in a grid — the wrapper both `/shots/*` views drop into a preset's
+ * One clickable photograph in a grid — the wrapper both `/gallery/*` views drop into a preset's
  * `renderPhoto`.
  *
  * ## A real anchor with an intercepted left-click

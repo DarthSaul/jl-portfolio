@@ -6,9 +6,10 @@ import { readPhotoId, readTags } from '@/lib/showcase'
 import { orThrow, sanityFetch } from '@/sanity/fetch'
 import { ALL_SHOTS_QUERY, PAGE_SIZE } from '@/sanity/queries/allShots'
 import { PHOTO_BY_ID_QUERY } from '@/sanity/queries/photo'
+import { getSiteSettings } from '@/sanity/siteSettings'
 
 /**
- * /shots/all — every photograph she has uploaded, minus the ones she has hidden.
+ * /gallery/all — every photograph she has uploaded, minus the ones she has hidden.
  *
  * **A static route, so it wins over `[slug]`.** That shadowing is why `gallery.ts` refuses a slug
  * of "all": without the guard a gallery could claim this address, publish cleanly and then be
@@ -38,7 +39,7 @@ const photoById = cache(async (photoId: string) =>
 
 export async function generateMetadata({
   searchParams,
-}: PageProps<'/shots/all'>): Promise<Metadata> {
+}: PageProps<'/gallery/all'>): Promise<Metadata> {
   const query = await searchParams
   const tags = readTags(query.tag)
   const photoId = readPhotoId(query.photo)
@@ -58,7 +59,7 @@ export async function generateMetadata({
   }
 }
 
-export default async function AllShotsPage({ searchParams }: PageProps<'/shots/all'>) {
+export default async function AllShotsPage({ searchParams }: PageProps<'/gallery/all'>) {
   const query = await searchParams
   const tags = readTags(query.tag)
   const photoId = readPhotoId(query.photo)
@@ -76,6 +77,7 @@ export default async function AllShotsPage({ searchParams }: PageProps<'/shots/a
    */
   const inFirstPage = photoId ? first.photos.find(photo => photo._id === photoId) ?? null : null
   const deepLinked = photoId && !inFirstPage ? await photoById(photoId) : null
+  const { title: siteTitle } = await getSiteSettings()
 
   return (
     <AllShotsView
@@ -85,6 +87,7 @@ export default async function AllShotsPage({ searchParams }: PageProps<'/shots/a
       activeTags={tags}
       filterKey={tags.join(',')}
       deepLinked={deepLinked}
+      siteTitle={siteTitle}
     />
   )
 }

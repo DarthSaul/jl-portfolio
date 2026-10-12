@@ -18,7 +18,7 @@ import { WRITING_QUERY } from '@/sanity/queries/writing'
  * under it repeats the tab you just clicked. That is still true and it is no longer the deciding
  * fact. The page is now a composition rather than a stack — a lead story, a heavy rule, a ledger —
  * and a composition needs something to start at. Without the heading the eyebrow LATEST is the
- * first thing on the page, which reads as a label floating above nothing. `/shots/all` sets the
+ * first thing on the page, which reads as a label floating above nothing. `/gallery/all` sets the
  * same precedent for the same reason.
  *
  * It is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`, so a piece's own title

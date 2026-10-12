@@ -103,7 +103,7 @@ type Props = GalleryPresetProps & {
    * A boolean and not a number, for the reason `crop` is a name: on or off cannot become a
    * per-photo dimension, and a `rowHeight` prop could. It changes `K` — how tall a row wants to
    * be before wrapping — which is a property of the grid and applies to every photograph in it
-   * equally. /shots/all sets it because ~200 photographs at reading size is a very long page; a
+   * equally. /gallery/all sets it because ~200 photographs at reading size is a very long page; a
    * gallery of fifty does not.
    */
   compact?: boolean

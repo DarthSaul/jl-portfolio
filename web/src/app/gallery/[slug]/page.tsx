@@ -6,12 +6,13 @@ import { GalleryView } from '@/components/shots/GalleryView'
 import { readPhotoId } from '@/lib/showcase'
 import { orThrow, sanityFetch } from '@/sanity/fetch'
 import { GALLERY_QUERY } from '@/sanity/queries/shots'
+import { getSiteSettings } from '@/sanity/siteSettings'
 
 /**
  * One gallery, rendered through its preset. **Her galleries define this route** — creating one in
  * the Studio makes the page and lists it in the nav.
  *
- * `/shots/all` is a static route and therefore wins over this one, which is why `gallery.ts`
+ * `/gallery/all` is a static route and therefore wins over this one, which is why `gallery.ts`
  * refuses the slug `all`: without that guard a gallery could claim the address, publish cleanly and
  * then be permanently unreachable with nothing saying why.
  *
@@ -47,7 +48,7 @@ const gallery = cache(async (slug: string) => orThrow(await sanityFetch(GALLERY_
 export async function generateMetadata({
   params,
   searchParams,
-}: PageProps<'/shots/[slug]'>): Promise<Metadata> {
+}: PageProps<'/gallery/[slug]'>): Promise<Metadata> {
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const doc = await gallery(slug)
   if (!doc) return {}
@@ -66,12 +67,12 @@ export async function generateMetadata({
 
     // The same photograph is showcasable from every gallery it appears in and from the index, so
     // indexing them would be a set of near-duplicates competing with each other. Same reason
-    // `/shots/all` noindexes its filtered views.
+    // `/gallery/all` noindexes its filtered views.
     ...(photoId ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
-export default async function GalleryPage({ params }: PageProps<'/shots/[slug]'>) {
+export default async function GalleryPage({ params }: PageProps<'/gallery/[slug]'>) {
   const { slug } = await params
   const doc = await gallery(slug)
 
@@ -84,9 +85,16 @@ export default async function GalleryPage({ params }: PageProps<'/shots/[slug]'>
    */
   if (!doc) notFound()
 
+  const { title: siteTitle } = await getSiteSettings()
+
   return (
     <div className="space-y-10">
-      <GalleryView title={doc.title} preset={doc.preset} photos={doc.photos ?? []} />
+      <GalleryView
+        title={doc.title}
+        preset={doc.preset}
+        photos={doc.photos ?? []}
+        siteTitle={siteTitle}
+      />
     </div>
   )
 }

@@ -141,7 +141,7 @@ export default defineType({
      * exactly the photographs she meant to hide.
      *
      * Separating it costs one concept and buys three things: no gallery can be built on it, it
-     * cannot appear in the filter row on /shots/all, and the field says what it does.
+     * cannot appear in the filter row on /gallery/all, and the field says what it does.
      *
      * The field KEY stays `excludeFromIndex` while its label follows the page's new name. The
      * key was never on screen, so renaming it would buy a label change she already gets and

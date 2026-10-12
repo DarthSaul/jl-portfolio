@@ -30,7 +30,7 @@ export const PHOTO_PROJECTION = `
 `
 
 /**
- * The index's visible set — which photographs /shots/all lists — defined once.
+ * The index's visible set — which photographs /gallery/all lists — defined once.
  *
  * Two ways she can hide a photograph from the index, and only two: flag the photograph itself
  * (`photo.excludeFromIndex`), or flag every tag it carries (`tag.excludeFromIndex`). One
@@ -73,7 +73,7 @@ export type PhotoProjection = NonNullable<
 /**
  * One photograph by id, for the showcase.
  *
- * The showcase is `?photo=<_id>` on `/shots/all` and `/shots/<slug>`, and a gallery page never
+ * The showcase is `?photo=<_id>` on `/gallery/all` and `/gallery/<slug>`, and a gallery page never
  * needs this — `GALLERY_QUERY` already returns every photograph in the gallery, so it resolves
  * the id with a `find`. This exists for the index, where a shared link can name a photograph
  * that is not in the first page of 24 and never will be until someone scrolls to it.

@@ -11,7 +11,7 @@ import { createClient } from '@sanity/client'
  * nothing here reaches the browser bundle, and the day something did the values would silently
  * come back `undefined` rather than leaking. The error is better than either outcome.
  *
- * The site has exactly one read that happens after hydration — "load more" on /shots/all — and
+ * The site has exactly one read that happens after hydration — "load more" on /gallery/all — and
  * it goes through `app/api/photos` for this reason. See CLAUDE.md.
  */
 

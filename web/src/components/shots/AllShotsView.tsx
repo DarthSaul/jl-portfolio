@@ -15,7 +15,7 @@ import { useShowcase } from './useShowcase'
 const EMPTY: PhotoProjection[] = []
 
 /**
- * /shots/all — every photograph she has uploaded, minus the ones she has hidden.
+ * /gallery/all — every photograph she has uploaded, minus the ones she has hidden.
  *
  * The client half. The page above owns `searchParams`, the first page, the tag list and the
  * deep-link lookup; this owns everything that needs a browser: paging, the observer, and the
@@ -55,7 +55,10 @@ export function AllShotsView({
   activeTags,
   filterKey,
   deepLinked,
+  siteTitle,
 }: {
+  /** For the showcase's tab title. See `PhotoShowcase`. */
+  siteTitle: string
   initialPhotos: PhotoProjection[]
   total: number
   tagsInUse: TagOption[]
@@ -189,7 +192,7 @@ export function AllShotsView({
   /**
    * The showcase — one photograph, alone, at `?photo=<_id>`.
    *
-   * ## Why this page needs a lookup and `/shots/<slug>` does not
+   * ## Why this page needs a lookup and `/gallery/<slug>` does not
    *
    * A gallery is unpaged, so its photographs are all in memory and the id always resolves out of
    * the array. This page holds 24 at a time out of a set that will be ~250, so a link someone
@@ -298,6 +301,7 @@ export function AllShotsView({
               nextHref={showcase.next ? showcase.openHref(showcase.next._id) : null}
               onNavigate={showcase.pushTo}
               onClose={showcase.close}
+              siteTitle={siteTitle}
             />
           )
         : (
@@ -328,7 +332,7 @@ export function AllShotsView({
                       */}
                       {activeTags.length > 0 && (
                         <Link
-                          href="/shots/all"
+                          href="/gallery/all"
                           prefetch={false}
                           className="type-body-sm-strong inline-block uppercase tracking-[0.1em] text-ink underline"
                         >

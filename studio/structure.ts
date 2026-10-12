@@ -6,6 +6,7 @@ import {HomeIcon} from '@sanity/icons/Home'
 import {ImageIcon} from '@sanity/icons/Image'
 import {ImagesIcon} from '@sanity/icons/Images'
 import {LinkIcon} from '@sanity/icons/Link'
+import {StarIcon} from '@sanity/icons/Star'
 import {TagIcon} from '@sanity/icons/Tag'
 import {UserIcon} from '@sanity/icons/User'
 import type {ComponentType} from 'react'
@@ -26,6 +27,7 @@ import type {StructureBuilder, StructureResolver} from 'sanity/structure'
  */
 export const SINGLETON_TYPES = new Set([
   'homePage',
+  'featuredPage',
   'writingPage',
   'aboutPage',
   'contactPage',
@@ -63,6 +65,8 @@ export const structure: StructureResolver = (S) =>
             .title('Pages')
             .items([
               singleton(S, 'homePage', 'Home', HomeIcon),
+              // A gallery with a fixed address (/featured) rather than a slug — see featuredPage.ts.
+              singleton(S, 'featuredPage', 'Featured', StarIcon),
               // The labels follow her nav, which now says COPY and BIO. The type names stay
               // `writingPage` and `aboutPage` because renaming one is a content migration; see
               // aboutPage.ts. That split — her words on screen, our names underneath — is the
@@ -75,9 +79,8 @@ export const structure: StructureResolver = (S) =>
 
       S.divider(),
 
-      // documentTypeList rather than documentTypeListItem, so the pane can default to the
-      // schema's `navOrderAsc` ordering — the list she sees here is the menu the site
-      // renders, All Shots excepted.
+      // A–Z. The menu order is not a property of a gallery any more — it is the drag list in
+      // Site settings → Gallery order — so this list makes no claim about it.
       S.listItem()
         .id('gallery')
         .title('Galleries')
@@ -85,10 +88,7 @@ export const structure: StructureResolver = (S) =>
         .child(
           S.documentTypeList('gallery')
             .title('Galleries')
-            .defaultOrdering([
-              {field: 'navOrder', direction: 'asc', nulls: 'last'},
-              {field: 'title', direction: 'asc'},
-            ]),
+            .defaultOrdering([{field: 'title', direction: 'asc'}]),
         ),
 
       S.listItem()

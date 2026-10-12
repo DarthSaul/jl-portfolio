@@ -31,9 +31,9 @@ Three things worth knowing before anything else:
 
 The left sidebar is the whole Studio. Top to bottom:
 
-**Pages** — the four fixed pages of the site: Home, Copy, Bio, and Contact. Each exists exactly once and can't be deleted, only edited.
+**Pages** — the five fixed pages of the site: Home, Featured, Copy, Bio, and Contact. Each exists exactly once and can't be deleted, only edited.
 
-**Galleries** — your photo collections. Each gallery is a page on the site (like /shots/mexico-2022), and creating one automatically adds it to the site's menu. Deleting one removes the page.
+**Galleries** — your photo collections. Each gallery is a page on the site (like /gallery/mexico-2022), and creating one automatically adds it to the site's menu. Deleting one removes the page.
 
 **Photos** — every photograph you've uploaded, with three views: _All photos_, _Not tagged yet_ (a to-do list of sorts), and _Browse by tag_.
 
@@ -43,7 +43,7 @@ The left sidebar is the whole Studio. Top to bottom:
 
 **Copy links** — pointers to writing published elsewhere, like your NY Times piece. A link, not an essay — you never paste the text in.
 
-**Site settings** — the handful of things that belong to the whole site: your name, the byline under it, and your email/Instagram/LinkedIn links.
+**Site settings** — the handful of things that belong to the whole site: your name, the byline under it, the words in the menu and the order of everything in it, and your email/Instagram/LinkedIn links.
 
 ## 3. Drafts, publishing, and undo
 
@@ -65,7 +65,7 @@ If a draft went wrong, open the menu (the ⋮ next to Publish) and choose **Disc
 
 If you published something and regret it, click the status text at the bottom of the editor (it says something like "Published 2 days ago"). A history panel opens showing every previous version — pick one and choose **Revert to revision**. Nothing you publish is ever truly lost.
 
-The Studio also protects you from the classic mistakes: it won't let you delete a photo or tag that's still used somewhere (it tells you where), and the four Pages and Site settings can't be deleted at all.
+The Studio also protects you from the classic mistakes: it won't let you delete a photo or tag that's still used somewhere (it tells you where), and the five Pages and Site settings can't be deleted at all.
 
 ## 4. Photos
 
@@ -113,13 +113,14 @@ When creating a "Web address" for a tag, do not use spaces. Use hyphens instead;
 
 ## 6. Galleries
 
-A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's gallery menu. This is the menu of galleries listed underneath **START**.
+A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's menu, in the list that opens under **Galleries** (or whatever you've called it in Site settings).
+
+A new gallery joins the end of that menu (alphabetically, with any others you haven't placed). To move it, go to **Site settings → Menu → Gallery order** — see *Site settings* below.
 
 ### The fields
 
 - **Title** — the gallery's name, shown on the site.
-- **Web address** — press Generate to make one from the title (e.g. "iceland" becomes /shots/iceland). Same rule as tags: fine to set, avoid changing later.
-- **Menu position** — optional; sets where the gallery sits in the START menu. Lowest number at the top, galleries without a number follow alphabetically, and All Shots always sits last.
+- **Web address** — press Generate to make one from the title (e.g. "iceland" becomes /gallery/iceland). Same rule as tags: fine to set, avoid changing later.
 - **Short description** — optional; the blurb that appears when someone shares a link to the gallery.
 - **Layout** — Grid (several photos across, in rows) or Stack (one at a time, down the page). Both work on a phone. You can switch anytime.
 
@@ -158,10 +159,18 @@ A pointer to a piece published by someone else (the Times, HuffPost). Headline, 
 The front page, edited top-to-bottom in the order it reads:
 
 - **Featured photos** — as many as you like, at the top of the page; on a desktop they sit three to a row, so **six photos make two even rows** and that's the number to aim for. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked.
-- **Photos section title and subtitle** — the heading over the photo row (bold, italics, and a link are allowed inside it) and the short text under it.
 - **Featured writing** — exactly three pieces, posts and links mixed however you like, in the order they appear.
 
 ![Screenshot: the Home page document with the featured photo slots](/docs/home-featured.png)
+
+### Featured
+
+A page of photos at /featured, with its own item in the menu. It works exactly like a gallery — the same **Layout** choice and the same two ways to fill it (by hand, or from tags), described in *Galleries* above. The difference is that it always lives at /featured and can't be deleted, and it isn't listed under Galleries in the menu.
+
+- **Title** — the heading at the top of the page and the browser tab. The word in the menu is set separately, in **Site settings → Menu labels**.
+- **Short description** — optional; the blurb that appears when someone shares a link to the page.
+
+Until you give it some photos, the page reads "No photos here yet."
 
 ### Copy
 
@@ -177,10 +186,23 @@ A short introduction in your own words. The actual links — email, Instagram, L
 
 ### Site settings
 
-- **Site name** and **Byline** — your name and the line under it, on every page.
+Two tabs across the top: **Site** and **Menu**.
+
+**Site**
+
+- **Site name** and **Byline** — your name and the line under it, on every page. Type the byline normally; the site puts it in capitals.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
-- **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one.
+- **Show the illustrated portrait in the sidebar** — the drawing at the bottom of the sidebar. Off hides it; turn it on any time to bring it back.
+- **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one. Recommended, not required.
 - **Links** — your email and social links. Drag to reorder.
+
+**Menu**
+
+- **Menu labels** — the words in the menu: Start, Galleries, Featured, All Shots, Copy and Bio. **Galleries** is the heading your galleries are listed under — call it Images or Photos if you prefer. Type them normally; the site puts them in capitals. This changes the words only — the pages they lead to stay the same.
+- **Menu order** — the main items in the menu: Front page, Galleries, Featured, Writing and About you. **Drag to reorder.** You can only move them, not remove them. Your galleries and All Shots stay listed under Galleries wherever it goes; clicking Galleries on the site opens and closes that list.
+- **Gallery order** — your galleries, in the order they appear under Galleries. **Drag to reorder.** Galleries you haven't placed yet are listed underneath and show up at the end of the menu, alphabetically; press **Place** (or **Place all**) to bring them into the list you can drag. All Shots always sits last.
+
+A gallery that's in the gallery order can't be deleted until you remove it from the list — the Studio will tell you that's why.
 
 ## 9. When something looks off
 
@@ -188,7 +210,7 @@ A short introduction in your own words. The actual links — email, Instagram, L
 
 **"Publish is greyed out."** A required field is empty somewhere — look for the red marker. Amber markers don't block anything.
 
-**"I can't delete this."** The Studio blocks deleting anything that's still in use, and tells you where it's used. Remove it from those places first. The four Pages and Site settings can never be deleted — the site needs them.
+**"I can't delete this."** The Studio blocks deleting anything that's still in use, and tells you where it's used. Remove it from those places first. The five Pages and Site settings can never be deleted — the site needs them.
 
 **"A photo won't upload."** Check your internet connection and try again; very occasionally a refresh of the browser tab is all it takes.
 

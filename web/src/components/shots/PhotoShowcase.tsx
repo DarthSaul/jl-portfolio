@@ -5,7 +5,6 @@ import type { CSSProperties } from 'react'
 
 import { useNavDrawer } from '@/components/NavDrawerContext'
 import { SanityPhoto } from '@/components/SanityPhoto'
-import { SITE } from '@/content/site'
 import { photoRatio } from '@/lib/photo'
 import { isModifiedEvent } from '@/lib/showcase'
 import type { PhotoProjection } from '@/sanity/queries/photo'
@@ -52,13 +51,16 @@ export function PhotoShowcase({
   nextHref,
   onNavigate,
   onClose,
+  siteTitle,
 }: {
+  /** The site name for the tab title's suffix — hers, from `siteSettings`, read by the page. */
+  siteTitle: string
   /** The photograph, or `null` when the id in the URL resolves to nothing. */
   photo: PhotoProjection | null
   /**
    * A lookup for this id is still in flight, so `photo` being null does not yet mean anything.
    *
-   * Only `/shots/all` ever passes it — a gallery has all its photographs in memory and resolves
+   * Only `/gallery/all` ever passes it — a gallery has all its photographs in memory and resolves
    * the id with a `find`, so there is nothing to wait for. Without it the index announced a
    * deep-linked photograph as missing for as long as the request took, and then showed it.
    */
@@ -174,11 +176,11 @@ export function PhotoShowcase({
   useEffect(() => {
     if (!photo) return
     const previous = document.title
-    document.title = `${photo.caption || photo.alt} · ${SITE.title}`
+    document.title = `${photo.caption || photo.alt} · ${siteTitle}`
     return () => {
       document.title = previous
     }
-  }, [photo])
+  }, [photo, siteTitle])
 
   const control = (href: string, label: string, replace: boolean) => (
     <a

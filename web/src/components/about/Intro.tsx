@@ -47,7 +47,7 @@ export function Intro({
   if (!heading && !intro) return null
 
   return (
-    <section className={['max-w-read', className].filter(Boolean).join(' ')}>
+    <section className={className}>
       {heading && <h2 className="type-display-hero text-ink">{heading}</h2>}
 
       {/*

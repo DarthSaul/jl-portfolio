@@ -10,7 +10,6 @@ export type SiteSettings = {
   title: string
   byline: string
   description: string
-  showPortrait: boolean
   navLabels: NavLabels
   /** The top-level menu items, in her order — always every one of them, see `orderNav`. */
   nav: NavItem[]
@@ -53,7 +52,6 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     title: data?.title || SITE_FALLBACK.title,
     byline: data?.byline || SITE_FALLBACK.byline,
     description: data?.description || SITE_FALLBACK.description,
-    showPortrait: data?.showPortrait ?? SITE_FALLBACK.showPortrait,
     navLabels: {
       start: labels?.start || SITE_FALLBACK.navLabels.start,
       galleries: labels?.galleries || SITE_FALLBACK.navLabels.galleries,

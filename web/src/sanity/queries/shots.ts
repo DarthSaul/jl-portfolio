@@ -102,6 +102,38 @@ const GALLERY_PROJECTION = `
     )
 `
 
+/**
+ * The front page's card preview (`home/FeaturedPhotos.tsx`): a gallery's first three photographs,
+ * in the order its page shows them, **skipping the card's own photograph** — that one is always
+ * the preview's top-left quadrant, and the page already has it. Interpolated into `HOME_QUERY`
+ * inside `featuredPhotos[]{ "gallery": gallery->{ } }`, and only valid there.
+ *
+ * **`^.^.photo._ref` is the card's photograph.** Inside `gallery->{ }`, `^` is the
+ * `featuredPhoto` slot; inside an array filter or a subquery one level further in, `^` is the
+ * gallery and `^.^` the slot. Verified against `development`, where five of the six cards'
+ * photographs are among their gallery's first four — without the exclusion they would show twice.
+ * Excluding in GROQ rather than filtering in the component means a duplicate is never fetched to
+ * be thrown away.
+ *
+ * **This is `GALLERY_PROJECTION`'s `photos` with each list sliced, and must change with it** —
+ * same two modes, same guard, same arranged-then-arrivals order, or the card previews photos the
+ * gallery doesn't open with. A string constant rather than a function taking a limit, because
+ * typegen resolves interpolated constants but not calls.
+ *
+ * Every list is filtered and sliced **before** it is projected, so the front page dereferences at
+ * most six photographs per card (three placed, three from the tail) rather than the whole
+ * gallery, and the concatenation is sliced again to three. In the tag mode the tail's `order()` still scans the
+ * tagged set — index-backed via `references()`, and the same cost the gallery page already pays.
+ */
+export const GALLERY_PREVIEW_PROJECTION = `
+    "preview": select(
+      count(tags[defined(@._ref)]) > 0 => (coalesce(leadPhotos[_ref != ^.^.photo._ref][0...3]->{ ${PHOTO_PROJECTION} }, [])
+        + (*[_type == "photo" && references(^.tags[]._ref) && !(_id in coalesce(^.leadPhotos[]._ref, [])) && _id != ^.^.photo._ref]
+          | order(_createdAt asc)[0...3]{ ${PHOTO_PROJECTION} }))[0...3],
+      photos[_ref != ^.^.photo._ref][0...3]->{ ${PHOTO_PROJECTION} }
+    )
+`
+
 export const GALLERY_QUERY = defineQuery(`
   *[_type == "gallery" && slug.current == $slug][0]{ ${GALLERY_PROJECTION} }
 `)

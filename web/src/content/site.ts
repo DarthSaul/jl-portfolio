@@ -14,15 +14,19 @@ export type NavKey = 'start' | 'galleries' | 'featured' | 'allShots' | 'copy' | 
 export type NavLabels = Record<NavKey, string>;
 
 /**
- * One top-level menu item. Four are links to a page; `galleries` is not — it is the heading the
- * galleries and ALL SHOTS are listed under, and a button that opens and closes that list. There
- * is no /gallery index page for it to link to.
+ * One top-level menu item. `copy` and `bio` are links to a page; `galleries` is not — it is the
+ * IMAGES dropdown, a button that opens the list of Featured, the galleries and ALL SHOTS. There is
+ * no /gallery index page for it to link to.
+ *
+ * `start` and `featured` are still `NavKey`s because their labels are still hers to edit, but
+ * neither is a top-level item any more: the wordmark links home, and Featured is the first entry
+ * in the dropdown. Their `menuOrder` entries are dropped on read by `orderNav`.
  */
 export type NavItem =
 	| { key: 'galleries' }
 	| { key: Exclude<NavKey, 'galleries' | 'allShots'>; to: string };
 
-export type SocialIcon = 'mail' | 'linkedin' | 'substack' | 'instagram';
+export type SocialIcon = 'mail' | 'substack' | 'instagram';
 
 export type SocialLink = {
 	/** Accessible name. The rendered link is icon-only, so this is the only label a screen reader gets. */
@@ -34,11 +38,11 @@ export type SocialLink = {
 /**
  * Her words for the site, as the app shows them when Sanity cannot say.
  *
- * **The Studio is the source, not this.** Site name, byline, description, the four menu labels
- * and the portrait switch are `siteSettings` fields she edits; `sanity/siteSettings.ts` reads
+ * **The Studio is the source, not this.** Site name, byline, description and the menu labels
+ * are `siteSettings` fields she edits; `sanity/siteSettings.ts` reads
  * them and falls back here, field by field, only when the read fails or a field is empty. So
  * this copy goes stale the moment she edits one — accepted, because the alternative on a Sanity
- * outage is a sidebar with no name in it on every page. Do not chase her edits into this file;
+ * outage is a header with no name in it on every page. Do not chase her edits into this file;
  * the fallback's only job is to be plausible.
  */
 export const SITE_FALLBACK = {
@@ -49,13 +53,12 @@ export const SITE_FALLBACK = {
 		'reporter with a taste for the wry side of real life.',
 	navLabels: {
 		start: 'Start',
-		galleries: 'Galleries',
+		galleries: 'Images',
 		featured: 'Featured',
 		allShots: 'All Shots',
 		copy: 'Copy',
 		bio: 'Bio',
 	} satisfies NavLabels,
-	showPortrait: false,
 };
 
 export const SITE = {
@@ -69,24 +72,21 @@ export const SITE = {
 	 * Labels are stored sentence case and uppercased in CSS so that assistive tech reads "Copy"
 	 * rather than spelling it out. Keep them stored that way whatever the design does.
 	 *
-	 * GALLERIES has no `to`: it is the heading the galleries are listed under, not a page. Its
-	 * items — the galleries, then ALL SHOTS — are assembled in `SiteNav`. /contact is deliberately
-	 * absent — the sidebar carries contact, exactly as her current site does.
+	 * IMAGES (`galleries`) has no `to`: it opens a dropdown, not a page. Its items — Featured, the
+	 * galleries, then ALL SHOTS — are assembled in `SiteNav`. There is no START: the wordmark is
+	 * the link home. /contact is deliberately absent — the header's icons carry contact.
 	 */
 	nav: [
-		{ key: 'start', to: '/' },
 		{ key: 'galleries' },
-		{ key: 'featured', to: '/featured' },
 		{ key: 'copy', to: '/copy' },
 		{ key: 'bio', to: '/bio' },
 	] satisfies NavItem[],
 
-	/** Her links, with the two `http://` ones upgraded to `https://`. */
+	/** The header's three icon links, in the order they render. */
 	social: [
-		{ label: 'Email Joan', href: 'mailto:joanlebow@gmail.com', icon: 'mail' },
-		{ label: 'Joan on LinkedIn', href: 'https://www.linkedin.com/in/joanlebow', icon: 'linkedin' },
-		{ label: 'Joan on Substack', href: 'https://substack.com/@joanatstake', icon: 'substack' },
 		{ label: 'Joan on Instagram', href: 'https://www.instagram.com/joanatstake', icon: 'instagram' },
+		{ label: 'Joan on Substack', href: 'https://substack.com/@joanatstake', icon: 'substack' },
+		{ label: 'Email Joan', href: 'mailto:joanlebow@gmail.com', icon: 'mail' },
 	] satisfies SocialLink[],
 
 	copyright: 'copy + images © joan lebow',

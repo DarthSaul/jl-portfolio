@@ -6,8 +6,8 @@ import { SiteNavList } from './SiteNavList'
 import type { SubNavItem } from './SiteNavList'
 
 /**
- * The galleries listed under GALLERIES — the one part of the nav that is content rather than route
- * table. See `sanity/queries/nav` for why that split exists and why it stops where it does.
+ * The menu, and the list under IMAGES — Featured, her galleries, then ALL SHOTS. The galleries
+ * are the one part of the nav that is content rather than route table. See `sanity/queries/nav` for why that split exists and why it stops where it does.
  *
  * An async Server Component. It renders inside the root layout, which App Router preserves
  * across client-side navigation, so this runs once per full render rather than once per page —
@@ -47,16 +47,17 @@ export async function SiteNav() {
   }))
 
   /**
-   * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not
-   * content she made — the same reason the top-level routes live in `content/site.ts`. Only its
-   * label is hers. It is also why it survives a Sanity outage along with them: `data` failing
-   * empties the galleries and leaves this one standing, under its fallback label.
+   * Featured and ALL SHOTS are added in code rather than fetched, because they are routes we ship
+   * and not content she made — the same reason the top-level routes live in `content/site.ts`.
+   * Only their labels are hers. It is also why they survive a Sanity outage: `data` failing
+   * empties the galleries and leaves these two standing, under their fallback labels.
    *
-   * It sits last. The galleries above it are the curated views and this is the unfiltered pile
-   * behind them, so the list reads as her selections first and the catch-all at the bottom —
-   * which is also the order someone browsing wants them in.
+   * Featured leads — it was a top-level item of its own until the top nav folded it in here, and
+   * it is her chosen showcase. ALL SHOTS sits last: the galleries are the curated views and it is
+   * the unfiltered pile behind them.
    */
   const subNav: SubNavItem[] = [
+    { key: 'featured', title: navLabels.featured, to: '/featured' },
     ...galleries,
     { key: 'all', title: navLabels.allShots, to: '/gallery/all' },
   ]

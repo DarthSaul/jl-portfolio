@@ -26,10 +26,10 @@ const EMPTY: PhotoProjection[] = []
  * Photographs load as you reach the bottom. That was chosen over numbered pages knowing the three
  * things it gives up, and two of them are dealt with here:
  *
- * - **Reaching the end of the page.** Normally infinite scroll strands whatever sits below it. Here
- *   it strands nothing: the copyright and social links live in the sticky sidebar, not in a footer
- *   at the end of `<main>`, so they stay reachable at any scroll depth. This is the layout paying
- *   off rather than anything done here.
+ * - **Reaching the end of the page.** Infinite scroll strands whatever sits below it, which here
+ *   is the slim footer — copyright and credit only. Accepted: the social links and the menu are
+ *   in the sticky header, reachable at any scroll depth, and nothing in the footer is something a
+ *   visitor needs to reach.
  * - **Announcing that content appeared.** A `role="status"` region reports the running count, so a
  *   screen reader hears "Showing 48 of 187 photos" instead of nothing. The Load more button below
  *   it is not decoration either: `IntersectionObserver` only fires on scroll, and a keyboard user
@@ -277,7 +277,7 @@ export function AllShotsView({
         `tabIndex={-1}` on the heading is where focus lands when the showcase closes and the tile
         that opened it cannot be found — a deep link, most often.
       */}
-      <header className="max-w-read space-y-6">
+      <header className="space-y-6">
         <h2 tabIndex={-1} className="type-display-lg text-ink outline-none">
           All Shots
         </h2>

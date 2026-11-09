@@ -90,7 +90,7 @@ export function Lead({
         <p className="type-body-sm-strong uppercase tracking-[0.18em] text-ink">{label}</p>
 
         {/*
-          An `<h3>`: the sidebar's wordmark is the page's `<h1>` and /copy's own heading is the
+          An `<h3>`: the header's wordmark is the page's `<h1>` and /copy's own heading is the
           `<h2>`, so a piece's title is a level below both.
         */}
         <h3 className="type-display-md mt-3 text-ink">{item.title}</h3>

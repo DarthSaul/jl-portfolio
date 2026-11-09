@@ -3,7 +3,7 @@ import type { InferComponents } from '@portabletext/react'
 
 import type { POST_QUERY_RESULT } from '~~/sanity.types'
 
-import { BodyPhoto } from './BodyPhoto'
+import { BodyPhoto, type Measure } from './BodyPhoto'
 import { ProseLink } from './ProseLink'
 
 type Body = NonNullable<POST_QUERY_RESULT>['body']
@@ -27,7 +27,7 @@ type Body = NonNullable<POST_QUERY_RESULT>['body']
  *
  * The style is *stored* as `h2` — that is the value in the schema, and Sanity's convention is to
  * name block styles after the element they resemble. It is not an instruction about depth. On this
- * site `SiteSidebar` puts the wordmark in an `<h1>` on every page and the post's own title is the
+ * site `SiteHeader` puts the wordmark in an `<h1>` on every page and the post's own title is the
  * `<h2>`, so rendering a subheading as a literal `<h2>` would put it level with the title of the
  * piece it sits inside. `<h3>` is what the outline actually calls for.
  *
@@ -76,7 +76,19 @@ function floatSides(blocks: Body) {
   return sides
 }
 
-export function ProseBody({ value, className }: { value: Body, className?: string }) {
+/**
+ * `measure` is how wide the page sets this body: `read` (the 750px prose measure — a post) or
+ * `column` (the whole main column — /bio). Only full-width photos care; it picks their `sizes`.
+ */
+export function ProseBody({
+  value,
+  className,
+  measure = 'read',
+}: {
+  value: Body
+  className?: string
+  measure?: Measure
+}) {
   const sides = floatSides(value)
 
   const components = {
@@ -97,7 +109,7 @@ export function ProseBody({ value, className }: { value: Body, className?: strin
     },
     marks: { hyperlink: ProseLink },
     types: {
-      postPhoto: ({ value: photo }) => <BodyPhoto value={photo} side={sides.get(photo._key)} />,
+      postPhoto: ({ value: photo }) => <BodyPhoto value={photo} side={sides.get(photo._key)} measure={measure} />,
     },
   } satisfies InferComponents<Body>
 

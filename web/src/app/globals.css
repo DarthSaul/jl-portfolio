@@ -254,7 +254,7 @@
    * `rounded-full` survives on purpose and is the single exception the spec allows —
    * "{rounded.full} 9999px: circular icon containers only". It does not read from a
    * `--radius-*` token, so unsetting these does not touch it — confirmed by the same test.
-   * Two call sites: the circular thumbnails on /copy and the social buttons in the sidebar.
+   * One call site: the social icon links in the header.
    */
   --radius: initial;
   --radius-xs: initial;
@@ -267,10 +267,10 @@
   --radius-4xl: initial;
 
   --spacing-section: 3rem; /* {spacing.4xl} 48px — DESIGN.md's section padding */
-  --spacing-bar: 3.5rem; /* 56px — the mobile bar's height, and the drawer's top offset */
+  --spacing-bar: 3.5rem; /* 56px — the header's height below md, and the drawer's top offset */
+  --spacing-bar-md: 4.5rem; /* 72px — the header's height from md up */
 
   --container-shell: 90rem; /* 1440px — the whole app, centred */
-  --container-sidebar: 15rem; /* 240px — the sidenav column */
   --container-read: 46.875rem; /* 750px — the prose measure */
 }
 
@@ -457,12 +457,9 @@
  */
 
 /*
- * The gutter, set once on <main> and on the sidebar's own strips.
- *
- * Before the sidenav, five pages and `writing/Row.vue` each declared their own
- * `mx-auto max-w-[…] px-5` — six places to keep in step — and the front page's photo row
- * escaped them by simply not being inside one. Now the shell owns the horizontal padding and
- * pages own only vertical rhythm and, for prose, `max-w-read`.
+ * The gutter, set once on <main>, the header's bar and the footer, so all three share a left
+ * edge. Pages own only vertical rhythm and, for prose, `max-w-read`; they never declare their
+ * own `mx-auto max-w-[…] px-*`.
  */
 @utility main-column {
   --gutter: 1.25rem; /* 20px */
@@ -477,7 +474,7 @@
 
 /*
  * Full-bleed, which means the edge of the *main column* rather than of the viewport — the
- * shell is centred and capped, so the viewport edge is no longer the page edge.
+ * shell is centred and capped at `max-w-shell`, so the viewport edge is not the page edge.
  *
  * `--gutter` is a custom property set by `main-column` and inherited, so this is automatically
  * correct at every breakpoint and there is no negative-margin arithmetic at the call site. The
@@ -526,15 +523,19 @@
  * Written as `100dvh` minus the chrome it is actually derived from rather than as a flat
  * `78dvh`, so that changing <main>'s padding shows up here as arithmetic that no longer adds up
  * instead of as a photograph quietly pushing the page into scroll. `dvh` and not `vh`, matching
- * `min-h-dvh` and `lg:h-dvh` in `app/layout.tsx` — on a phone the URL bar collapses and `vh`
+ * `min-h-dvh` in `app/layout.tsx` — on a phone the URL bar collapses and `vh`
  * would leave the photograph taller than the space it has.
  */
 @utility showcase-frame {
-  /* bar 3.5rem + main pt-10 2.5rem + pb-20 5rem + the heading and controls ~5rem */
-  --showcase-h: calc(100dvh - 16rem);
+  /* bar 3.5rem + main pt-4 1rem + pb-20 5rem + the heading and controls ~5rem */
+  --showcase-h: calc(100dvh - var(--spacing-bar) - 11rem);
+  @variant md {
+    /* bar 4.5rem + main pt-4 1rem + pb-20 5rem + the heading and controls ~5rem */
+    --showcase-h: calc(100dvh - var(--spacing-bar-md) - 11rem);
+  }
   @variant lg {
-    /* no bar; main pt-14 3.5rem + pb-28 7rem + the heading and controls ~5rem */
-    --showcase-h: calc(100dvh - 15.5rem);
+    /* bar 4.5rem + main pt-6 1.5rem + pb-28 7rem + the heading and controls ~5rem */
+    --showcase-h: calc(100dvh - var(--spacing-bar-md) - 13.5rem);
   }
 }
 
@@ -544,8 +545,8 @@
  * ============================================================================
  *
  * The app's only `@media print` block, added for /docs — the Field Guide is meant to survive
- * being printed as a paper reference. Hiding the chrome is not done here: `SiteSidebar`'s
- * <aside> and both TOC elements on /docs carry `print:hidden` at the call site, where the
+ * being printed as a paper reference. Hiding the chrome is not done here: `SiteHeader`'s
+ * <header>, `SiteFooter`'s <footer> and both TOC elements on /docs carry `print:hidden` at the call site, where the
  * decision is visible next to the element it hides. This block holds only what a utility
  * class cannot say.
  */
@@ -562,7 +563,7 @@
 
   /*
    * `h3` is the guide's *section* level — the markdown's `##`, demoted one step because the
-   * sidebar owns the site's only h1 (see `DocsMarkdown`). One numbered section per sheet, with
+   * header owns the site's only h1 (see `DocsMarkdown`). One numbered section per sheet, with
    * the first sharing page one with the title rather than leaving it alone on a cover page.
    */
   .docs-article h3 {

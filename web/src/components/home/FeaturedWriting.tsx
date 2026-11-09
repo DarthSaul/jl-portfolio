@@ -47,11 +47,11 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
   return (
     <section>
       {/*
-        DESIGN.md's `category-eyebrow` over a hairline: a small uppercase sans label rather than a
+        DESIGN.md's `category-eyebrow`, with no rule above it: a small uppercase sans label rather than a
         heading in the display serif. That keeps the three card headlines below it as the largest
         type in the section, which is what the eye should land on.
       */}
-      <h2 className="type-display-xs border-t border-hairline pt-10 uppercase tracking-[0.1em] text-ink">
+      <h2 className="type-display-xs pt-10 uppercase tracking-[0.1em] text-ink">
         Featured Writing
       </h2>
 

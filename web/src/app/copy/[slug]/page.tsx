@@ -18,7 +18,7 @@ import { POST_QUERY, POST_SLUGS_QUERY } from '@/sanity/queries/writing'
  * writing below for that" — so showing it here would contradict the field's own description, and
  * the photos in the body are the ones she chose for the piece.
  *
- * The title is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`. Subheadings
+ * The title is an `<h2>`: `SiteHeader` renders the wordmark as the page's `<h1>`. Subheadings
  * inside the body land on `<h3>` for the same reason — see `ProseBody`.
  */
 /**

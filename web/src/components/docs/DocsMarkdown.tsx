@@ -17,7 +17,7 @@ import { DocImage } from './DocImage'
  *
  * ## Headings demote one level
  *
- * `SiteSidebar` owns the site's only `<h1>` (the wordmark), so the markdown's `#` renders as
+ * `SiteHeader` owns the site's only `<h1>` (the wordmark), so the markdown's `#` renders as
  * `<h2>`, `##` as `<h3>`, `###` as `<h4>` — same reason every page heading on the site starts
  * at h2. The `##` sections carry ids from `slugifyHeading`, the same function `extractSections`
  * uses to build the TOC, so an anchor and its target cannot disagree — see `lib/docs.ts`.
@@ -48,13 +48,13 @@ const components: Components = {
   h1: ({ children }) => <h2 className="type-display-lg text-ink">{children}</h2>,
 
   /*
-   * `scroll-mt`: the sidebar's mobile bar is sticky (3.5rem tall), so a TOC jump without the
-   * offset lands the heading underneath it. Desktop has no bar; a small offset just breathes.
+   * `scroll-mt`: the header is sticky (3.5rem, 4.5rem from md), so a TOC jump without the
+   * offset lands the heading underneath it. The offset is the bar plus 1.5rem to breathe.
    */
   h2: ({ children }) => (
     <h3
       id={slugifyHeading(textOf(children))}
-      className="type-display-md mt-16 scroll-mt-20 border-t border-hairline pt-8 text-ink lg:scroll-mt-8"
+      className="type-display-md mt-16 scroll-mt-20 border-t border-hairline pt-8 text-ink md:scroll-mt-24"
     >
       {children}
     </h3>

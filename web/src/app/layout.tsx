@@ -3,8 +3,9 @@ import type { ReactNode } from 'react'
 
 import { MainColumn } from '@/components/MainColumn'
 import { NavDrawerProvider } from '@/components/NavDrawerContext'
+import { SiteFooter } from '@/components/SiteFooter'
+import { SiteHeader } from '@/components/SiteHeader'
 import { SiteNav } from '@/components/SiteNav'
-import { SiteSidebar } from '@/components/SiteSidebar'
 import { getSiteSettings } from '@/sanity/siteSettings'
 
 import './globals.css'
@@ -33,41 +34,31 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The only layout: a left sidenav column and a main column, inside one 1440px shell.
+ * The only layout: a sticky top bar, the page, and a slim footer.
  *
  * ## The container decision lives here
  *
- * It used to live in each page, because the front page's photo strip had to escape it and
- * constraining everything at this level would have needed a negative-margin escape hatch. Six
- * files carried their own `mx-auto max-w-[…] px-5` as a result.
- *
- * The sidenav settles it. The strip no longer has to escape the *viewport*, only the main
- * column, and the `bleed` utility does exactly that by reading back the `--gutter` that
- * `main-column` sets. So the container is decided once, here, and a page owns only its vertical
- * rhythm and — for prose — a reading measure.
+ * The bar spans the viewport; its contents, `<main>` and the footer each sit in the same centred
+ * `max-w-shell` box with the `main-column` gutter, so the wordmark, the page and the copyright
+ * share a left edge. A page owns only its vertical rhythm and — for prose — a reading measure.
  *
  * ## The server/client seam
  *
- * `NavDrawerProvider`, `SiteSidebar` and `MainColumn` are Client Components; `SiteNav` and every
- * page are Server Components. That composes because both server trees are passed *through* the
- * client ones as props (`nav`, `children`) rather than imported by them. A client module cannot
- * import a server one; it can render one it was handed.
+ * `NavDrawerProvider`, `SiteHeader` and `MainColumn` are Client Components; `SiteNav`,
+ * `SiteFooter` and every page are Server Components. That composes because the server trees are
+ * passed *through* the client ones as props (`nav`, `footer`, `children`) rather than imported by
+ * them. A client module cannot import a server one; it can render one it was handed.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const { title, byline, showPortrait } = await getSiteSettings()
+  const { title } = await getSiteSettings()
 
   return (
     <html lang="en">
       <body>
         <NavDrawerProvider>
-          <div className="mx-auto flex min-h-dvh max-w-shell flex-col bg-canvas text-ink lg:flex-row">
-            <SiteSidebar
-              nav={<SiteNav />}
-              title={title}
-              byline={byline}
-              showPortrait={showPortrait}
-            />
-            <MainColumn>{children}</MainColumn>
+          <div className="flex min-h-dvh flex-col bg-canvas text-ink">
+            <SiteHeader nav={<SiteNav />} title={title} />
+            <MainColumn footer={<SiteFooter />}>{children}</MainColumn>
           </div>
         </NavDrawerProvider>
       </body>

@@ -15,15 +15,14 @@
  * (`/docs` the route and `/docs/<slug>.png` the file coexist fine: the route matches only the
  * bare path, and anything deeper falls through to `web/public/`.)
  *
- * ## The third `<img>` in the app
+ * ## The second `<img>` in the app
  *
- * CLAUDE.md's check (`grep -rl "<img" web/src` finds two files) now finds three, and this is
- * the argument: a Studio screenshot is documentation chrome, not one of her photographs. There
- * is no photo document behind it — no Sanity asset for `SanityPhoto`'s srcset and LQIP, no
- * stored alt to dereference — which puts it in the same category as the illustrated portrait in
- * `SiteSidebar`: a static file that ships with the code, not content she edits. What that
- * costs is paid the same way the portrait pays it: `loading="lazy"` by hand, alt written where
- * the image is placed (here, in the markdown).
+ * CLAUDE.md's check (`grep -rl "<img" web/src`) finds two files, this and `SanityPhoto`, and this
+ * is the argument for the second: a Studio screenshot is documentation chrome, not one of her
+ * photographs. There is no photo document behind it — no Sanity asset for `SanityPhoto`'s srcset
+ * and LQIP, no stored alt to dereference — so it is a static file that ships with the code. What
+ * that costs is paid by hand: `loading="lazy"`, and alt written where the image is placed (here,
+ * in the markdown).
  */
 
 const PLACEHOLDER_PREFIX = 'placeholder:'

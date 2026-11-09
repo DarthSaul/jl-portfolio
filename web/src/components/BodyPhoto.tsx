@@ -54,6 +54,19 @@ const LAYOUTS = {
   full: 'w-full md:clear-both',
 } satisfies Record<NonNullable<PostPhoto['layout']>, string>
 
+/** How wide the page sets the body this photo sits in — see `ProseBody`. */
+export type Measure = 'read' | 'column'
+
+/**
+ * A full-width photo's `sizes`, by measure. `column` is the main column: the viewport less its
+ * gutters, capped at 1328px (`--container-shell` 90rem less two 3.5rem `xl` gutters — the same
+ * figure `PhotoShowcase` uses).
+ */
+const FULL_SIZES = {
+  read: '(min-width: 768px) 750px, 100vw',
+  column: '(min-width: 90rem) 1328px, 100vw',
+} satisfies Record<Measure, string>
+
 const FLOAT = {
   right: 'md:float-right md:ml-8',
   left: 'md:float-left md:mr-8',
@@ -62,19 +75,21 @@ const FLOAT = {
 export function BodyPhoto({
   value,
   side,
+  measure = 'read',
 }: {
   value: PostPhoto
+  measure?: Measure
   /** Which way a wrapped photo floats. Ignored when the layout is full width. */
   side?: 'left' | 'right'
 }) {
   const layout = value.layout ?? 'wrap'
 
   // `sizes` follows the layout, not the viewport: a wrapped photo never exceeds 350px, while a
-  // full-width one fills the 750px reading measure. Asking for the larger ladder in both cases
-  // would download roughly four times the pixels a wrapped photo can show.
+  // full-width one fills its measure. Asking for the larger ladder in both cases would download
+  // several times the pixels a wrapped photo can show.
   const sizes
     = layout === 'full'
-      ? '(min-width: 768px) 750px, 100vw'
+      ? FULL_SIZES[measure]
       : '(min-width: 768px) 350px, 100vw'
 
   const float = layout === 'wrap' && side ? FLOAT[side] : ''

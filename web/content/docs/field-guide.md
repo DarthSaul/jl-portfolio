@@ -43,7 +43,7 @@ The left sidebar is the whole Studio. Top to bottom:
 
 **Copy links** — pointers to writing published elsewhere, like your NY Times piece. A link, not an essay — you never paste the text in.
 
-**Site settings** — the handful of things that belong to the whole site: your name, the byline under it, the words in the menu and the order of everything in it, and your email/Instagram/LinkedIn links.
+**Site settings** — the handful of things that belong to the whole site: your name, the byline, and the words in the menu and the order of everything in it.
 
 ## 3. Drafts, publishing, and undo
 
@@ -182,7 +182,7 @@ A heading, an introduction set in larger type, and then the bio itself — writt
 
 ### Contact
 
-A short introduction in your own words. The actual links — email, Instagram, LinkedIn, Substack — live in **Site settings**, because they appear across the site, not just here.
+A short introduction in your own words. (This page isn't on the site yet.) The links at the top right of every page — Instagram, Substack and email — are set by Saul rather than in the Studio; ask him to change one.
 
 ### Site settings
 
@@ -195,7 +195,7 @@ Two tabs across the top: **Site** and **Menu**.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
 - **Show the illustrated portrait in the sidebar** — no longer does anything: the site has a top menu now, with no sidebar. It will be removed.
 - **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one. Recommended, not required.
-- **Links** — your email and social links. Drag to reorder.
+- **Links** — not used by the site at the moment: the Instagram, Substack and email icons at the top right are set by Saul. Editing this list changes nothing.
 
 **Menu**
 

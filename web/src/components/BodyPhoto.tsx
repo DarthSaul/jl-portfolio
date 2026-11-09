@@ -59,12 +59,14 @@ export type Measure = 'read' | 'column'
 
 /**
  * A full-width photo's `sizes`, by measure. `column` is the main column: the viewport less its
- * gutters, capped at 1328px (`--container-shell` 90rem less two 3.5rem `xl` gutters — the same
- * figure `PhotoShowcase` uses).
+ * two gutters at each of `main-column`'s steps in `globals.css` (1.25rem, 2.5rem from `lg`,
+ * 3.5rem from `xl`), capped at 1328px (`--container-shell` 90rem less two `xl` gutters — the same
+ * figure `PhotoShowcase` uses). Change the gutters and this follows them.
  */
 const FULL_SIZES = {
   read: '(min-width: 768px) 750px, 100vw',
-  column: '(min-width: 90rem) 1328px, 100vw',
+  column:
+    '(min-width: 90rem) 1328px, (min-width: 80rem) calc(100vw - 7rem), (min-width: 64rem) calc(100vw - 5rem), calc(100vw - 2.5rem)',
 } satisfies Record<Measure, string>
 
 const FLOAT = {

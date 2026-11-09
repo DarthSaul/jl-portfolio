@@ -93,7 +93,7 @@ export function FeaturedPhotos({ photos }: { photos: Home['featuredPhotos'] }) {
           const preview = gallery?.preview?.length === 3 ? gallery.preview : null
 
           return (
-            <li key={`${slot.photo._id}-${index}`}>
+            <li key={slot._key}>
               {gallery
                 ? (
                     <Link

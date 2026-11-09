@@ -629,8 +629,11 @@ Raise these when the relevant work comes up; don't paper over them.
   `navLabels.galleries` is stored as "Galleries" in `development`, so the menu reads GALLERIES
   until she (or a content edit) changes it to "Images" — the code fallback already says Images.
   `menuOrder` still offers START, which the site now ignores; `navLabels.start` and
-  `showPortrait` drive nothing. Remove or relabel those fields so the Studio stops offering knobs
-  that do nothing, and consider capping `homePage.featuredPhotos` at six.
+  `showPortrait` drive nothing, and `siteSettings.links` is never read (the header uses
+  `SITE.social`). Remove or relabel those fields so the Studio stops offering knobs that do
+  nothing, and consider capping `homePage.featuredPhotos` at six. **Remove the read side in the
+  same change:** `showPortrait` and `navLabels{ start }` from `SITE_SETTINGS_QUERY`, the `start`
+  line in `getSiteSettings()`, `start` from `NavKey`/`SITE_FALLBACK.navLabels` — then typegen.
 - **When to retire the promote.** Nothing detects that she's been given the Studio URL; the
   preflight only trips after she creates a document. Decide deliberately and record it here.
 - **`@sanity/vision`** is in `sanity.config.ts` for query building; remove it in the handover PR.

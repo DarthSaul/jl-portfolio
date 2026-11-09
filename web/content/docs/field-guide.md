@@ -165,7 +165,7 @@ The front page, edited top-to-bottom in the order it reads:
 
 ### Featured
 
-A page of photos at /featured, listed first in the menu under **Images**. It works exactly like a gallery — the same **Layout** choice and the same two ways to fill it (by hand, or from tags), described in *Galleries* above. The difference is that it always lives at /featured and can't be deleted, and it isn't part of **Gallery order** — it always comes first.
+A page of photos at /featured, with its own item in the menu across the top. It works exactly like a gallery — the same **Layout** choice and the same two ways to fill it (by hand, or from tags), described in *Galleries* above. The difference is that it always lives at /featured and can't be deleted, and it isn't part of **Gallery order** — it isn't in the Images list at all.
 
 - **Title** — the heading at the top of the page and the browser tab. The word in the menu is set separately, in **Site settings → Menu labels**.
 - **Short description** — optional; the blurb that appears when someone shares a link to the page.
@@ -199,9 +199,9 @@ Two tabs across the top: **Site** and **Menu**.
 
 **Menu**
 
-- **Menu labels** — the words in the menu. The menu across the top has three items: **Galleries** (the one that opens your list of photo pages — set it to "Images" to match the design), **Copy** and **Bio**. **Featured** and **All Shots** name the first and last entries in that list. **Start** is no longer used — your name at the top left is the link home. Type them normally; the site puts them in capitals. This changes the words only — the pages they lead to stay the same.
-- **Menu order** — drag to reorder the three top-menu items. Front page and Featured are still listed here but no longer have their own place in the top menu, so moving them changes nothing.
-- **Gallery order** — your galleries, in the order they appear in the Images list, after Featured. **Drag to reorder.** Galleries you haven't placed yet are listed underneath and show up at the end of the menu, alphabetically; press **Place** (or **Place all**) to bring them into the list you can drag. All Shots always sits last.
+- **Menu labels** — the words in the menu. The menu across the top has four items: **Featured**, **Galleries** (the one that opens your list of photo pages — set it to "Images" to match the design), **Copy** and **Bio**. **All Shots** names the last entry in that list. **Start** is no longer used — your name at the top left is the link home. Type them normally; the site puts them in capitals. This changes the words only — the pages they lead to stay the same.
+- **Menu order** — drag to reorder the four top-menu items: Featured, Galleries, Copy and Bio. Front page is still listed here but no longer has its own place in the top menu, so moving it changes nothing.
+- **Gallery order** — your galleries, in the order they appear in the Images list. **Drag to reorder.** Galleries you haven't placed yet are listed underneath and show up at the end of the menu, alphabetically; press **Place** (or **Place all**) to bring them into the list you can drag. All Shots always sits last.
 
 A gallery that's in the gallery order can't be deleted until you remove it from the list — the Studio will tell you that's why.
 

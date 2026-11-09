@@ -276,13 +276,12 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 
 **The nav:**
 
-- The three top-level items' **routes** are hardcoded (`SITE.nav` in `content/site.ts`): IMAGES
-  (key `galleries` — a dropdown toggle, no route), COPY, BIO. There is no START (the wordmark
-  links home) and FEATURED lives in the dropdown. **Labels and order** are hers (`navLabels`,
-  `menuOrder`). `orderNav` drops unknown/repeated keys — so stored `start`/`featured` entries are
-  ignored — and inserts missing items after their default predecessor, so no stored value can
+- The four top-level items' **routes** are hardcoded (`SITE.nav` in `content/site.ts`): FEATURED,
+  IMAGES (key `galleries` — a dropdown toggle, no route), COPY, BIO. There is no START (the
+  wordmark links home). **Labels and order** are hers (`navLabels`, `menuOrder`). `orderNav` drops
+  unknown/repeated keys — so a stored `start` entry is ignored — and inserts missing items after their default predecessor, so no stored value can
   drop a menu item.
-- The IMAGES dropdown is Featured (code), then galleries from `NAV_QUERY` (`queries/nav.ts`):
+- The IMAGES dropdown is galleries from `NAV_QUERY` (`queries/nav.ts`):
   `placed` (her `siteSettings.galleryOrder`, strong refs) + `rest` (unplaced published
   galleries, A–Z), then ALL SHOTS (code).
   - **`coalesce(…, [])` in `rest` is load-bearing** — `_id in null` drops every gallery.
@@ -629,7 +628,7 @@ Raise these when the relevant work comes up; don't paper over them.
 - **Studio follow-up for the top nav** (needs a schema change + `npm run deploy`, not done):
   `navLabels.galleries` is stored as "Galleries" in `development`, so the menu reads GALLERIES
   until she (or a content edit) changes it to "Images" — the code fallback already says Images.
-  `menuOrder` still offers START and FEATURED, which the site now ignores; `navLabels.start` and
+  `menuOrder` still offers START, which the site now ignores; `navLabels.start` and
   `showPortrait` drive nothing. Remove or relabel those fields so the Studio stops offering knobs
   that do nothing, and consider capping `homePage.featuredPhotos` at six.
 - **When to retire the promote.** Nothing detects that she's been given the Studio URL; the

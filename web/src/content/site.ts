@@ -14,13 +14,12 @@ export type NavKey = 'start' | 'galleries' | 'featured' | 'allShots' | 'copy' | 
 export type NavLabels = Record<NavKey, string>;
 
 /**
- * One top-level menu item. `copy` and `bio` are links to a page; `galleries` is not — it is the
- * IMAGES dropdown, a button that opens the list of Featured, the galleries and ALL SHOTS. There is
+ * One top-level menu item. `featured`, `copy` and `bio` are links to a page; `galleries` is not —
+ * it is the IMAGES dropdown, a button that opens the list of the galleries and ALL SHOTS. There is
  * no /gallery index page for it to link to.
  *
- * `start` and `featured` are still `NavKey`s because their labels are still hers to edit, but
- * neither is a top-level item any more: the wordmark links home, and Featured is the first entry
- * in the dropdown. Their `menuOrder` entries are dropped on read by `orderNav`.
+ * `start` is still a `NavKey` because its label is still hers to edit, but it is not a top-level
+ * item any more: the wordmark links home. Its `menuOrder` entry is dropped on read by `orderNav`.
  */
 export type NavItem =
 	| { key: 'galleries' }
@@ -72,11 +71,12 @@ export const SITE = {
 	 * Labels are stored sentence case and uppercased in CSS so that assistive tech reads "Copy"
 	 * rather than spelling it out. Keep them stored that way whatever the design does.
 	 *
-	 * IMAGES (`galleries`) has no `to`: it opens a dropdown, not a page. Its items — Featured, the
-	 * galleries, then ALL SHOTS — are assembled in `SiteNav`. There is no START: the wordmark is
+	 * FEATURED leads, then IMAGES (`galleries`), which has no `to`: it opens a dropdown, not a page.
+	 * Its items — the galleries, then ALL SHOTS — are assembled in `SiteNav`. There is no START: the wordmark is
 	 * the link home. /contact is deliberately absent — the header's icons carry contact.
 	 */
 	nav: [
+		{ key: 'featured', to: '/featured' },
 		{ key: 'galleries' },
 		{ key: 'copy', to: '/copy' },
 		{ key: 'bio', to: '/bio' },

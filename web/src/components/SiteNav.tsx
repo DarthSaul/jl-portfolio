@@ -6,7 +6,7 @@ import { SiteNavList } from './SiteNavList'
 import type { SubNavItem } from './SiteNavList'
 
 /**
- * The menu, and the list under IMAGES — Featured, her galleries, then ALL SHOTS. The galleries
+ * The menu, and the list under IMAGES — her galleries, then ALL SHOTS. The galleries
  * are the one part of the nav that is content rather than route table. See `sanity/queries/nav` for why that split exists and why it stops where it does.
  *
  * An async Server Component. It renders inside the root layout, which App Router preserves
@@ -47,17 +47,15 @@ export async function SiteNav() {
   }))
 
   /**
-   * Featured and ALL SHOTS are added in code rather than fetched, because they are routes we ship
-   * and not content she made — the same reason the top-level routes live in `content/site.ts`.
-   * Only their labels are hers. It is also why they survive a Sanity outage: `data` failing
-   * empties the galleries and leaves these two standing, under their fallback labels.
+   * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not content
+   * she made — the same reason the top-level routes live in `content/site.ts`. Only its label is
+   * hers. It is also why it survives a Sanity outage: `data` failing empties the galleries and
+   * leaves it standing, under its fallback label. It sits last: the galleries are the curated
+   * views and it is the unfiltered pile behind them.
    *
-   * Featured leads — it was a top-level item of its own until the top nav folded it in here, and
-   * it is her chosen showcase. ALL SHOTS sits last: the galleries are the curated views and it is
-   * the unfiltered pile behind them.
+   * Featured is not here: it is a top-level item of its own (`SITE.nav`), before IMAGES.
    */
   const subNav: SubNavItem[] = [
-    { key: 'featured', title: navLabels.featured, to: '/featured' },
     ...galleries,
     { key: 'all', title: navLabels.allShots, to: '/gallery/all' },
   ]

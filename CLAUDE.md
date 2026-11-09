@@ -1,2063 +1,635 @@
 # jl-portfolio
 
-A photography portfolio site. Roughly 250 iPhone photos, a handful of short texts, and
-links to articles published elsewhere.
+A photography portfolio for Joan Lebow: ~250 iPhone photos, a handful of short texts, and links
+to articles published elsewhere.
 
 ## Two users, and which one wins
 
-**The editor.** One person: the photographer. She is not technical. She has a Squarespace
-site she never updates, because its freeform layout editor is fiddly and easy to break at
-different screen sizes. **An editing experience she will actually use is the entire point of
-this project.** A beautiful site she won't touch is a failure.
+**The editor** — Joan, the photographer. Not technical. She abandoned Squarespace because its
+freeform editor was fiddly and broke at different screen sizes. **An editing experience she will
+actually use is the entire point of this project.**
 
-**The audience.** Visitors, mostly on phones, mostly arriving from a link. They want to look
-at photographs — large, fast-loading, without chrome in the way.
+**The audience** — visitors, mostly on phones, arriving from a link. They want large, fast
+photographs without chrome in the way.
 
-When these two conflict, the editor wins. A feature that makes the public site 5% more
-sophisticated and the Studio meaningfully more confusing is a bad trade. Take it the other
-way: prefer fewer knobs, more defaults, and choices that cannot produce a broken page.
-
-## Stack
-
-| Piece | Why it's here |
-| --- | --- |
-| **Next.js 16** (App Router, React 19) | File-based routing, per-route rendering, and Server Components — so a page's data fetch happens on the server by default and only the interactive parts ship. |
-| **TypeScript** | Content shapes come from generated types — the compiler catches schema drift. |
-| **Tailwind CSS** | Layout presets are the only place layout is decided; utility classes keep that decision local to the preset component. v4, CSS-first — the `@theme` and `@utility` block in `web/src/app/globals.css` is the single source for type, colour and container width. **There is no `tailwind.config.ts` and one should not be added.** |
-| **Sanity** (hosted Content Lake) | The CMS. Structured content, real references between documents, and an editing UI we control the shape of. |
-| **Sanity Studio, deployed via `sanity deploy`** | Sanity hosts the Studio at `joanatstake.sanity.studio`. `/admin` on this site redirects there, so she still only has to remember one URL. |
-| **`@sanity/client` + `groq`** | The client and `defineQuery`, wired through one `sanityFetch` helper in `web/src/sanity/fetch.ts`. Chosen over `next-sanity`, which bundles visual-editing, preview-secret and webhook packages this project defers — see *Working agreements*. |
-| **`@portabletext/react`** | Renders `proseText` and the two bodies. Same `components` map shape the Vue renderer had. |
-| **GROQ** | Sanity's query language. Lets a route fetch exactly its shape in one request, following references. |
-| **Sanity image CDN** | Transform params in the URL — resizing, format negotiation, and LQIP come free, no build-time image pipeline. |
-| **Vercel + ISR** | Deployment. ISR means content changes appear on the live site without a build step she has to know about or wait for. Sixty seconds, set once at the fetch layer — see *Caching*. |
-
-### The Studio (Phase 1 approach)
-
-The Studio is **not embedded in the app**. It is its own npm package in `studio/` with its own
-`package.json`, deployed to `joanatstake.sanity.studio`. `/admin` on the site redirects to it.
-
-**The original reason for that split is gone, and the conclusion is unchanged.** This used to
-read "Sanity Studio is React and Nuxt is Vue; rather than bridge that…", and the app is React
-now — the language gap that made embedding awkward no longer exists. The arrangement stays on
-its own merits, which were always the stronger half of the argument: Sanity's own guidance
-treats a standalone, separately-deployed Studio as the recommended shape and embedding as
-legacy, because embedding slows app builds, couples Studio updates to app deploys, and rules
-out Studio auto-updates. Note it also keeps `sanity`, `styled-components` and the Studio's React
-out of the *app's* install, which still matters even though both halves now speak React.
-
-So: if embedding is ever reconsidered, it has to be argued against those three costs. "They are
-both React now" is not the argument — it only removes an obstacle that was never the reason.
-
-Sanity project: **`c3808h1v`** ("Portfolio: Joan Lebow"). Hardcoded in `studio/sanity.config.ts`
-and `studio/sanity.cli.ts` — it's public, and the Studio only ever talks to one project.
-
-Studio hostname: **`https://joanatstake.sanity.studio`**, claimed and live. Pinned as
-`studioHost` in `studio/sanity.cli.ts`, so deploys no longer prompt and can't land on a
-different host by typo. CORS is registered for it and for `http://localhost:3333`.
-
-Consequences to keep in mind:
-
-- **The Studio is a separate deployment artifact.** Pushing the app to Vercel does not ship
-  Studio changes, and `sanity deploy` does not ship app changes. A schema change only reaches
-  her after a Studio deploy. This is the main cost of the approach — when a task touches
-  `studio/schemaTypes/`, deploying the Studio is part of finishing it.
-- **Studio auto-updates are on** (`autoUpdates: true` in `studio/sanity.cli.ts`). Sanity ships
-  Studio improvements to her without a redeploy from us. Schema changes still need a deploy;
-  only the Studio shell auto-updates.
-- **Studio dependencies stay out of the app's install.** `sanity`, `styled-components` and the
-  Studio's own React live in `studio/package.json`, so a Vercel build of the app never installs
-  them. This is the main reason the two halves have separate `package.json` files, and it
-  survived the app becoming React — the app depends on `react` and `react-dom` and on nothing
-  else the Studio needs.
-- **The redirect is a `302`, not a `301`.** A permanent redirect gets cached in her browser
-  and would be genuinely annoying to undo if we later embed the Studio. Keep it temporary
-  while the arrangement is temporary.
-- **The Studio's dataset is required, never defaulted.** `studio/dataset.ts` throws if
-  `SANITY_STUDIO_DATASET` is unset. There is no safe default, and both wrong answers fail
-  quietly: `production` means a machine without `studio/.env` edits the dataset the live site
-  reads while believing it is in a sandbox, and `development` means a deploy ships her a Studio
-  pointed at a dataset the live site does not read — she would edit, publish, see nothing
-  change, and have no way to tell why. So neither is the default. `npm run deploy` pins
-  `production` itself, so the deployed Studio cannot inherit a local `.env`. Local work sets
-  `development` in `studio/.env`.
-- **Every Studio origin needs a CORS entry with credentials allowed**, or login fails with an
-  opaque error. That means both the deployed host and `http://localhost:3333` for
-  `sanity dev`: `npx sanity cors add <origin> --credentials`.
-- **The *app* needs no CORS entry at all any more, and that is a property worth defending.**
-  Nothing in the browser talks to Sanity: every read happens on the server, and the one that
-  used to happen after hydration — "load more" on /gallery/all — goes through `app/api/photos`.
-  A server request sends no `Origin` header, so the allowlist cannot apply to the app.
-
-  Two app origins are still registered, `https://*.vercel.app` and `http://localhost:3000`,
-  both `--no-credentials`. They are now inert. Leaving them costs nothing — they grant a
-  browser exactly what `curl` already returns to anyone holding the public project id — and
-  removing them is a separate decision, not part of this. **What matters is not adding more:**
-  a new app origin appearing on that list is the signal that something in the browser has
-  started calling Sanity directly, which is the invariant below being broken.
-
-  | Origin | Credentials | For |
-  | --- | --- | --- |
-  | `https://joanatstake.sanity.studio` | yes | deployed Studio |
-  | `http://localhost:3333` | yes | `sanity dev` |
-  | `https://*.vercel.app` | no | the app — **inert**, see above |
-  | `http://localhost:3000` | no | the app — **inert**, see above |
-
-  **The invariant, and what enforces it.** `web/src/sanity/client.ts` begins with
-  `import 'server-only'`, so importing it from anything in the client graph is a build error
-  naming the file that did it. That is why no Sanity value carries a `NEXT_PUBLIC_` prefix —
-  see *Environment variables*. The check that proves it, and the one to run after any change
-  here: `grep -r "c3808h1v" web/.next/static/` must return nothing after a build, and
-  `apicdn.sanity.io` must never appear in the browser's Network tab on any route.
-  (`cdn.sanity.io` image requests are expected — those are `<img>` loads, which are not
-  CORS-checked, and their URLs come from the server payload.)
-
-  **The bug this replaced is worth keeping, because its shape is general.** A missing app
-  origin did not look like CORS. SSR sent no `Origin` header, so a hard load always worked;
-  Nuxt purged a route's cached data on unmount, so navigating away and back re-ran the query
-  *in the browser*, which did send one, got a 403, and left the result `null` — identical to a
-  query that found nothing. `/` spent a while reporting "No homePage document found in this
-  dataset" while the dataset was correct throughout.
-
-  The specific failure cannot recur. **The lesson generalises and is now structural:** a
-  request that did not happen must never look like a query that found nothing. `orThrow` in
-  `sanity/fetch.ts` makes checking the transport failure *first* a property of the type rather
-  than something six routes remember to do — see *Errors* under Conventions.
-
-  Diagnosing an origin problem still takes three requests, and the contrast between them *is*
-  the signature — a status alone does not distinguish "origin rejected" from "dataset empty".
-  Kept because it is still how you check the Studio's own entries:
-
-  ```sh
-  U="https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D"
-
-  # allowlisted origin  -> 200, and the origin echoed back
-  curl -sS -D - -o /dev/null "$U" -H "Origin: https://joanatstake.sanity.studio" \
-    | grep -iE '^HTTP|^access-control-allow-origin'
-
-  # origin not on the list -> 403, and no allow-origin header at all
-  curl -sS -D - -o /dev/null "$U" -H "Origin: https://example.com" \
-    | grep -iE '^HTTP|^access-control-allow-origin'
-
-  # no Origin header -> 200. This is the server path, and it is now the only path the app takes.
-  curl -sS -o /dev/null -w '%{http_code}\n' "$U"
-  ```
-
-  **Grep those headers case-insensitively.** Under HTTP/2 all header names are lowercase, so a
-  pattern anchored on `Access-Control-Allow-Origin` matches nothing and reads as a rejection on
-  an origin that is in fact allowed.
-
-This is Phase 1. Revisit only if the hop to a second domain actually confuses her, or if
-embedded preview / visual editing becomes worth the bridge — not on general principle.
-
-### Datasets
-
-Two datasets on project `c3808h1v`, both created:
-
-- `development` (public) — **where content is authored.** What local dev points at, via
-  `SANITY_STUDIO_DATASET` in `studio/.env` and `SANITY_DATASET` in `web/.env`.
-  The dataset anyone actually types into.
-- `production` (public) — **a mirror of `development`**, refreshed by `npm run promote`.
-  Read by the Vercel app, and written by the deployed Studio. Reached from the CLI only by an
-  explicit `SANITY_STUDIO_DATASET=production`, which `npm run deploy` supplies.
-
-Any script that writes must take the dataset explicitly and must not default to `production`.
-
-**This file used to treat writing to `production` as a hazard to argue around, and that was
-wrong.** It assumed content would only ever reach `production` by Joan editing it there, so
-anything else arriving was a mistake in progress. In practice her content is being authored
-*for* her in `development` — the bio, the writing links, the photographs that go with them —
-and it has to get to `production` somehow. Promotion is the intended workflow, not a
-workaround, and the old framing kept stopping the actual work.
-
-What survives from that framing is the line directly above. Naming the dataset explicitly is
-still the rule; `studio/promote.mjs` satisfies it by pinning **both** names in source rather
-than taking them as arguments, because there is exactly one legal direction and a flag would
-only add a way to run it backwards.
-
-#### The promote
-
-`npm run promote`, from `studio/`. It is `studio/promote.mjs`, and it does four things:
-
-1. **Preflight.** Reads both datasets **authenticated** and **refuses to run if any `_id`
-   exists in `production` but not in `development`.** Then prints what will be created, and —
-   separately — which shared documents will be replaced with *different* content, versus how
-   many are already identical.
-2. **Backs `production` up** to `studio/.promote/`, gitignored, before writing anything.
-3. **Exports `development`**, drafts and assets included.
-4. **Re-checks for new `production` ids, then imports with `--replace`.**
-
-`--dry-run` stops after step 1; `--yes` skips the confirmation prompt. Run the dry run first —
-it is the whole point of the preflight being separate.
-
-**The preflight has two halves because the two failures have different shapes**, and the id
-check alone was not enough. A document Joan *creates* in the deployed Studio exists in
-`production` and nowhere else, so it is a production-only id and the script refuses outright.
-A document she *edits* leaves the id set untouched — and editing is the likelier first move,
-because the singletons are pinned by `structure.ts` and can only ever be edited, never created.
-`homePage` is the exact document at risk and the exact one an id check cannot see.
-
-So the second half compares content. Volatile fields (`_rev`, `_createdAt`, `_updatedAt`, and
-`_system` — server-side base-revision bookkeeping that clients cannot write and import does not
-carry) and key order are normalised away; asset documents are compared by id only, since their ids are
-content hashes and a matching id already proves matching bytes. **What it cannot do is decide.**
-A document differing because `development` changed is the entire point of promoting; one
-differing because `production` changed is the thing to stop for, and the two are
-indistinguishable from content alone. The script prints the list and says so; reading it is the
-step that keeps her work.
-
-**Both halves read authenticated, and that is not a detail — an anonymous read cannot see
-drafts.** This file previously claimed the opposite, on the strength of the dataset docs saying
-a public dataset is one "everyone can query", and that reading was wrong. Sanity's auth
-documentation is explicit: *"unauthenticated users have read access to published documents…
-if you want to access draft documents… you will need to authenticate."* Dataset visibility and
-draft visibility are separate axes, and `public` governs only the first. Measured on
-`development` with a scratch draft in place: **41 documents anonymously, 55 authenticated.**
-
-An unpublished draft is exactly what the preflight most needs to see — it is work that exists
-only in `production` — so an anonymous check would have passed clean and let the import bury
-it. The reads go through `sanity api`, signed with the same logged-in session `dataset export`
-and `import` already use, so `npm run promote` needs `sanity login` and nothing else; there is
-still no `SANITY_WRITE_TOKEN` anywhere near this script. A 401 aborts with a message naming the
-cause, because a read that did not happen must never look like a read that found nothing.
-
-That same authenticated view surfaced something else worth knowing: **each dataset holds 13
-system documents under `_.` — access groups, retention policy, and `_.schemas.default`.** They
-are invisible anonymously, which is why they went unnoticed. The preflight excludes them, and
-must: `dataset export` always filters system documents out, so they are not promotable content,
-and `_.schemas.default` is whatever the last `sanity deploy` wrote — it differs between datasets
-whenever their Studio deploys differ, which is a divergence the promote neither causes nor fixes.
-
-It lives in `studio/` rather than the `scripts/` directory this file plans for `seed.ts`, and
-the reason is not filing convenience: `dataset export` and `dataset import` authenticate as the
-**logged-in CLI user**, so the promote needs no `SANITY_WRITE_TOKEN` at all. Putting it at the
-repo root would have given it a token, a `package.json` and a `node_modules` it does not need,
-to reach a CLI that is already installed next to the schema it promotes.
-
-**The promote has an expiry date, and the preflight is the tripwire — not a formality.** The
-deployed Studio at `joanatstake.sanity.studio` writes to `production`. The promote overwrites
-`production`. Those two facts collide the day Joan starts editing, and from then on a promote
-destroys her work. **When the preflight refuses, the answer is never a `--force` flag.** It
-means the handover has happened, the content now moves the other way, and `development` is the
-copy that needs updating.
-
-**Know the one guarantee the promote does not make: it is not atomic, and it cannot be.** The
-preflight is re-run immediately before the import, which narrows the gap — the confirm prompt,
-the backup and the export together take minutes, and a write arriving in that stretch is caught
-rather than silently lost. But Sanity offers no dataset-level lock, and `dataset import` does
-not send per-document `ifRevisionID`, so a write landing *during* the import can still be
-overwritten. No version of this script closes that window. Do not write a line here claiming
-it does; the honest mitigation is that only one person writes to `production` today, and that
-stops being true on exactly the day the promote should stop running anyway.
-
-Import semantics worth knowing before changing any of this, all verified against
-`@sanity/import` rather than inferred:
-
-- **Import never deletes.** Nothing in the target is removed, ever — a document there that the
-  source lacks simply survives. That is precisely why the subset check is the *precondition*
-  for calling the result a mirror. Without it, "promote" would mean "overlay", and the two stop
-  being the same thing the moment `production` grows a document of its own.
-- **`--replace` is a whole-document replace, not a merge**, so a field present in the target and
-  absent in the source is dropped from that document. Correct here, and only because of the
-  check above.
-- **Without `--replace` the default operation is `create`, which fails on the first colliding
-  id.** `--missing` is the opposite mistake: it lands new documents and skips every existing
-  one, so edits to content already promoted would silently never arrive.
-- **Drafts and assets are both included by default.** Do not add `--no-drafts` — it also strips
-  `versions.*` release documents, and it would discard unpublished Studio work.
-- **Never `--raw`.** Asset CDN URLs are dataset-scoped (`/images/<projectId>/<dataset>/…`), so a
-  raw export re-imported into a sibling dataset fails with *"Asset has different target than
-  source"*. A plain export bundles the binaries and rewrites the references.
-- Assets are deduplicated against the target by `sha1hash`, so a repeat promote re-uploads
-  nothing. The operation is idempotent and a second run is a no-op.
-- **Any Sanity CLI command run from `studio/` needs `SANITY_STUDIO_DATASET` set, even one that
-  names both of its datasets on the command line.** `sanity.cli.ts` calls `requireDataset()`
-  at module load, which throws before the command is parsed. `promote.mjs` therefore pins the
-  variable in the child environment rather than inheriting it, so it does not depend on
-  `studio/.env` existing — the same move `npm run deploy` makes for a different reason.
-
-**`npx sanity dataset copy <src> <dst>` is not the mechanism, and cannot be.** It refuses when
-the target already exists, there is still no `--force`, and it is Enterprise-gated besides.
-Export-then-import is the supported way into a dataset that exists. It strengthens references on
-the way in, so the result is a genuine copy rather than one dataset pointing at another's
-assets, and it does *not* mint new `_id`s — asset ids are content hashes and document ids carry
-over verbatim, which is what makes the subset check meaningful in the first place.
-
-#### Content migrations
-
-`npx sanity migrations run <id>`, from `studio/`, against `studio/migrations/<id>/index.ts`.
-The `tag` refactor is the first use — see `create-tag-documents` and `tags-to-references`.
-`gallery-tag-to-tags` (single reference → array) is the third, and the first to run as ONE
-migration: it creates no documents, so the two-run rule below does not apply to it.
-
-Four things about the runner, all read out of `studio/node_modules` or measured on a real run
-rather than assumed, and each of which fails in a way that does not name itself:
-
-- **It authenticates as the logged-in CLI user**, like `dataset export`/`import`. No
-  `SANITY_WRITE_TOKEN`, which is why migrations live in `studio/` next to `promote.mjs` rather
-  than in `scripts/`.
-- **Dry run is the default.** `--no-dry-run` executes. `--confirm` prompts unless
-  `--no-confirm`. `--project` and `--dataset` must be given together or not at all — supplying
-  one alone is an error that names the flags rather than the reason.
-- **Transactions are submitted concurrently**, six at a time. So a `createIfNotExists` for a
-  document and a patch writing a *strong reference* to it **cannot share a run**: they can land
-  in different in-flight transactions and the patch fails on reference integrity, halfway,
-  leaving the dataset half-converted. That is why the tag work is two migrations run in order,
-  and the pattern to copy for any future reference-introducing migration.
-- **Drafts are included by default and must stay that way.** The runner streams
-  `/data/export/<dataset>` without `drafts=false`, and `documentTypes` matches on `_type`,
-  which a draft shares with its published twin. `development` held `drafts.gallery-mexico-2022`
-  and the dry run showed it. A draft left holding the old shape renders as a broken field in
-  the Studio, and the next `npm run promote` carries it into `production` unchanged.
-
-Write migrations so a second run is a no-op — convert only values still in the old shape — and
-so an unmappable value **throws by name** rather than being patched in as a dangling reference.
-Both fire during the dry run, before anything is written. Take a `dataset export` first
-regardless; that tarball is the rollback, and import never deletes, so documents the migration
-*created* survive a rollback and need removing by hand.
-
-#### Stock content is cleaned in `development`, not in `production`
-
-`production` was first seeded on 2026-08-03 from `development`, because the Vercel deployment
-reads `production` and the front page throws a 500 when no `homePage` document exists. It was
-promoted over on 2026-08-04, which is when the arrangement above became the workflow rather
-than a one-off; the two datasets held identical id sets — 41 documents each — immediately
-afterwards. **The Vercel app is at `jl-portfolio-seven.vercel.app` and `joanatstake.com` is not
-pointed at it**, so `production` is a staging dataset wearing the production name until DNS is
-connected.
-
-That first promote is also what `/bio` was waiting on. `aboutPage` existed only in
-`development`, so the live route returned a 500 while `/` and `/copy` returned 200 — a
-reminder that **a missing singleton fails per-route, not visibly at the dataset level**. Adding
-a route that queries a singleton adds a way for `production` to be wrong without anything
-saying so.
-
-Some of that stock content is still there — see the front-page note about
-`homePage.featuredPhotos` — and it has to be gone before `joanatstake.com` resolves. Stock
-photographs published under her name is the failure the old "never seed `production`" line was
-guarding against, and that concern was always right; it was only ever the remedy that was wrong.
-
-**The remedy is to clean `development` and promote.** One dataset to clean, and the mirror
-carries the cleanup across. This file used to specify a `scripts/` job that deleted stock
-content out of `production` directly, scoped by type and by `_updatedAt` against the import
-stamp. That design is retired, for two reasons:
-
-- Cleaning the source is strictly simpler than keeping two datasets clean independently, and it
-  cannot drift.
-- **Its `_updatedAt` heuristic does not survive the promote.** The rule was "anything stamped
-  later than the import is something she has touched since". But import brings references in
-  weak and then patches them strong in a second transaction, which sets a fresh `_updatedAt` on
-  every reference-bearing document it writes. The signal the script depended on is destroyed by
-  the operation that would immediately precede it.
-
-**What does survive, and is now load-bearing in the other direction: "seeded" and "safe to
-delete" are not the same set.** Singletons are pinned by `structure.ts` to a `documentId` equal
-to the type name — `homePage`'s `_id` is the literal string `homePage`, identical in both
-datasets by construction, not by coincidence. That used to be the trap: deleting everything the
-two datasets had in common would have taken her front page with it. It is now the mechanism.
-Because the id is the same on both sides, the promote **updates her page in place** rather than
-creating a second one, and every singleton behaves the same way.
-
-Note also what the going-live checklist does *not* require: recreating `production`.
-`--visibility` is optional on `sanity dataset create`, `development` started private, and a
-private dataset read anonymously returns **HTTP 200 with an empty result** rather than an error.
-Rebuilding a dataset to fix its contents would risk reintroducing the silent failure documented
-directly below, to solve something a promote already solves.
-
-**Both datasets are `public`, and `development` had to be changed to match.** It started
-private, which broke the app in a genuinely nasty way: an anonymous read of a private dataset
-returns **HTTP 200 with an empty result set**, not a 401. Nothing errors, nothing logs, the
-query just resolves to `null` and the page renders as though the content had been deleted.
-
-Public here means public reads **of published documents**. Writes still need a token, the
-Studio still requires a login, and — the part that is easy to get wrong — **drafts are not
-public either.** Dataset visibility and draft visibility are separate axes; an unauthenticated
-caller gets published content on a public dataset and nothing more. That is why the app needs
-no token (it reads published content) and why the promote's preflight does (it must see
-drafts). The alternative was a server-only read token in `web/.env`, and it was rejected on the
-grounds that `production` is public and needs no token — so local dev would have been
-authenticating over a code path production never takes, which is the class of
-works-locally-fails-in-Vercel divergence this file keeps warning about. It also would have put
-the first non-public value into `web/.env`, whose whole invariant is that everything in it is
-public.
-
-The privacy that matters is enforced elsewhere and is unaffected: `location` (GPS) is excluded
-from image metadata in `photo.ts` precisely because a public dataset is readable by anyone with
-the project id.
-
----
+When they conflict, the editor wins. Prefer fewer knobs, more defaults, and choices that cannot
+produce a broken page. The Studio should be boring.
 
 ## The two rules
 
-These are non-negotiable. They are not preferences to be balanced against convenience; if a
-task seems to require breaking one, the task is wrong and you should say so before writing
-code.
+Non-negotiable. If a task seems to require breaking one, the task is wrong — say so before
+writing code.
 
 ### Rule 1 — Photos are standalone documents. Galleries reference them.
 
-A photo is a `photo` document with its own `_id`, its own image asset, and its own alt text.
-Galleries hold an **array of references** to photo documents.
+A `photo` document has its own `_id`, image asset and alt text. Everything else that shows a
+photograph holds a **reference** to one. Never embed an image in another document, never inline
+an image field into an array item, never copy alt text or caption onto a reference. One
+photograph, one record, one alt text — or the copies drift the first time she fixes a typo.
 
-Never embed an image inside a gallery document. Never inline an image field into a gallery
-array item. Never copy alt text or caption onto the reference.
-
-The same photograph appears on `/gallery/all` and on a gallery page. It must be **one record with one
-alt text**, or the two copies drift apart the first time she fixes a typo in one of them.
-
-If a caption genuinely needs to differ by context, that is a discussion to have — not
-something to solve by duplicating the photo.
+Check: `grep -rn "type: 'image'" studio/schemaTypes/` returns exactly one line, in `photo.ts`.
 
 ### Rule 2 — Layout is a small set of presets, not freeform positioning.
 
-She picks **which photos**, **in what order**, and **which preset**. She never positions
-anything. She never sets a width, a column count, a crop offset, or a breakpoint.
+She picks **which photos**, **in what order**, and **which preset**. She never sets a position,
+width, column count, crop offset or breakpoint. Presets are components that work at every width;
+they are the product. No per-photo overrides, no drag-and-drop canvas, no page builder.
 
-Presets are React components that guarantee the result works at every width. They are the
-product, not a limitation of it. Do not work around this constraint, do not add per-photo
-overrides "just for this one case", and do not propose a drag-and-drop canvas or freeform
-page builder — that is the exact thing this project exists to replace.
+Adding a preset is always two changes together:
 
-Adding a preset means two changes, always together:
+1. A component in `web/src/components/presets/` satisfying `GalleryPresetProps`.
+2. An option in `LAYOUT_PRESETS` in `studio/schemaTypes/galleryFields.ts` (a `string` with a
+   fixed `options.list`, never free text).
 
-1. A new component in `web/src/components/presets/`, satisfying `GalleryPresetProps`.
-2. A new option in the hard-coded preset list, `LAYOUT_PRESETS` in `studio/schemaTypes/galleryFields.ts` (shared by `gallery` and `featuredPage`).
+The `PRESETS` map in `shots/GalleryView.tsx` is `satisfies Record<Gallery['preset'],
+ComponentType<GalleryPresetProps>>`, so forgetting either half — or a preset that ignores
+`renderPhoto` — is a typecheck failure.
 
-The schema field is a `string` with a fixed `options.list`. It is never a free-text field.
-A preset value that has no matching component must be impossible — and it is: the `PRESETS` map
-in `shots/GalleryView.tsx` is `satisfies Record<Gallery['preset'], ComponentType<GalleryPresetProps>>`
-over the union typegen produces from that list, so forgetting either half is a typecheck failure
-at the point the pair was broken. **Verified by deleting an entry: the compiler names the missing
-preset.** The map is typed against the shared props rather than `unknown`, so it also catches a
-preset that quietly does not accept `renderPhoto` — which would render a gallery whose
-photographs are not clickable, and fail silently otherwise.
+**Framing.** No `hotspot` anywhere (`grep -rn "hotspot *:" studio/schemaTypes/` returns nothing).
+Every preset keeps the photograph's native ratio. The only crops are the named entries in
+`CROPS` in `SanityPhoto.tsx` — `square` (the /copy ledger thumbnail) and `lead` (the /copy lead
+cover, 300×200) — always centred, with no control for her or the call site. The prop takes a
+name, never dimensions. **Adding a `CROPS` entry is a Rule 2 decision** needing a written
+argument. `grep -rn "crop=" web/src/components/` should stay a short list of thumbnails and the
+/copy lead.
 
----
+- **A bound is not a crop.** `max-*` shrinks a photograph and keeps its ratio — a layout
+  decision. A fixed `w`/`h` pair or `object-cover` selects part of it — framing, Rule 2.
+- **A corner radius is not a crop** — it is a design question.
+- Crops belong in the CDN URL, never in CSS `object-cover`: a CSS crop downloads the hidden
+  pixels. Uncropped URLs carry width, format and quality only — no `fit`, no `rect`.
+- The cost of no hotspot lands on her: a centred crop can lose an off-centre subject; her remedy
+  is a different photo. If that bites, the conversation is `hotspot` on `photo.image`.
+- `postPhoto.layout` (`wrap` / full width) is a two-value preset, not a positioning control.
+  Never add a width, percentage, alignment or anything screen-size-specific to it.
+
+## Stack
+
+| Piece | Notes |
+| --- | --- |
+| **Next.js 16** (App Router, React 19) | Server Components by default; only interactive parts ship. |
+| **TypeScript** | Content types are generated by Sanity typegen. |
+| **Tailwind CSS v4**, CSS-first | `web/src/app/globals.css` `@theme`/`@utility` is the single source for type, colour, container width. **No `tailwind.config.ts`; do not add one.** |
+| **Sanity** (project `c3808h1v`) | CMS. Studio is a separate package, deployed to `https://joanatstake.sanity.studio`. |
+| **`@sanity/client` + `groq`** | Through one `sanityFetch` helper. Deliberately not `next-sanity` (bundles visual-editing/preview/webhook machinery we defer). |
+| **`@portabletext/react`** | Renders `proseText` and the two bodies. Use `InferComponents<T>` for the `components` map. |
+| **Sanity image CDN** | Resizing, format negotiation, LQIP. Deliberately not `next/image`. |
+| **Vercel + ISR** | 60s revalidate, set once at the fetch layer. App at `jl-portfolio-seven.vercel.app`; `joanatstake.com` is not yet pointed at it. |
+
+## The Studio
+
+Standalone package in `studio/`, deployed with `sanity deploy` to `joanatstake.sanity.studio`
+(pinned as `studioHost` in `sanity.cli.ts`). `/admin` on the site **302**s there — temporary, so
+it isn't browser-cached if we ever embed. Embedding is not on the table unless argued against its
+real costs (slower app builds, Studio updates coupled to app deploys, no Studio auto-updates) —
+"both are React now" is not an argument.
+
+- **Separate deploy artifact.** Vercel doesn't ship Studio changes; `sanity deploy` doesn't ship
+  app changes. **A task touching `studio/schemaTypes/` isn't finished until the Studio is
+  deployed.** `autoUpdates: true` updates the Studio shell, not the schema.
+- Studio deps (`sanity`, `styled-components`, its React) stay in `studio/package.json`, out of the
+  app's install.
+- **The Studio's dataset is required, never defaulted.** `studio/dataset.ts` throws if
+  `SANITY_STUDIO_DATASET` is unset — both possible defaults fail silently. `npm run deploy` pins
+  `production`; local work sets `development` in `studio/.env`.
+- Every Studio origin needs a CORS entry **with credentials**, or login fails opaquely:
+  `npx sanity cors add <origin> --credentials`. Registered: the deployed host and
+  `http://localhost:3333`.
+- Custom inputs in `studio/components/` use styled-components + Sanity CSS variables, not
+  `@sanity/ui` (transitive, deliberately undeclared).
+- `@sanity/icons` v5 has no root named exports: `import {ImageIcon} from '@sanity/icons/Image'`.
+- Singletons need three pieces: a pinned `documentId` in `structure.ts`, plus
+  `document.newDocumentOptions` and `document.actions` in `sanity.config.ts`.
+  `__experimental_actions` does not exist in v6. A singleton's `_id` equals its type name.
+
+### The browser never talks to Sanity
+
+Every Sanity read happens on the server. "Load more" on /gallery/all goes through
+`app/api/photos`. `web/src/sanity/client.ts` starts with `import 'server-only'`, so importing it
+from the client graph is a build error. Consequences:
+
+- No Sanity env var carries `NEXT_PUBLIC_`.
+- The app needs no CORS entry. `https://*.vercel.app` and `http://localhost:3000` are registered
+  (`--no-credentials`) but inert. **Never add another app origin** — needing one means something
+  in the browser started calling Sanity.
+- **Check after any change here:** `grep -r "c3808h1v" web/.next/static/` returns nothing after a
+  build, and `apicdn.sanity.io` never appears in the browser Network tab (`cdn.sanity.io` image
+  loads are expected).
+
+Diagnosing a CORS origin takes three requests; the contrast is the signature. **Grep headers
+case-insensitively** — HTTP/2 lowercases them.
+
+```sh
+U="https://c3808h1v.apicdn.sanity.io/v2026-07-31/data/query/production?query=*%5B0%5D"
+curl -sS -D - -o /dev/null "$U" -H "Origin: https://joanatstake.sanity.studio" | grep -iE '^HTTP|^access-control-allow-origin'  # 200 + echoed origin
+curl -sS -D - -o /dev/null "$U" -H "Origin: https://example.com" | grep -iE '^HTTP|^access-control-allow-origin'               # 403, no header
+curl -sS -o /dev/null -w '%{http_code}\n' "$U"                                                                                 # 200 (server path)
+```
+
+## Datasets
+
+Both on project `c3808h1v`, both **public** (published documents only — drafts always need auth).
+
+- **`development`** — where content is authored. Local Studio and local app point here.
+- **`production`** — a mirror of `development`, refreshed by `npm run promote`. Read by Vercel,
+  written by the deployed Studio.
+
+**Any script that writes takes the dataset explicitly and never defaults to `production`.**
+
+Why public: an anonymous read of a *private* dataset returns **HTTP 200 with an empty result**,
+not a 401 — the page silently renders as if content were deleted. A read token in `web/.env` was
+rejected: production needs none, so local would authenticate over a path production never takes.
+GPS (`location`) is excluded from image metadata in `photo.ts` because the dataset is public.
+
+### The promote — `npm run promote` (from `studio/`)
+
+`studio/promote.mjs` pins **both** dataset names in source (one legal direction; a flag would
+only allow running it backwards). Authenticates as the logged-in CLI user — needs `sanity login`,
+never `SANITY_WRITE_TOKEN`. Always run `-- --dry-run` first; `--yes` skips the prompt.
+
+1. **Preflight** (authenticated — anonymous reads can't see drafts): **refuses if any `_id`
+   exists in `production` but not `development`**, then lists docs to create and shared docs
+   whose content differs (volatile fields `_rev`/`_createdAt`/`_updatedAt`/`_system` and key
+   order normalised; assets compared by id; system docs under `_.` excluded). It cannot tell
+   *which side* changed a differing doc — **reading that list is the step that protects her
+   edits** (e.g. `homePage`, which she can only edit, never create).
+2. Backs up `production` to `studio/.promote/` (gitignored).
+3. Exports `development`, drafts and assets included.
+4. Re-runs the preflight, then imports with `--replace`.
+
+**The promote has an expiry date.** The deployed Studio writes `production`; the promote
+overwrites it. The day Joan starts editing, the direction reverses for good. **When the preflight
+refuses, never add a `--force`** — content now flows the other way. It is not atomic and cannot
+be (no dataset lock, no per-doc `ifRevisionID`); don't claim otherwise.
+
+Import facts (verified against `@sanity/import`):
+
+- Import never deletes — hence the subset check is the precondition for "mirror".
+- `--replace` is whole-document. Default `create` fails on the first collision; `--missing` skips
+  existing docs, so edits never arrive.
+- Never `--no-drafts` (also strips release docs). Never `--raw` (asset URLs are dataset-scoped:
+  "Asset has different target than source").
+- Assets dedupe by `sha1hash`; a second promote is a no-op.
+- `sanity dataset copy` is not usable (refuses existing targets, Enterprise-gated).
+- **Every Sanity CLI command run from `studio/` needs `SANITY_STUDIO_DATASET` set**, even ones
+  naming datasets explicitly — `sanity.cli.ts` calls `requireDataset()` at load.
+
+### Content cleanup happens in `development`, then promote
+
+Never clean `production` directly. Stock content still present: **`homePage.featuredPhotos`
+holds six stock real-estate photos** — a launch blocker. **Replace, don't delete** (deleting
+empties the grid). A missing singleton fails per-route (500), not visibly at dataset level.
+
+### Content migrations — `npx sanity migrations run <id>` (from `studio/`)
+
+Files in `studio/migrations/<id>/index.ts`. Runner facts, each of which fails without naming
+itself:
+
+- Authenticates as the CLI user (no write token).
+- Dry run by default; `--no-dry-run` executes. `--project` and `--dataset` together or neither.
+- **Transactions run concurrently (six at a time)**, so creating a document and writing a strong
+  reference to it **cannot share a run** — split into two migrations run in order (see
+  `create-tag-documents` → `tags-to-references`).
+- **Drafts are included and must stay included**, or a stale draft breaks in the Studio and gets
+  promoted.
+
+Write migrations so a re-run is a no-op and an unmappable value **throws by name**. Take a
+`dataset export` first — that tarball is the rollback (import never deletes, so docs the migration
+created must be removed by hand). Run `npx sanity documents validate --dataset <ds>` after.
 
 ## Site structure
 
 | Route | Contents |
 | --- | --- |
-| `/` | Five featured photos, then three featured pieces of writing — see *The front page* below |
-| `/gallery/all` | Every photo she has uploaded except those flagged `excludeFromIndex` — and except those whose *every* tag is flagged `tag.excludeFromIndex` (one visible tag keeps a photo in; untagged photos always show). Multi-select tag filters, infinite scroll. A **static route, so it shadows `[slug]`** — `gallery.ts` refuses the slug `all` because of it. |
-| `/gallery/[slug]` | One gallery, rendered through its preset. **Her galleries define this route** — creating one in the Studio makes the page and lists it in the nav. |
-| `/featured` | The `featuredPage` singleton — **a gallery with a fixed address**. Same fields (`studio/schemaTypes/galleryFields.ts`), same query projection, same `GalleryView`, showcase included; it is a top-level menu item rather than one listed under GALLERIES. A missing document is a 500, like `/` and `/bio`. |
-| `/gallery/*?photo=<_id>`, `/featured?photo=<_id>` | Not a route — the **showcase**. One photograph, alone and centred, on any page above. See *The showcase* below. |
-| `/copy` | Her own posts and links out to others, newest first, interleaved. One leads; the rest are a ledger. The lead is the newest **unless she sets `writingPage.featured`** |
-| `/copy/[slug]` | A `post` — writing that lives here. An `article` never reaches it. |
-| `/bio` | Her bio — prose with photographs in it. Same body shape as a `post`. |
+| `/` | Featured photo grid, then three featured pieces of writing. |
+| `/gallery/all` | Every photo except those with `excludeFromIndex`, or whose *every* tag has `tag.excludeFromIndex` (untagged photos always show). Multi-select tag filter, infinite scroll. Static route shadowing `[slug]`; `gallery.ts` refuses slug `all`. |
+| `/gallery/[slug]` | One gallery through its preset. Creating a gallery in the Studio creates the page and lists it in the nav. `/gallery` itself 404s. |
+| `/featured` | `featuredPage` singleton — a gallery with a fixed address, same fields (`galleryFields.ts`), projection and `GalleryView`. |
+| `/copy` | Posts and links out, newest first. One leads (newest, unless `writingPage.featured` is set); the rest are a ledger. |
+| `/copy/[slug]` | A `post`. An `article` never reaches it. |
+| `/bio` | `aboutPage`: intro + body (prose with `postPhoto`s). No photo field. |
+| `/contact` | **Not built.** Text and links only. (`contactPage` schema exists.) |
+| `/admin` | 302 to `SANITY_STUDIO_URL`; `force-dynamic`. 503 with a message if unset. |
+| `/docs` | The Field Guide (Joan's Studio manual) from `web/content/docs/field-guide.md`. Unlisted, `noindex`, keep out of any sitemap. Printable — the app's only `@media print` rules. |
+| `?photo=<_id>` on `/gallery/*`, `/featured` | The **showcase** — see below. |
 
-**Her words, our internals.** `/copy` and `/bio` were `/writing` and `/about` until she asked
-for the Squarespace vocabulary back. Only the labels and the addresses moved: the document
-types are still `post`, `article`, `writingPage` and `aboutPage`, the queries are still
-`WRITING_QUERY` and `ABOUT_QUERY`, and the components are still `components/writing/`. Renaming
-a Sanity document type is a content migration bought with nothing, and the Studio labels carry
-her words instead (*Copy page*, *Copy post*, *Copy link*, *Bio*). `next.config.ts` `redirects()`
-307s the old addresses: `/writing`, `/about`, `/shots/everything`, and every `/shots/*`, which
-became `/gallery/*` on 2026-10-11 (`/shots/all` → `/gallery/all`). The rule order is
-load-bearing — see `next.config.ts`. (307, not 302: Next's shorthand has no 302, and the property
-that matters — temporary, not browser-cached — is the same.) The same internals rule held for that
-rename: `components/shots/`, `queries/shots.ts` and `allShots.ts` kept their names.
-
-**START is no longer the galleries' parent.** It is a plain link to `/`, and the galleries hang
-under GALLERIES, a top-level item that is a toggle and not a page. See *The front page* for the
-menu.
+**Her words, our internals.** `/copy` and `/bio` were `/writing` and `/about`; `/shots/*` became
+`/gallery/*`. Only labels and addresses moved — types (`post`, `article`, `writingPage`,
+`aboutPage`), queries and component directories (`writing/`, `shots/`) keep old names; Studio
+labels carry hers. Renaming a stored type or field is a migration bought with nothing.
+`next.config.ts` redirects old addresses with 307s (temporary); **rule order there is
+load-bearing**.
 
 ## The showcase
 
-Clicking any photograph on `/gallery/all` or `/gallery/<slug>` opens it alone and centred, at
-`?photo=<_id>` on the page you were already on. The front page is the exception — its
-photographs are links into galleries, and `home/PhotoStrip.tsx` keeps its own slot.
+Clicking a photograph on `/gallery/*` or `/featured` shows it alone at `?photo=<_id>` on the same
+page. The front page is the exception: its photos link into galleries.
 
-**It is a query parameter and not a route, and the reason is measured rather than aesthetic.**
-On `/gallery/all` the page holds two things a route change would destroy: `appended` — every
-photograph loaded past the first page — and the `IntersectionObserver` driving it. A nested
-route (`/gallery/[slug]/[photo]`) would unmount the index and mean lifting the accumulator into
-shared state plus hand-rolled scroll restoration, for a prettier address. It also composes:
-`?tag=life&photo=X` closes back to the filter you came from.
+- **A query parameter, not a route**, so /gallery/all keeps its accumulated pages and
+  `IntersectionObserver`. `?tag=x&photo=y` closes back to the filter.
+- **Navigation is `window.history.pushState`** (in `useShowcase.ts`). A `<Link>` to `?photo=`
+  would refetch the RSC payload and re-run the query on every open and close. Verified: opening
+  fires zero requests.
+- **Tiles are plain `<a href>` with an intercepted left-click, never `<Link>`** (`<Link>`
+  prefetches every tile; the click must be a `pushState`). `lib/showcase.ts` `isModifiedEvent`
+  lets Cmd/middle-click open a server-rendered tab.
+  - **`FilterBar` is the deliberate opposite:** tag changes are real `<Link>`s that must reach the
+    server. Preserve the distinction.
+- **Never a preset.** Never add it to `LAYOUT_PRESETS` or `PRESETS`.
+- **Sizing is a bound:** `--showcase-h` × the photo's `--ar` as a `max-width` on the wrapper. No
+  crop, and don't put `max-h` + `w-auto` on the image (fights `w-full` by CSS order).
+- `/gallery/[slug]` resolves the id from its full array. `/gallery/all` falls back to
+  `PHOTO_BY_ID_QUERY`, server-side when the id isn't on page 1. That query **restates
+  `INDEX_VISIBILITY`** — reaching a hidden photo through the index would be a hole.
+- **The index unmounts while the showcase is open**, so the infinite-scroll observer is attached
+  via a `useCallback([])` callback ref returning its own cleanup, plus a ref to the current
+  `loadMore`. Without both, scroll silently stops after the first close.
+- **Tab title in two places:** `generateMetadata` (shared links) and `PhotoShowcase` setting
+  `document.title` (pushState opens). Don't "fix" by switching to `<Link>`.
+- A bad or hidden id renders a message and a way back — **never `notFound()`**.
 
-**The navigation is `window.history.pushState`, and that is the load-bearing part.** Nuxt got
-"a query-only change does not re-run the page" for free, because it keyed a page by its
-interpolated path rather than by `fullPath`. Next has no such rule — both `/gallery/*` routes are
-dynamic, so a `<Link>` to `?photo=X` is a real navigation that refetches the RSC payload and
-re-runs `ALL_SHOTS_QUERY` on **every open and every close**. On a ~200 kB LQIP payload that is
-the exact cost the paging exists to avoid, paid on a UI gesture.
+## The front page and site chrome
 
-Native `pushState` avoids it entirely: Next patches `pushState`/`replaceState`, updates its
-canonical URL, and re-renders whatever reads `useSearchParams()` — with no request. Back and
-Forward across those entries stay soft navigations. So the property Nuxt inherited is now
-*stated*, in `components/shots/useShowcase.ts`, which is arguably where it belonged all along.
-**Verified in a real browser: opening the showcase fires zero network requests, and `appended`
-survives an open/close cycle unchanged.**
+`/` renders `homePage.featuredPhotos` (any count, three per desktop row via `PhotoStrip` →
+`GalleryGrid perRow={3}`; six recommended; each optionally links a gallery) then
+`homePage.featuredWriting` (exactly 3; "Featured Writing" is a hardcoded heading). `PhotoStrip`
+no longer owns a layout — rename it next time it's touched.
 
-- **It is not a preset**, and must never join `LAYOUT_PRESETS` or the `PRESETS` map. She never
-  chooses it; it is a behaviour of every photograph on `/gallery/*`, like the filter row.
-- **Sizing is a bound, not a crop.** `--showcase-h` (an `@utility` in `globals.css`) times the
-  photograph's own `--ar` gives a `max-width`, so the photograph fills whichever dimension runs
-  out first with its ratio intact. No `crop`, no `CROPS` entry, no `object-cover`, no new
-  srcset ladder — and the wrapper carries the bound so `SanityPhoto`'s `w-full` is untouched.
-  Putting `max-h-*` + `w-auto` on the image instead would pit `w-auto` against `w-full`, which
-  Tailwind v4 resolves by emitted-CSS order rather than class-list order.
-- **The tiles are plain `<a href>` with an intercepted left-click**, never `<Link>`. Two reasons,
-  and both matter: `<Link>` prefetches as it enters the viewport, so 200 tiles on a dynamic route
-  would be 200 server renders during a scroll; and the click has to become a `pushState`. The
-  `href` is the real address, so middle-click and Cmd-click open a tab the server renders
-  correctly, and before hydration the anchor simply navigates. `lib/showcase.ts`'s
-  `isModifiedEvent` is the same test `next/link` makes internally.
-  - **`FilterBar` is the deliberate opposite**: a tag change *must* reach the server, because it
-    is a different set, a different first page and a different total. Same page, two kinds of
-    query parameter, two mechanisms — preserve that distinction if either is touched.
-- **`/gallery/[slug]` needs no second query for it** — `GALLERY_QUERY` returns the whole array, so
-  the id resolves with a `find`. `/gallery/all` pages, so it falls back to `PHOTO_BY_ID_QUERY`,
-  resolved **on the server** when the id is not in the first page so a shared link paints the
-  photograph in the HTML, and not at all otherwise. That query **restates `INDEX_VISIBILITY`**
-  — the photo's own `excludeFromIndex` and the every-tag-hidden rule both: they are rules about
-  the index, and this is how a photograph is reached *through* the index, so ignoring either
-  would be a hole in the flag.
-- **The index is not rendered while the showcase is open, which destroys the sentinel** — so the
-  observer is attached by a **callback ref that returns its own cleanup** (React 19), not in an
-  effect at mount. `useCallback([])` for a stable ref identity, plus a ref holding the current
-  `loadMore` because a stable identity cannot close over a fresh one. Without either, infinite
-  scroll silently stops working for the rest of the session after the first showcase closes,
-  while the Load more button keeps working and nothing looks broken.
-- **The tab title follows `?photo=` in two places, because one is not enough.** `generateMetadata`
-  covers the server-rendered case — a shared link, which is what the title is for — but a
-  `pushState` open runs no server render, so `PhotoShowcase` sets `document.title` and restores
-  the previous one on close. Do not "fix" the split by switching the tiles to `<Link>`: that
-  trades the tab title for a full first-page refetch on every open and close.
-- A bad or hidden id renders a message and a way back, **never `notFound()`**. A query
-  parameter must not be able to replace a working gallery with an error screen.
-| `/contact` | Text and links only — see non-goals |
-| `/admin` | 302 redirect to the Sanity-hosted Studio. No page component. |
-| `/docs` | The Field Guide — Joan's manual for editing through the Studio, rendered from `web/content/docs/field-guide.md`. **Unlisted**: linked from nowhere, `robots` meta noindex, and it stays out of any sitemap the app ever grows (none exists today). Printable — the app's only `@media print` rules exist for it. |
+**`siteSettings`** holds the site name, byline, description, six menu labels, top-level menu
+order, gallery order and a `showPortrait` switch (sidebar portrait, default off). Read via
+`getSiteSettings()` in `web/src/sanity/siteSettings.ts` (React `cache()`), which falls back
+**field by field** to `SITE_FALLBACK` in `content/site.ts` on a failed read, missing doc or empty
+field, and logs `siteSettings: …`. `SITE_FALLBACK` is not the source — don't chase her edits into
+it. **A broken settings read looks like an edit that didn't stick**; check the server log first.
+It swallows rather than throws because the root layout bypasses `error.tsx`. Side effect: `/docs`
+and `/_not-found` revalidate every 60s.
 
-## The front page
+`siteSettings` was seeded by `studio/scripts/seed-site-settings.ts` (idempotent; fills unset
+fields and inserts new `menuOrder` items beside their default neighbours).
 
-**The numbered slots are gone, and this section is kept because what replaced them is
-smaller.** The page began as seven fixed slots mirroring the Squarespace site it replaces,
-numbered 1–7 in `homePage`'s field order. Slots 1–3 became site chrome on every page; slot 4
-moved to `/bio`; and the rest were removed. Numbering the surviving fields against a scheme
-that no longer describes the page was costing more than it explained.
+**The nav:**
 
-What the front page renders today, in the order it renders it:
-
-| On the page | Where it lives |
-| --- | --- |
-| The photo grid — any number, three to a desktop row, six recommended; each optionally linking to a gallery | `homePage.featuredPhotos` |
-| Featured writing — exactly 3, posts and links mixed | `homePage.featuredWriting` |
-
-Everything above those two is the sidebar, on every page: the site name, the byline and the
-nav. The byline is on `siteSettings` rather than `homePage` precisely because of that.
-"Featured Writing" is a hardcoded heading in the component, not a field.
-
-**`blurb`, `featuredTitle` and `featuredSubtitle` are gone.** They were fetched and not
-rendered for months, parked while their place on the page was decided, and this file said not to
-delete them because that was a content decision. On 2026-10-11 the decision was made: nothing on
-the site used them and they confused her in the Studio. The fields, the `HOME_QUERY` lines,
-`ProseHeading` (whose only caller was `featuredTitle`) and the stored values all went —
-the last by `migrations/unset-home-parked-fields`, drafts included. The old copy is in the
-pre-migration export, `studio/.promote/development-before-featured-2026-10-11.tar.gz`.
-
-**The whole introduction left this page.** `introHeading` and `intro` are `aboutPage`'s fields
-now and open `/bio`; the component that renders them moved with them, from `home/Hero.vue` to
-`about/Intro.tsx`. `introPhoto` was deleted outright rather than following them — `aboutPage`
-has no photo field by design, and photographs on that page come from the body. Nothing on the
-front page shows a photograph of her any more, which is the intended end state rather than a
-gap: the page opens with her work.
-
-**The site's words read from Sanity: `siteSettings`.** The site name, byline, description,
-the six menu labels (START, GALLERIES, FEATURED, ALL SHOTS, COPY, BIO), the order of the five
-top-level menu items, the gallery order under GALLERIES and a switch for the sidebar portrait are
-all fields on that singleton, read through `getSiteSettings()` in
-`web/src/sanity/siteSettings.ts` — by the root layout (metadata and sidebar), by `SiteNav` (the
-labels and order) and by the `/gallery/*` and `/featured` pages (the showcase's tab-title
-suffix). The document was
-created on 2026-10-10 in `development` by `studio/scripts/seed-site-settings.ts`, from the text
-`content/site.ts` held and the `navOrder` numbers on the galleries, so the site read the same
-before and after the switch.
-
-**`getSiteSettings()` falls back, field by field, to `SITE_FALLBACK` in `content/site.ts`** —
-on a failed read, a missing document, or an empty field. That copy is not the source and goes
-stale the moment she edits a field; it exists so a Sanity outage leaves a sidebar with a name in
-it. The cost is that a broken settings read *looks like an edit that did not stick*: her old
-text comes back. Both cases log `siteSettings: …` naming which one it was — check the server log
-before assuming the Studio lost something. Why it swallows rather than throws: an error in the
-root layout bypasses `error.tsx` entirely, so a throw here would replace every page, including
-`/docs` and the 404, with Next's bare error screen.
-
-One consequence of the layout reading Sanity: **`/docs` and `/_not-found` now revalidate every
-60s rather than being fully static.** Harmless — the markdown is still read from the deployment's
-own disk — but it is why `next build` lists a `1m` against them.
-
-**Slot 3, the nav, is no longer purely frontend — and that reverses a decision this file used
-to state flatly.** It said the nav was frontend-only by design and stayed there, and that held
-while every route was known at build time. It stopped holding the moment she could create a
-gallery and expect a page to exist for it: the route table is now partly hers.
-
-The reversal is deliberately partial, and the split is the thing to preserve. The five
-top-level items are still hardcoded in `content/site.ts` (`SITE.nav`), because they are the shape
-of the site: START (`/`), GALLERIES (no route — the heading the galleries are listed under, and a
-toggle), FEATURED (`/featured`), COPY (`/copy`) and BIO (`/bio`). Their *labels* and their
-*order* are hers (`siteSettings.navLabels`, `.menuOrder`), because a label is a name, an order is
-an arrangement, and a route she could change would be a page that can vanish. `menuOrder` is a
-drag-only list in the Studio (`options.disableActions` removes add, remove and duplicate; the
-`page` field is read-only), and `orderNav` in `content/site.ts` enforces the same on read —
-unknown or repeated keys dropped, and a missing item inserted after the item it follows in the
-default order — so no stored value can produce a menu missing an item, and an item added to the
-site later lands beside its default neighbour rather than at the bottom of her menu.
-`studio/scripts/seed-site-settings.ts` writes that same insertion into the stored list, which is
-how GALLERIES and FEATURED reached `development` on 2026-10-11; the Studio would otherwise show
-three items and fail validation. The galleries under GALLERIES come from Sanity, via
-`queries/nav.ts`. One consequence worth knowing: `SiteNav` is one of exactly **two
-places on the site that swallow a query error** — the other is `getSiteSettings()`, which it
-calls. Every route throws on a failed Sanity read, because a page with no content is broken;
-this is chrome on every page, so a failure costs the gallery links and leaves the site
-navigable, under its fallback labels, rather than taking down every route at once.
-
-**The nav is split across two files**, and the seam is the server/client boundary: `SiteNav.tsx`
-is an async Server Component that runs `NAV_QUERY`, and `SiteNavList.tsx` is the `'use client'`
-half that needs `usePathname` for the active state and a piece of state for the collapse. The
-galleries cross as a prop.
-
-Three things about that sub-list — the first in `SiteNav.tsx`, the other two in
-`SiteNavList.tsx` (an earlier version of this list put all three in the second file, which was
-wrong even then):
-
-- **Its order is the query's, and hers: a drag list in Site settings.** `siteSettings.galleryOrder`
-  ("Gallery order", under the Menu tab) is an array of strong references to galleries. `NAV_QUERY`
-  returns two legs that `SiteNav.tsx` concatenates: `placed`, her list in her order, and `rest`,
-  every published gallery she has not placed, A–Z — so a new gallery appears at the end of the
-  menu on its own until she drags it somewhere. ALL SHOTS is appended last, and nothing is
-  reordered in code.
-  - It replaced `gallery.navOrder` ("Menu position"), an optional number on each gallery that
-    she had to keep consistent with the others by hand. The numbers seeded the list and were
-    then removed by `migrations/unset-gallery-nav-order`.
-  - **The Studio shows the whole menu, not just the placed part.** `GalleryOrderInput` renders
-    the array and then the unplaced galleries with Place / Place all — the `PhotoOrderInput`
-    pattern, sharing `components/orderInputParts.ts`. Its `TAIL_QUERY` must stay the same query
-    as `NAV_QUERY`'s `rest` leg, or the Studio previews a menu the site does not render.
-  - **The `coalesce(…, [])` in `rest` is load-bearing**, measured: with no settings document or
-    an empty list, `galleryOrder[]._ref` is null, `_id in null` is null rather than false, and
-    the filter drops *every* gallery — an empty menu instead of an A–Z one.
-  - **Both settings queries filter on `_type` as well as `_id`.** Typegen narrows on `_type` and
-    not on `_id`, so `*[_id == "siteSettings"]` alone typed as a union over every document type
-    and the `placed` leg as `Array<null>`.
-  - Strong references mean deleting a gallery that is in the menu is refused, and Sanity names
-    Site settings as the reason — the same guardrail tags have. She removes it from the list
-    first.
-- **It collapses, and GALLERIES itself is the toggle** — a real `<button>`, because GALLERIES is
-  not a page. Until 2026-10-11 the galleries hung under START, which *was* a page, so the toggle
-  had to be a separate chevron: a link that also expands is the classic nav trap where a keyboard
-  user reaches the section and never the page. Giving the group its own heading removed the trap
-  instead of working around it, and made a nested `<ul>` honest — `/gallery/<slug>` was never a
-  child of `/`, which is why the group used to be a sibling `<li>` styled to look nested. Open by
-  default; the state is plain component state and survives client-side navigation because App
-  Router preserves layouts across it, so `SiteNavList` never unmounts.
-- **`hidden={!open}`, never conditional rendering, on the group.** The button's `aria-controls`
-  names the list by id, and removing the element would leave that attribute pointing at nothing
-  exactly when the group is closed — which is when it is being read.
-
-**Slots 1–3 are no longer a header.** They are the top of the left sidenav — `SiteSidebar.tsx`
-— on every page, and a hamburger drawer below `lg`. `SiteSidebar` is a client component, so it
-never reads Sanity itself: the layout passes the name, byline and portrait switch down as
-props. One consequence worth knowing: the byline sits in the collapsible part of the sidebar, so
-on a phone it is visible only while the nav is open. The alternative was the same string in two
-places, which is worse.
-
-**Slot 7 is still pointed at stock photographs, and they are load-bearing.**
-`homePage.featuredPhotos` holds six real-estate-listing photos of a house — the last of the
-stock content, in both datasets. **Deleting them is not the fix; replacing them is.** The strip
-renders whatever the array references, so removing them empties slot 7 rather than improving it.
-Swapping in six of Joan's photographs (any number works; six makes two even desktop rows), in
-`development`, then `npm run promote`, is a named launch blocker in *Open questions*. Everything else on the front page is her real copy.
+- The five top-level items' **routes** are hardcoded (`SITE.nav` in `content/site.ts`): START
+  (`/`), GALLERIES (a toggle, no route), FEATURED, COPY, BIO. Their **labels and order** are hers
+  (`navLabels`, `menuOrder`). `menuOrder` is drag-only in the Studio; `orderNav` drops
+  unknown/repeated keys and inserts missing items after their default predecessor, so no stored
+  value can drop a menu item.
+- Galleries under GALLERIES come from `NAV_QUERY` (`queries/nav.ts`): `placed` (her
+  `siteSettings.galleryOrder`, strong refs) + `rest` (unplaced published galleries, A–Z). ALL
+  SHOTS appended last in code.
+  - **`coalesce(…, [])` in `rest` is load-bearing** — `_id in null` drops every gallery.
+  - Settings queries filter on `_type` as well as `_id`, or typegen returns a union.
+  - `GalleryOrderInput`'s `TAIL_QUERY` must match `NAV_QUERY`'s `rest`, or the Studio previews a
+    menu the site doesn't render.
+- `SiteNav.tsx` (async server, runs the query) + `SiteNavList.tsx` (client: `usePathname`,
+  collapse state). GALLERIES is a real `<button>`; the group uses **`hidden={!open}`, never
+  conditional rendering**, so `aria-controls` always resolves.
+- `SiteSidebar.tsx` is all the chrome — desktop column and mobile drawer, one instance, single
+  `<h1>`. No header or footer. It receives settings as props (client component). On mobile the
+  byline and copyright are only visible with the drawer open; if that matters, *move* the node to
+  a `<footer>`, never duplicate it.
 
 ## The content model
 
-Fourteen types. The schema files in `studio/schemaTypes/` are the source of truth; this table
-is a map, not a spec.
+`studio/schemaTypes/` is the source of truth; this is a map.
 
 | Type | Shape | Notes |
 | --- | --- | --- |
-| `photo` | image, alt (required), caption, place, dateTaken, **tags → refs**, **excludeFromIndex** | Rule 1's anchor. No title field. Tags are references to `tag` documents — see below. |
-| `gallery` | title, slug, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Rule 2's home: `LAYOUT_PRESETS`. The preset and fill fields are `galleryFields.ts`, shared with `featuredPage`. Fills from tags (union — any of them) **or** a hand-picked list — see *Two ways a gallery fills itself*. `leadPhotos` ("Photo order") sets the order of a tag-filled gallery. Its place in the menu is not on the gallery — see `siteSettings.galleryOrder`. |
-| `tag` | title, slug, **excludeFromIndex** | **Hers to add, rename and remove.** Replaced the hardcoded `PHOTO_TAGS` array. `excludeFromIndex` hides it from /gallery/all — see the reversal note below. |
-| `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives **here**. Body is prose + `postPhoto`. |
+| `photo` | image, alt (required), caption, place, dateTaken, tags → refs, excludeFromIndex | The only image field. No title. |
+| `gallery` | title, slug, description, preset, tags → refs, leadPhotos → refs, photos → refs | Preset and fill fields from `galleryFields.ts`. |
+| `featuredPage` | title, description, + `galleryFields.ts` | Singleton, `/featured`. |
+| `tag` | title, slug, excludeFromIndex | Hers to add, rename, remove. |
+| `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives here. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
-| `homePage` | title, featuredPhotos → `featuredPhoto` objects, featuredWriting → refs | Singleton. See *The front page*. The whole introduction — heading, text and photo — has left this document, and so have `blurb`, `featuredTitle` and `featuredSubtitle`. |
-| `featuredPage` | title, description, preset, **tags → refs**, **leadPhotos → refs**, photos → refs | Singleton, at /featured. A gallery with a fixed address and no slug: every field after `description` is `galleryFields.ts`, the same definitions `gallery` uses, so the two cannot drift. |
-| `writingPage` | title, intro, **featured → ref** | Singleton. Posts and articles are queried, not listed by hand. `featured` is optional; empty means the newest leads. |
-| `aboutPage` | title, introHeading, intro, body | Singleton. Body is prose + `postPhoto`, like `post`. The heading and intro came from `homePage`. Called **About** in the Studio. |
-| `contactPage` | title, intro | Singleton. The links live on `siteSettings`. |
-| `siteSettings` | title, byline, description, **showPortrait**, shareImage → ref, links, **navLabels**, **menuOrder**, **galleryOrder → refs** | Singleton, two tabs (Site, Menu). The sidebar's words, the menu labels, the order of the five top-level items and the gallery order under GALLERIES — see *The front page*. `shareImage` is recommended, not required (custom-rule warning, per the typegen note in *Commands*); nothing renders it yet. |
-| `link` | label, url | Object. Used only by `siteSettings.links`. |
-| `postPhoto` | photo → ref, layout | Object. A photo between paragraphs of any body — `post` or `aboutPage`. `layout` is a two-value **preset**, not a positioning control — see below. |
-| `featuredPhoto` | photo → ref, gallery → ref (optional) | Object. One slot in the front-page grid, and where it links. |
-| `proseText` | array of one restricted block | The rich-text type. Used by `aboutPage.intro`. |
+| `homePage` | title, featuredPhotos → `featuredPhoto[]`, featuredWriting → refs | Singleton. |
+| `writingPage` | title, intro, featured → ref | Singleton. Posts/articles are queried, not listed. |
+| `aboutPage` | title, introHeading, intro (`proseText`), body | Singleton, "About" in the Studio. |
+| `contactPage` | title, intro | Singleton. Links live on `siteSettings`. |
+| `siteSettings` | title, byline, description, showPortrait, shareImage → ref, links, navLabels, menuOrder, galleryOrder → refs | Singleton, two tabs. `shareImage` not rendered yet. |
+| `link` | label, url | Object, for `siteSettings.links`. |
+| `postPhoto` | photo → ref, layout | Object in a body. Never add a field. |
+| `featuredPhoto` | photo → ref, gallery → ref | Object, one front-page grid slot. |
+| `proseText` | one restricted block | Used by `aboutPage.intro`. |
 
-**`post` and `article` split her writing by where it lives**, and that is the only thing
-that distinguishes them. An `article` points at a piece someone else published — the New
-York Times, HuffPost — and copying that text here would be republishing their page. A
-`post` is hers, and exists because about fifteen of them were self-published on the
-Squarespace site being replaced and have nowhere else to go.
+**Tags.** Strong references to `tag` documents: renaming is free, deleting an in-use tag is
+blocked (the main reason refs aren't weak). The **slug** is the shareable `?tag=` — change names
+freely, leave slugs alone. No colour/description/ordering fields; "does this tag have a page" is
+answered by whether a gallery points at it. `tag.excludeFromIndex` hides the chip and hides a
+photo from /gallery/all only when *every* tag on it is hidden; it does not affect galleries. The
+predicate is `INDEX_VISIBILITY` in `queries/photo.ts`, interpolated into all four index queries.
+`tag` is in `NO_DUPLICATE_TYPES` (Duplicate copies the slug); `PLACED_TYPES` must include it.
+`structure.ts` has *Tags* (edit) and *Browse by tag* (drill into photos) separately.
 
-Things worth knowing before changing any of it:
+**`photo.excludeFromIndex`** is a boolean, deliberately not a tag (an "Exclude" tag would be one
+click from a gallery of hidden photos). It hides from /gallery/all only; hand-placed uses still
+show.
 
-- **One image field, total.** `grep -rn "type: 'image'" studio/schemaTypes/` must return
-  exactly one line — the one in `photo.ts`. A second hit means Rule 1 has been broken.
-  Everything else that shows a photograph holds a reference.
-- **No `hotspot`, and no crop on a photograph except a named one.** Sanity's usual advice is
-  `hotspot: true` on every image; here it is a per-photo framing control, which Rule 2 forbids.
-  That decision stays coherent only because **no framing is ever chosen per photo** — not in the
-  Studio, and not at a call site. Every gallery preset still preserves the native aspect ratio.
-  If a preset ever wants uniform tiles, that reopens Rule 2 — it does not get decided inside a
-  component.
-  - **The exceptions live in one closed list, `CROPS` in `SanityPhoto.tsx`.** A caller passes
-    `crop="square"` or `crop="lead"` — a name, never numbers — so the set of framings that exist
-    on this site is that object, and a value with no entry is a type error. It is the same move
-    `LAYOUT_PRESETS` makes in the gallery schema, one layer down: she picks a preset, never a
-    measurement. **Adding an entry is a Rule 2 decision**, which means an argument and a written
-    cost, not a convenience.
+**Two ways a gallery fills** — exactly one photo list visible at a time:
 
-    There are two today. `square` is /copy's ledger thumbnail. `lead` is the 300×200 cover of
-    the lead story on the same page, and it is the first crop applied to a photograph at
-    *reading* size rather than to a preview — it was declined once in favour of bounding the
-    photo instead, and reversed when that left the column half empty. See `writing/Lead.tsx`.
+- **Tags set:** every photo carrying ANY of them. Order = `leadPhotos` ("Photo order", her drag
+  order) then unplaced tagged photos by `_createdAt` asc (stable; alt-text fixes don't move
+  photos). A placed photo that loses its tags stays. The `leadPhotos` picker offers only tagged
+  photos (`taggedPhotosNotAlreadyChosen`).
+- **No tags:** hand-picked `photos` in her order.
+- Both resolve to one `photos` array in `queries/shots.ts`; the page never branches.
+- `PhotoOrderInput` shows the placed array plus the computed tail with Place / Place all. **Its
+  `TAIL_QUERY` must change in the same commit as the site's tail query.**
+- **"Empty" must mean the same on both sides.** Site guard: `count(tags[defined(@._ref)]) > 0`;
+  Studio: `hasRealTag` (`.some((t) => t?._ref)`). A half-cleared member `[{_key}]` is publishable.
+- Photos-then-tags is reachable; a document-level validation flags it on the *tags* field (the
+  visible one).
 
-    What keeps these inside Rule 2 is that nothing about either is a choice: the shape is fixed
-    by its `CROPS` entry, the crop is always centred, and **she has no control over any of it** —
-    no knob in the Studio, none at the call site. They are presets that happen to crop. The prop
-    takes a name rather than a shape for exactly that reason; the moment it accepts dimensions or
-    an offset it has become the thing Rule 2 exists to prevent.
+**Schema gotchas:**
 
-    `square` also earns its place on weight, which is what prompted it. The row used to render a
-    full-width cover at native proportions and let CSS shrink it, so the page shipped seven
-    ~1200px JPEGs to fill what is now a 92px thumbnail. **That is also why a crop belongs in the
-    CDN URL and not in an `object-cover` at a call site** — a CSS crop downloads the hidden
-    pixels to throw them away, and leaves the URL claiming a framing the page does not use.
-
-    **It was a circle until the ledger redesign, and the change was a radius rather than a
-    crop.** The old row put the cover behind a `rounded-full` avatar matching the Squarespace
-    site being replaced; the design that replaced *that* asked for rectangles, on the grounds
-    that the rest of the site is rectangular photography and the seven circles were the one
-    place it was not. Only the radius went. Worth knowing because the mock's own rectangle was
-    92×68, and **that** would have been a new crop shape and therefore a Rule 2 decision, not a
-    component one — a square was already sanctioned and needed no argument. Square also keeps
-    the ledger's rows an even height, which native proportions would not: a portrait cover in a
-    92px column is 138px tall and a landscape one is 60px.
-
-    **The cost is real and lands on her, and `lead` is where it bites hardest.** With no hotspot
-    the crop is centred, so a cover whose subject sits near an edge loses it — survivable in a
-    92px thumbnail, much more visible in a 300×200 lead. Her only remedy is choosing a different
-    photo. If that starts to bite, the conversation is `hotspot` on `photo.image` — a Rule 2
-    decision, not a component one.
-
-    **Everywhere else the photograph keeps its own proportions.** A gallery, a post body, the
-    showcase: no `crop`, and the CDN URL carries nothing that selects a region — a width, a
-    format and a quality, but no `fit` and no `rect` — so the no-crop default holds at the URL
-    and not merely by convention.
-    `grep -rn "crop=" web/src/components/` should stay a short list, and every hit should be a
-    thumbnail or the /copy lead.
-
-    **The showcase is the case that most looks like it wants a crop and does not get one.** It
-    shows one photograph at the largest size on the site, and it sizes by a *bound* —
-    `--showcase-h` times the photograph's own ratio, as a `max-width` — so the ratio survives
-    and nothing is selected. That is the bound-versus-crop distinction below, applied to the
-    hardest case rather than the easy one.
-  - The front page's introduction used to be this rule's worked example, and **the photograph
-    it was built around no longer exists in the schema at all.** The argument is worth keeping
-    even though the demonstration is gone, because it is what any future hero has to answer to:
-    text over an image is the classic case that wants a crop, and `photo.image` has no hotspot
-    by design, so the photograph rendered at its native ratio in the right two-thirds and **the
-    photo's own proportions decided how tall the section was**. The cost landed on her — which
-    photo she picked mattered — and that was a description in the Studio, not a control. Check
-    `grep -rn "hotspot *:" studio/schemaTypes/` still returns nothing; the only `hotspot` in the
-    tree is the comment in `photo.ts` saying why.
-
-    What went with it: an overlapping card built as a width overrun inside a grid track rather
-    than absolute positioning, so it could not escape the container at any width. If a
-    composition like that ever comes back, `min-w-0` on the overrunning item is the load-bearing
-    part — a grid track's automatic minimum is its item's min-content size, so an item
-    deliberately wider than its track widens the track instead of overflowing it.
-  - **Watch what a cream canvas does to a photograph with white in it.** `{colors.canvas}` is
-    `#fffaf0`, not white, and several of the stock photographs have pure `#ffffff` baked into
-    their own edges — the intro portrait carries roughly 30px of it down both sides, verified by
-    sampling the asset. On the old white page that padding was invisible. On cream it reads as a
-    light panel behind the photo. Nothing in the app can fix it: trimming it is a crop, which is
-    Rule 2, and the pixels belong to the asset rather than to the layout. It is a re-upload, or
-    it is accepted.
-- **Image metadata is set at upload and never backfilled.** The `metadata` array on
-  `photo.image` *replaces* Sanity's defaults rather than extending them, so `lqip`,
-  `blurhash`, `thumbhash` and `palette` are restated there deliberately — dropping one
-  silently breaks the blur-up placeholder for every photo uploaded afterwards. `exif` is
-  in; `location` is out, because it is GPS and the production dataset is readable by
-  anyone with the project id.
-- **A tag is a document, and the vocabulary is hers.** `PHOTO_TAGS` — a hardcoded array in
-  `photo.ts` — is gone. `photo.tags` is an array of references to `tag` documents and
-  `gallery.tag` is a single one. She adds, renames and removes them under *Tags* in the Studio.
-  Nothing about that touches Rule 2: a tag is a topic, not a layout and not a measurement.
-
-  **This inverts the warning that used to live here**, which said adding a tag was free and
-  renaming or removing one was not, because the old string stayed on every photo, stopped
-  matching the list, and its checkbox quietly disappeared. Both halves flipped:
-
-  - **Renaming is free now.** The name is on one document and every photo points at it.
-  - **Removing is blocked rather than silent.** These are strong references, so Sanity refuses
-    to delete a tag in use and names the documents using it. That guardrail is the single
-    biggest thing the change buys, and it is why the references are not weak.
-
-  What still costs something is the **slug**, which is the `?tag=` in a shared address and what
-  `/gallery/all` filters on. Change names freely; leave addresses alone.
-
-  **The cost, which is real and lands on her:** a reference array cannot render as a checkbox
-  grid, so tagging a photograph is now "Add item → search → pick" rather than one tick. Weighed
-  and accepted — with a vocabulary this size the picker lists every tag at once. If it bites
-  across ~250 photographs the shaped fix is a custom input component on that field which reads
-  the tag documents and draws the grid back. **Not a plugin**, and not without asking.
-  - **Nothing marks which tags are "project" tags and which are browse-only**, and that is
-    still deliberate. "Does this tag have a page" is answered by whether a gallery points at
-    it — one fact in one place, rather than a flag on the tag that could disagree with
-    reality. Still no colour, no description, no ordering field.
-
-    **The "no 'show in the filter row' toggle" half of that rule is reversed**, and the
-    reversal is recorded in `tag.ts`. `tag.excludeFromIndex` ("Hide from the All Shots page",
-    default off) hides the tag's chip from the filter row, and hides a photograph from the
-    index only when EVERY tag it carries is hidden — one visible tag keeps it in, and untagged
-    photographs are out of the rule's reach entirely. What keeps it from being the flag the
-    old rule warned about is scope: it states her intent about the *index* and answers no
-    question about galleries, so a hidden tag still fills a gallery — the same narrow-scope
-    bargain `photo.excludeFromIndex` makes. The predicate lives once, as `INDEX_VISIBILITY`
-    in `web/src/sanity/queries/photo.ts`, interpolated into all four index queries. A
-    `?tag=<hidden-slug>` address still filters (a filter is a view of the visible set), but
-    the photographs the tag rule hides stay hidden regardless.
-  - **`structure.ts` has two entries, not one.** *Tags* at the top level is where she edits;
-    *Browse by tag*, under Photos, drills into a tag's photographs. They are separate because
-    the browse list overrides its child pane to show photographs, which leaves no way in to the
-    tag document itself. `PLACED_TYPES` must include `'tag'`, or the safety net at the bottom
-    of the file grows a duplicate list at the root.
-  - **`tag` is in `NO_DUPLICATE_TYPES`.** Duplicate copies the slug verbatim, so two tags claim
-    one address: the filter row shows the same word twice, each showing half the photographs,
-    and nothing errors — the slug uniqueness check runs on the document she is editing, not on
-    the copy Duplicate made.
-- **`excludeFromIndex` is a boolean on `photo`, deliberately not a tag.** It hides a photograph
-  from `/gallery/all` and from nowhere else — she asked for it so an article's cover photo
-  need not appear among her photography. It was very nearly an "Exclude" *tag*, and the reason
-  it is not is what tags have become: a tag is a topic, it generates a browse list, and a
-  gallery can be pointed at one. An "Exclude" value sitting between "Mexico 2022" and "Street"
-  would be one mis-click from a published gallery of exactly the photographs she meant to hide.
-
-  Its scope is narrow on purpose. A flagged photograph still appears wherever she placed it by
-  hand — an article cover, a body of prose, a gallery, the front page — because a flag that
-  silently emptied those would be a worse surprise than the one it prevents.
-- ~~**`web/src/content/tags.ts` is a second copy of the tag vocabulary.**~~ **The file is
-  deleted, and the copy does not exist any more.** It held `TAG_LABELS`, typed
-  `Record<PhotoTag, string>` against the generated tag union, because the app could not import
-  `PHOTO_TAGS` across the package boundary and still needed the human-readable titles for the
-  filter row. That was duplication the compiler kept honest, which is a real and useful trick —
-  the `PRESETS` map still uses it. But a tag's name is *content* now and arrives with the query,
-  so there is nothing to copy. Prefer this outcome to the trick when the choice is available:
-  the best-protected duplication is still worse than none.
-
-  `FilterBar`'s prop is `TagOption`, read off `ALL_SHOTS_QUERY_RESULT['tagsInUse']` — a
-  generated shape, never hand-written, exactly as `PhotoProjection` is.
-- **Two ways a gallery fills itself, and exactly one photo list is visible at a time.** Set
-  one or more `tags` and the page shows every photo carrying ANY of them — union, the same
-  reading the /gallery/all filter row gives multiple selections — growing on its own as she
-  tags more. Leave `tags` empty and she picks the photos by hand and drags them into order.
-  Setting a tag *hides* the photo list rather than greying it out — and swaps in `leadPhotos`,
-  below — so there is one answer on screen to "where do the photos come from" instead of two
-  fields and a rule to remember.
-
-  **The tag mode's order is hers, completely — the automatic date ordering is gone.** This
-  has moved twice: first "the tag mode has no order control and no curation", then
-  "arrangeable at the front, newest-first tail", and now the arrangement is the order.
-  `leadPhotos` ("Photo order", visible only when the tag is set) renders first in her drag
-  order and can hold every photo in the gallery; any tagged photo she has not placed follows
-  in `_createdAt` asc — so a newly tagged photo still appears on its own, at the END of the
-  page, which is what keeps the mode's point. The `dateTaken` desc tail went with the change,
-  its `coalesce(dateTaken, '')` null fix included; no gallery page is ordered by the
-  *photograph's* date any more. The tail's `_createdAt` asc is arrival order, not a return of
-  date ordering — kept only so unplaced photos land somewhere deterministic, the end.
-  `_createdAt` asc rather than `_updatedAt`, because the tail must be stable —
-  an alt-text fix must not move a photograph to the end of the page. The cost: "the end"
-  means newest-*uploaded* last, so tagging a years-old photo lands it mid-tail by upload
-  date; the remedy is placing it, which is always available.
-  A placed photo that later loses its tags deliberately **stays on the page** — hand-placed
-  wins, the same rule `excludeFromIndex` follows. The picker on `leadPhotos` offers only
-  photos carrying any of the gallery's tags (`taggedPhotosNotAlreadyChosen` in
-  `photoPicker.ts`).
-
-  **The whole page order is visible in the Studio, not just the placed head.** The stored
-  array is only what she has placed, so the default input showed a blank field on a gallery
-  whose page renders thirty photographs. `leadPhotos` therefore has a custom input —
-  `studio/components/PhotoOrderInput.tsx` — that renders the default array and then the
-  computed tail below it, fetched with the SAME published-only `_createdAt` asc query the
-  site runs, plus Place / Place all buttons that append to the array. If the site query's
-  tail ever changes, the input's `TAIL_QUERY` changes in the same commit, or the Studio
-  previews an order the page does not render. The tail's caption names the tags the gallery
-  is filling from ("Filling from the tags “X” and “Y”"), and its empty state names the
-  nothing-carries-these-tags case, which softens the "mistyped tag looks like an empty
-  gallery" item in *Open questions*.
-
-  The field is still *stored* as `leadPhotos` although it no longer only leads — renaming a
-  stored field is a content migration bought with nothing, so the Studio label carries the
-  new meaning, the same trade the /copy and /bio renames made.
-  Hand-picking is still the mode for "these fifty, in this order".
-
-  Both modes resolve to one `photos` array in `queries/shots.ts`, so `/gallery/[slug]` never
-  branches and the presets only ever see photographs.
-
-  **The empty-string trap that used to sit here is gone, and its array cousins are guarded
-  the same way.** The query's guard was `defined(tag) && tag != ""`, and the second term was
-  load-bearing: `defined("")` is true, so a `tag` cleared to an empty string took the tag
-  branch and matched nothing, while the Studio read the same value the opposite way and showed
-  her the photo list. Form full, page empty, nothing anywhere saying why. The field is an
-  array of references now, which has two empty-looking states of its own: an empty array is
-  `defined()`, and a half-cleared member is `[{_key}]` — length 1, no `_ref`, and publishable.
-  So the site guards with `count(tags[defined(@._ref)]) > 0` and the Studio with `hasRealTag`
-  (`.some((t) => t?._ref)`) in `gallery.ts` — the same reading on both sides *by
-  construction*, which is the property the whole paragraph exists to defend. Keep the shape of
-  that bug in mind rather than the string: two halves of the system disagreeing, silently,
-  about what "empty" means.
-
-  **The reachable-but-broken state is both at once**, and it takes two steps: pick photos, then
-  set a tag. Nothing in the form stops it and the photo list is hidden by then, so a
-  document-level `validation` in `gallery.ts` catches it and points at the *tag* — the field
-  still on screen and therefore still clearable. Pointing at the hidden field would be an error
-  she could not act on.
-- **Singletons take three separate pieces**, and any one alone leaves a hole: a pinned
-  `documentId` in `structure.ts`, `document.newDocumentOptions` and `document.actions` in
-  `sanity.config.ts`. `__experimental_actions` does not exist in Sanity v6.
-- **Reference arrays need both** `options.filter` on the array *member* (ergonomics — it
-  narrows the picker) and `rule.unique()` on the array (the actual guarantee, and the only
-  one that catches a paste or a duplicated document). `excludeAlreadyChosen` in
-  `schemaTypes/photoPicker.ts` is the shared filter. On the array rather than the member,
-  `options` does nothing at all, silently.
-  - **A body — `post.body`, `aboutPage.body` — is the exception, and neither half applies.**
-    `unique()`
-    compares members ignoring `_key`, so on an array that is mostly prose it would reject a
-    post using the same short sentence twice. And `excludeAlreadyChosen` reads its `parent`
-    as the surrounding array, so inside a `postPhoto` object the parent is the object and
-    the filter quietly resolves to "exclude nothing" — a guarantee in appearance only. Both
-    are left off deliberately; repeating a photograph inside one essay is legitimate.
-- **Prose fields are plain `text`, never Portable Text — except `proseText`, `post.body` and
-  `aboutPage.body`.** Short intro/caption text stays plain. Rich text exists only where her
-  writing carries meaning plain text cannot: italicised titles and links out. The two bodies
-  are the same shape and the same exception — a bio is prose with photographs in it, which is
-  what `post.body` already was.
-  - **`proseText`'s one user is `aboutPage.intro`.** `homePage.blurb`, `.featuredTitle` and
-    `.featuredSubtitle` used it too, and were removed on 2026-10-11 — see *The front page*.
-    `featuredTitle` was the one *heading* that could carry emphasis, rendered through a
-    `ProseHeading` component that went with it. If a rich-text heading ever comes back, the
-    lesson it taught: Portable Text renders one element per block and a `normal` block is a
-    `<p>`, so a heading needs its own component that makes the `<h2>` the real element and
-    renders each block as nothing but its children — `ProseText` would give a `<p>` that merely
-    looks like one. Cap the field at one block with `rule.max(1)`.
-  - **`<PortableText>` renders no wrapper of its own**, so there is nothing for a wrapper's
-    vertical rhythm to sit on unless the caller supplies one. That is what the `<div>` in
-    `ProseText` is for. (The Vue version of this note described an `inheritAttrs` trap that
-    dropped a `class` silently; React passes only what a component destructures, so it does not
-    exist. Typography classes are an explicit `className` prop.)
-  - The restriction is the whole point, and it lives in `objects/proseText.ts`. **The
-    `styles`, `lists` and `marks` arrays REPLACE Sanity's defaults rather than extending
-    them** — the same trap as `photo.image.options.metadata`, failing the same quiet way.
-    Omit `styles` and h1–h6 come back; omit `lists` and bullet lists come back; omit
-    `decorators` and code, underline and strike-through come back. `lists: []` is
-    load-bearing. Underline is left out on purpose: on the web an underline reads as a
-    link.
-  - `proseBlock(styles)` is a function, not a shared constant, so each schema type gets its
-    own object. `proseText` and `aboutPage.body` pass one style; `post.body` passes three.
-    A bio starts at one because adding a style later costs a line and removing one she has
-    already used leaves blocks whose style no longer matches the list.
-  - **`rule.max(n)` changes meaning when a field becomes `proseText`: it counts characters on
-    a `string`/`text` and array *members* on Portable Text.** A carried-over `rule.max(500)`
-    keeps validating and silently guards nothing — the same line, quietly weakened. A length
-    guard on Portable Text has to be a hand-written `rule.custom` that walks down to the spans,
-    where the text actually lives (the removed `featuredSubtitle` had one).
-  - **`postPhoto.layout` is a preset, and it is the one place that distinction has been
-    tested.** The object's own comment used to end "do not add a width, a size, an alignment or
-    a 'full bleed' toggle to it", and a full-width option looks exactly like the last of those.
-    The line Rule 2 actually draws: it forbids *positioning* — a width, a column count, a crop
-    offset, a breakpoint, numbers she sets per photograph — and explicitly permits *presets*,
-    "components that guarantee the result works at every width". `layout` is a fixed list of
-    two, carries no numbers, and both branches are responsive on their own terms, so it is the
-    second thing. What must still never appear there: a width, a percentage, an alignment, or
-    anything that only makes sense at one screen size.
-
-    Two consequences worth knowing before touching it. The class map in `BodyPhoto.tsx` is
-    `satisfies Record<Layout, string>` over the schema's union, so a third value without a
-    branch is a typecheck failure — the same pairing guarantee `PRESETS` gives for galleries.
-    And **the alternating float had to leave CSS**: it was `nth-of-type(odd/even)` on the
-    figures, which counts full-width photographs too, so one in the middle silently put the
-    wrapped photographs on either side of it on the same side. `ProseBody` now counts only the
-    wrapped ones and passes the side down. The field is deliberately optional — every
-    photograph placed before it existed reads as `wrap`, so nothing already published moved.
-  - **A photo inside a body is a `postPhoto` object wrapping a reference, not a bare or
-    named `reference` member.** A *named* reference member looks like the tidier answer and
-    is a trap: typegen extracts it as `_type: "reference"` while the editor writes the
-    name, so the generated types and the stored documents silently disagree. The wrapper
-    also lets the editor show the actual photograph inline instead of a reference chip.
-    Never add a field to it — see the Rule 2 note in `objects/postPhoto.ts`.
-- `@sanity/icons` v5 has no root named exports: `import {ImageIcon} from '@sanity/icons/Image'`.
-  The root import type-checks and then fails at bundle time.
-
-## Directory structure
-
-Two sibling packages, each with its own `package.json` and its own `node_modules`. Nothing
-is shared between them at the dependency level — the only coupling is that the Studio's
-typegen writes a types file into the app. `✎` marks what exists today; the rest is the
-target shape.
-
-```text
-CLAUDE.md                   ✎ Repo-wide charter. Stays at the root.
-DESIGN.md                   ✎ The design spec — colours, type scale, radius, component
-                              chrome. Currently Wired-derived: three type faces, square
-                              corners, hairline dividers, no chromatic accent. Implemented in
-                              web/src/app/globals.css, with TWO deliberate departures:
-                              the canvas is cream, not white, and --color-accent exists at all
-                              (a deep maroon; the spec forbids a chromatic accent outright).
-                              Both are argued in the CSS beside the token. It has been swapped
-                              twice already — see "The design system" in Conventions for what a
-                              swap is and is not allowed to move.
-.env.example                ✎ Root env, for scripts/ only
-.worktreeinclude            ✎ Gitignored files Claude Code copies into a new worktree
-
-web/                        ✎ The Next app. Vercel's root directory.
-  package.json              ✎ next, react, react-dom, @sanity/client, groq,
-                              @portabletext/react, react-markdown (the Field Guide's
-                              renderer; /docs renders it in a Server Component, so it
-                              never ships to the browser). Dev: typescript, tailwindcss,
-                              @tailwindcss/postcss, the @types. No Vue, no Nuxt.
-  next.config.ts            ✎ redirects() only. Four 307s for her old addresses.
-  vercel.json               ✎ `"framework": "nextjs"`, and nothing else. Pins the preset
-                              rather than letting auto-detection guess — see below.
-  postcss.config.mjs        ✎ @tailwindcss/postcss. The whole Tailwind wiring.
-  tsconfig.json             ✎ paths: @/* -> ./src/*, ~~/* -> ./*
-  next-env.d.ts               GENERATED by next. Committed.
-  .env.example              ✎ SANITY_* only — nothing public, see Environment variables
-  sanity.types.ts           ✎ GENERATED by studio typegen — do not edit by hand.
-                              Committed: Vercel builds web/ and never runs typegen.
-                              Stays at the web root; tsconfig's glob picks it up, so the
-                              `typescript.tsConfig.include` workaround Nuxt needed is gone.
-  public/                   ✎ joan-animated.png, the sidebar's illustrated portrait. Nothing
-                              here is processed at build time. docs/ is where the Field
-                              Guide's real screenshots land when they exist — see DocImage.
-  content/docs/             ✎ field-guide.md — the Field Guide's markdown, read from disk by
-                              /docs. Repo content, not Sanity content: the guide documents
-                              the Studio, so it ships in the same commit as the change it
-                              describes. Outside src/ deliberately — src/content/ is site
-                              chrome, and this is a document.
-  src/
-    app/                      The App Router. A directory is a route; page.tsx is the page.
-      layout.tsx            ✎ <html lang>, metadata + title template, globals.css, the
-                              NavDrawer provider, the sidebar and the main column. The only
-                              layout. Server Component: SiteNav and every page pass through
-                              it as props, which is what lets the client shell wrap them.
-      globals.css           ✎ The design system. Type, colour and container width are decided
-                              here and nowhere else. Was app/assets/css/tailwind.css and
-                              moved verbatim. See Conventions.
-      error.tsx             ✎ 'use client' — where a thrown SanityUnreachableError or
-                              MissingDocumentError lands. HTTP 500.
-      not-found.tsx         ✎ The 404. Reached by notFound() and by unrouted addresses.
-      page.tsx              ✎ LIVE — / : the photo grid and featured writing, from Sanity
-      bio/page.tsx          ✎ LIVE — /bio : intro and body. Every photograph on it comes from
-                              the body, as postPhoto members; there is no photo field.
-      copy/page.tsx         ✎ LIVE — /copy : posts and links out, newest first
-      copy/[slug]/page.tsx  ✎ LIVE — one post, body and all. generateStaticParams.
-      gallery/all/page.tsx  ✎ LIVE — the index of every photo. STATIC ROUTE, so it shadows
-                              [slug] — gallery.ts refuses that slug. Server half only: it
-                              owns searchParams, the first page and the deep-link lookup.
-      gallery/[slug]/page.tsx ✎ LIVE — one gallery, through its preset. No gallery/page.tsx:
-                              /gallery itself is not a page (GALLERIES in the menu is a
-                              toggle, not a link), so it 404s while its children do not.
-      featured/page.tsx     ✎ LIVE — /featured : the featuredPage singleton, through the same
-                              GalleryView and query projection as a gallery.
-      contact/page.tsx        Not built. Text and links only — see Non-goals.
-      docs/page.tsx         ✎ LIVE — /docs : the Field Guide, from content/docs/. Unlisted
-                              and noindexed. The page itself makes no fetch, so the markdown
-                              updates ship with deploys; it revalidates every 60s only because
-                              the root layout reads siteSettings.
-      admin/route.ts        ✎ 302 redirect to SANITY_STUDIO_URL. force-dynamic — see below.
-      api/photos/route.ts   ✎ One further slice, for infinite scroll. The site's ONLY
-                              endpoint the browser calls, and the reason no env var is public.
-      api/photos/[id]/route.ts ✎ One photo by id, for a showcase deep-linked past page 1.
-    sanity/
-      client.ts             ✎ 'server-only' + createClient. No defaults: an unset variable
-                              throws at module scope and fails the build.
-      fetch.ts              ✎ sanityFetch + orThrow + REVALIDATE. Every read goes through it.
-      errors.ts             ✎ SanityUnreachableError, MissingDocumentError
-      queries/              ✎ GROQ, one file per route
-        photo.ts            ✎ The shared photo projection, INDEX_VISIBILITY (the index's
-                              visible-set predicate, interpolated into all four index
-                              queries), and PHOTO_BY_ID_QUERY for the showcase's deep
-                              links. Not a route — see Conventions.
-        nav.ts              ✎ NAV_QUERY — the galleries listed under START. Not a route
-                              either: it is chrome, read on every page.
-        allShots.ts         ✎ ALL_SHOTS_QUERY (first page, total, tags in use) and
-                              MORE_PHOTOS_QUERY (one further slice). Filters on $filterTags —
-                              an array of slugs, union semantics — and NOT $tag; see the
-                              reserved-key note in Conventions. Exports TagOption and
-                              PAGE_SIZE, which the page and the route handler must share.
-        home.ts             ✎
-        shots.ts            ✎ GALLERY_QUERY — one gallery, both fill modes resolved to one
-                              `photos` array. Read the `^` scoping notes before editing it.
-                              FEATURED_QUERY — /featured, through the same GALLERY_PROJECTION.
-        writing.ts          ✎ WRITING_QUERY (the list, plus the featured piece), POST_QUERY
-                              (one post) and POST_SLUGS_QUERY (generateStaticParams). Owns
-                              WRITING_ITEM_PROJECTION, which home.ts imports — the front
-                              page's cards are the same union.
-        about.ts            ✎ ABOUT_QUERY — the bio, body dereferenced
-        siteSettings.ts     ✎ SITE_SETTINGS_QUERY. Chrome, not a route. Never called directly —
-                              go through sanity/siteSettings.ts, where the fallback lives.
-        contact.ts            Not built.
-      siteSettings.ts       ✎ getSiteSettings() — React cache(), merges each field over
-                              SITE_FALLBACK, swallows and logs a failed read. One of the two
-                              error-swallowing call sites; SiteNav is the other.
-    components/
-      SanityPhoto.tsx       ✎ The only place an <img> is emitted for a photograph (see
-                              conventions). Deliberately not next/image.
-      SiteSidebar.tsx       ✎ 'use client'. All the chrome: wordmark, byline, nav, socials,
-                              copyright. The desktop column AND the mobile drawer, one
-                              instance — see the single-<h1> note in the file. There is no
-                              SiteHeader and no SiteFooter; this replaced both. Owns every
-                              drawer effect.
-      SiteNav.tsx           ✎ async Server Component. Runs NAV_QUERY and swallows its error —
-                              one of two places on the site that do (getSiteSettings is the
-                              other, and this calls it for the labels).
-      SiteNavList.tsx       ✎ 'use client'. The nav itself: usePathname for the active state,
-                              and the collapse toggle (GALLERIES).
-      MainColumn.tsx        ✎ 'use client'. <main inert={isOpen}> and nothing else.
-      NavDrawerContext.tsx  ✎ 'use client'. Drawer state and actions ONLY — no effects; it
-                              has three consumers, so an effect here would be three listeners.
-      SiteSocialIcon.tsx    ✎ Four glyphs — three hand-written, Substack's the simple-icons
-                              path (CC0). Named Site* because content/site.ts already exports
-                              a `SocialIcon` *type* and the two would collide.
-      ProseText.tsx         ✎ Renders a proseText field via <PortableText>
-      ProseLink.tsx         ✎ The `hyperlink` annotation inside one. One of --color-link's
-                              two users — docs/DocsMarkdown's link renderer is the other,
-                              and the two share their classes verbatim.
-      ProseBody.tsx         ✎ A body of prose with photos in it — post.body and aboutPage.body
-      BodyPhoto.tsx         ✎ The postPhoto member of one, floated and wrapped by the text
-      about/                ✎ Intro — the heading and introduction at the top of /bio.
-                              Was `home/Hero.vue`; moved with the fields it renders.
-      home/                 ✎ FeaturedWriting, PhotoStrip.
-                              PhotoStrip no longer owns a layout: it uses the `grid` preset
-                              through renderPhoto so each photo can become a link. The name is
-                              now a lie worth fixing the next time that file is opened.
-      writing/              ✎ Lead — the leading piece, with the eyebrow passed in as a prop
-                              because LATEST is a claim about the date and stops being true
-                              when she features something older; Row — one ledger row;
-                              WritingLink — post vs article destination, one place, now used
-                              by FeaturedWriting too. Named `writing/` still: only the route
-                              said /writing.
-      shots/                ✎ FilterBar — the tag filters on /gallery/all, built from
-                              DESIGN.md's button-outline / button-primary pair. Real <Link>s,
-                              so the filter is in the URL, shareable, and reaches the server.
-                              Multi-select with a CLEAR that appears only when something is
-                              selected; there is no ALL chip.
-                              AllShotsView / GalleryView — the 'use client' halves of the two
-                              /gallery pages. GalleryView holds the PRESETS map.
-                              PhotoShowcase — one photograph alone, and every effect that
-                              goes with it. PhotoLink — the clickable wrapper both views drop
-                              into a preset's renderPhoto; a plain <a>, never <Link>.
-                              useShowcase.ts — the showcase's route state, pushState
-                              navigation and scroll save/restore. No fetching, no listeners.
-      presets/              ✎ One component per layout preset, and the list is exhaustive by
-                              typecheck — see the PRESETS map in shots/GalleryView.tsx.
-                              GalleryGrid (wrap-and-fill rows, also used by the front page)
-                              and GalleryStack (full-measure column). types.ts holds the
-                              shared GalleryPresetProps both must satisfy.
-      docs/                 ✎ The Field Guide's rendering. DocsMarkdown — react-markdown with
-                              a components map, headings demoted one level (the sidebar owns
-                              the only h1). DocImage — the placeholder-or-screenshot switch,
-                              and the third <img> in the app; the swap process is documented
-                              in the file. DocsToc — the two "On this page" shapes, both
-                              server-rendered, no scroll-spy. All Server Components.
-    content/                ✎ Site chrome only. tags.ts is gone — a tag's name is content
-                              now and arrives with the query.
-      site.ts               ✎ The menu's routes (labels are hers, in siteSettings), social
-                              links, copyright. Plus SITE_FALLBACK: her name, byline,
-                              description and menu labels as shown ONLY when siteSettings
-                              cannot be read. Not the source — do not chase her edits into it.
-    lib/                    ✎ date.ts — formatDate/formatShortDate. UTC note in it.
-                              photo.ts — photoRatio(), shared by GalleryGrid and the showcase.
-                              showcase.ts — readTags/readPhotoId/showcaseHref/viewKey/
-                              isModifiedEvent. Pure functions, called from BOTH sides of the
-                              server boundary so the two cannot disagree about an address.
-                              docs.ts — slugifyHeading/extractSections, shared by the Field
-                              Guide's TOC and its heading renderer so an anchor and its
-                              target cannot disagree — the showcase.ts move again.
-
-studio/                     ✎ Sanity Studio. Standalone, deployed separately.
-  package.json              ✎ sanity, react, styled-components, @sanity/vision
-  sanity.config.ts          ✎ Schema registry, structure, singleton locking. No basePath
-                              — the deployed Studio is served at its own host's root.
-  sanity.cli.ts             ✎ projectId, autoUpdates, schemaExtraction, typegen paths
-  structure.ts              ✎ Sidebar shape + SINGLETON_TYPES + PLACED_TYPES
-  dataset.ts                ✎ requireDataset() — throws when unset, never defaults
-  components/               ✎ Custom Studio inputs. PhotoOrderInput — gallery.leadPhotos:
-                              the default array plus the computed tail (the SAME query as
-                              the site's, or the Studio previews an order the page does not
-                              render), with Place / Place all to materialise it. Built on
-                              styled-components + Sanity's CSS variables, not @sanity/ui —
-                              that package is transitive and deliberately undeclared.
-                              GalleryOrderInput — siteSettings.galleryOrder, the same shape
-                              one level up; its TAIL_QUERY must match NAV_QUERY's `rest`.
-                              orderInputParts.ts — the styled pieces and randomKey both share.
-  scripts/                  ✎ One-off `sanity exec … --with-user-token` jobs, CLI-user auth
-                              like the migrations. seed-site-settings.ts — brings the
-                              siteSettings and featuredPage singletons up to the current
-                              schema: creates them if missing, fills unset fields (setIfMissing,
-                              labels by path) and inserts new menuOrder items beside their
-                              default neighbours. Idempotent; run it BEFORE
-                              unset-gallery-nav-order on any dataset that lacks siteSettings.
-  promote.mjs               ✎ development → production. Here, not scripts/, because it
-                              authenticates as the CLI user and needs no write token.
-  .env.example              ✎ SANITY_STUDIO_DATASET only
-  .promote/                   GENERATED — dataset tarballs and backups, gitignored
-  schema.json                 GENERATED — typegen intermediate, gitignored
-  migrations/               ✎ CLI content migrations. Authenticate as the logged-in CLI
-                              user, so no SANITY_WRITE_TOKEN — same reason promote.mjs
-                              lives here rather than in scripts/.
-                              create-tag-documents, then tags-to-references. TWO runs, in
-                              that order, and never merged: `migrations run` submits
-                              transactions concurrently, so a reference written in the same
-                              run that creates its target fails on integrity partway through.
-                              gallery-tag-to-tags, then unset-gallery-nav-order (after the
-                              seed script above, which reads the numbers it deletes).
-                              unset-home-parked-fields — removed homePage.blurb,
-                              .featuredTitle and .featuredSubtitle.
-  schemaTypes/
-    index.ts                ✎ Schema registry
-    photoPicker.ts          ✎ excludeAlreadyChosen — shared reference-picker filter
-    galleryFields.ts        ✎ LAYOUT_PRESETS (Rule 2), the two fill modes and their
-                              validation — shared by gallery and featuredPage.
-    documents/              ✎ photo, gallery, tag, post, article,
-                              homePage, featuredPage, writingPage, aboutPage,
-                              contactPage, siteSettings
-    objects/                ✎ link, postPhoto, proseText, featuredPhoto
-
-scripts/                      Still empty. The promote deliberately is not here — see above.
-  seed.ts                     Writes stock content to `development`
-```
-
-**`web/` is Vercel's root directory** — set it in project settings, or Vercel will try to
-build the repo root and find no app. It was `web/` under Nuxt too, so the port did not move it;
-this is the one Vercel setting that still lives only in the dashboard, because `vercel.json` is
-read *from* the root directory and so cannot declare where it is.
-
-**The framework preset is pinned in `web/vercel.json`, and it is there because auto-detection
-got it wrong the moment `nuxt.config.ts` was deleted.** Merging the port turned the live site
-into a 404 on every route. The code was fine — `next build` on the merge commit produces the
-whole route table — and the preset was not: with no framework detected,
-Vercel's Output Directory defaults to "`public` or `.` root directory", so it uploaded
-`web/public/` as a **static site**, found no `index.html`, and served a platform 404 everywhere.
-The deploy went green. `"framework": "nextjs"` overrides the dashboard preset (Vercel's word is
-"overrides"), so the next auto-detect cannot make the same guess.
-
-**The signature is worth memorising, because a green deploy serving nothing looks like nothing.**
-It reads as a Next.js 404 and is not one:
-
-| | A Next.js deployment | This failure |
-| --- | --- | --- |
-| `/` | HTML, referencing `/_next/static/…` | `text/plain`, `NOT_FOUND`, no HTML |
-| Body of an unknown route | `not-found.tsx`, HTML, site chrome | `text/plain`, `NOT_FOUND` |
-| **A generated asset named in that HTML** | **200** | **nothing to name — `/` served no HTML** |
-| A file in `public/` | 200 | 200 — the only thing that resolves |
-| `x-matched-path`, `x-vercel-cache` | present | absent |
-
-**No single row is the diagnosis** — note that `public/` is 200 in both columns, which is exactly
-what makes the failure legible rather than obvious. It is the *pair* that identifies it: a file in
-`public/` serving while `/` returns plain text means Vercel is serving `public/` as a directory.
-The last row is supporting evidence, not proof; the asset row is the confirmation.
-
-**Read the asset path out of the page — never invent one.** A path under `/_next/static/` that
-does not exist returns **404 on a perfectly healthy deployment**, measured against a known-good
-Next site, so a guessed path proves nothing and reads as though Next were absent:
-
-```sh
-H=https://<host>
-
-curl -sS -o /dev/null -w '/            -> %{http_code}\n' "$H/"
-curl -sS -o /dev/null -w '/public file -> %{http_code}\n' "$H/joan-animated.png"  # 200 either way
-
-# The confirmation: an asset the page itself names, rather than one made up.
-A=$(curl -sS "$H/" | grep -oE '/_next/static/[^"]+\.js' | head -1)
-echo "asset: ${A:-NONE — / served no HTML, so nothing Next is running}"
-[ -n "$A" ] && curl -sS -o /dev/null -w "asset        -> %{http_code}\n" "$H$A"
-```
-
-An empty `$A` is itself the answer, and it is why the extraction is written to survive the failure
-case rather than assuming the page parses.
-
-**What `vercel.json` does not fix, and must not be assumed to.** It sets `framework` and only
-`framework`. An **explicit** Output Directory or Build Command override left in the dashboard
-from the Nuxt project still wins, because vercel.json overrides a dashboard setting only for the
-keys it actually declares. Those overrides have to be cleared back to the framework default by
-hand, once. Do not add `outputDirectory` here to force the issue — Next on Vercel is built by the
-framework builder rather than by copying a directory, and naming one would be a second wrong
-answer rather than a safety net.
-
-**Also note the failure that did *not* happen, because it changes where to look first.** A build
-that *fails* leaves the previous deployment aliased **when there is one** — so on a project with
-deployment history, the old site keeps serving and a red build usually does not present as a 404.
-That inference does not hold on a first deployment, or where the previous production deployment
-was deleted or the alias reassigned: then there is nothing to fall back to and a failed build
-does show as a 404.
-
-So on *this* project, which had a working Nuxt deployment, a 404 on every route pointed at
-project settings before the build log — and that is the opposite of where the missing-`SANITY_*`
-blocker in *Open questions* points, which is what made the two easy to confuse when they landed
-in the same deploy. Treat it as an ordering heuristic rather than a proof: a 404 on every route
-is also what an unassigned alias, a domain pointed elsewhere, a misconfigured Root Directory or a
-deleted project look like, and the table above is what separates "serving the wrong thing" from
-"serving nothing at all".
+- **Arrays that replace defaults:** `photo.image.options.metadata` (must restate `lqip`,
+  `blurhash`, `thumbhash`, `palette`; `exif` in, `location` out), and `proseText`'s `styles`,
+  `lists` (`lists: []` is load-bearing), `decorators`. Omitting one silently restores or drops
+  defaults. Metadata is set at upload, never backfilled.
+- **Reference arrays need both** `options.filter` on the *member* (`excludeAlreadyChosen` in
+  `photoPicker.ts`) and `rule.unique()` on the array. `options` on the array does nothing.
+  **Bodies (`post.body`, `aboutPage.body`) take neither** — `unique()` would reject repeated
+  prose, and the filter resolves to nothing inside `postPhoto`.
+- **A photo in a body is a `postPhoto` object wrapping a reference**, never a named `reference`
+  member (typegen types it `_type: "reference"` while the editor writes the name).
+- **Rich text only in `proseText`, `post.body`, `aboutPage.body`.** Everything else is plain
+  `text`. Block config stays minimal; adding a style, decorator or block type needs an argument.
+  `proseBlock(styles)` is a function so each type gets its own object.
+- **`rule.max(n)` on Portable Text counts blocks, not characters** — a length guard needs a
+  `rule.custom` walking spans.
+- Portable Text renders a `normal` block as `<p>`; a rich-text heading needs its own component.
+  `<PortableText>` renders no wrapper; `ProseText` supplies one.
+- `BodyPhoto`'s class map is `satisfies Record<Layout, string>`. `ProseBody` counts only wrapped
+  photos to alternate float sides (CSS `nth-of-type` counted full-width ones too).
+- **Recommended-but-optional fields use `rule.custom(...).warning()`, never
+  `rule.required().warning()`** — typegen reads `required()` and types the field non-optional.
+  See `post.summary` / `article.summary`; keep the comment explaining why.
+- `post` vs `article` is only about where the writing lives: `article` points at someone else's
+  page and must stay body-less.
 
 ## Conventions
 
-### The design system
+### Design system
 
-**`DESIGN.md` is the spec; `web/src/app/globals.css` is the implementation.** Colour,
-type, radius and container width are decided in that one file's `@theme` and `@utility` blocks,
-and nowhere else. The file itself carries the reasoning; what belongs here is the part that
-constrains everyone.
+`DESIGN.md` is the spec (Wired-derived: three faces, square corners, hairline dividers);
+`web/src/app/globals.css` is the implementation and the only place tokens are decided. **The spec
+is swappable; the layout is not** — a new spec re-skins `globals.css` and `type-*` call sites, and
+does not reopen the sidebar shell or the two rules.
 
-**`DESIGN.md` is replaceable, and the layout is not.** It has been swapped twice — Wired to a
-Clay-derived system and back again — and the sidenav shell survived both untouched while every
-token under it changed. Treat that as the contract: a new spec re-skins `tailwind.css` and the
-`type-*` call sites, and it does not get to re-open the shell, Rule 1 or Rule 2. If a spec seems
-to require moving the layout, say so before writing code.
-
-**The canvas is cream `#fffaf0`, and DESIGN.md says `#ffffff`.** That is the one deliberate
-disagreement between spec and implementation, made as a product decision and kept across the
-swap back. Everything else in the spec is followed: the black-and-white duet, the square
-geometry, the hairline dividers, the three faces. `--color-canvas-soft` is derived from it
-rather than picked — the spec steps `#ffffff` to `#f5f5f5`, and the same per-channel multiplier
-against `#fffaf0` gives `#f5f0e7`, so the pair stays as related as it was. Expect exactly these
-two hexes to differ when reconciling the file against the spec, and no others.
-
-**Type is set with a `type-*` utility and never with `text-*` + `leading-*` + `tracking-*` +
-`font-*` at a call site.** There is one per DESIGN.md typography token, and each sets **all
-five** of family, size, line-height, letter-spacing and weight — even when a value is `0em`.
-That is not tidiness: custom utilities sort *before* core ones in the emitted CSS, which is
-what lets a call site override with `tracking-[0.1em]`, and the same ordering means
-`type-display-sm lg:type-display-md` would leak the smaller token's *omitted* properties past
-the breakpoint. Responsive steps live inside the token, via `@variant`.
-
-**No token carries `text-transform`.** The menu labels and byline are stored sentence case
-deliberately — the Studio fields tell her to type them normally — so assistive tech reads
-"Copy" rather than spelling it out, and a transform hidden inside a type
-token is how that decision gets lost. `uppercase` stays a class at the call site, beside the
-text it changes. The failure when this is forgotten is quiet and looks like a bug in the font:
-a token whose tracking assumes capitals renders as wide-spaced lowercase.
-
-**Removing a colour token is silent, so the grep is the check.** Verified against
-tailwindcss@4.3.3: with a token absent, a class like `hover:text-brand` emits zero rules — no
-warning, no error, the class simply stays in the markup doing nothing. After any palette change,
-grep the old token names across `web/src` and expect hits only in prose. That is the only thing
-standing between a deleted token and a stale class that looks fine in review.
-
-(This example used to be written with `text-accent`, which was safely fictional at the time and
-is not any more — `--color-accent` exists. Pick a name for the next demonstration that nothing
-could plausibly add.)
-
-**Fonts are hotlinked from `fonts.gstatic.com`, not vendored.** Playfair Display, Lora and
-Inter — DESIGN.md's own named substitutes for its three proprietary faces. Google rotates the
-path hash per revision, so a republish can 404 them and drop the site silently to Georgia and
-system sans; the fallback chains in `@theme` are the mitigation and must stay real chains. The
-re-derivation command is in the CSS comment, and its `User-Agent` header is load-bearing.
-
-Playfair is pinned to weight 400 while Lora and Inter are variable ranges, and that asymmetry
-is measured rather than assumed — the byte counts and the one thing it costs are in the CSS
-comment. Re-check it if the face set ever changes; the answer is not the same for every family.
-
-**The radius scale is `{rounded.none}` — Tailwind's named steps are unset in `@theme`.** The
-spec calls square corners non-negotiable, so `rounded-md` and friends resolve to nothing rather
-than sitting there to be reached for. `rounded-full` survives deliberately and is the one
-exception the spec allows, "circular icon containers only": exactly one call site, the social
-links in the sidebar. `grep -rn "rounded-" web/src` should return that one and nothing else.
-
-It was two until /copy's rows became a ledger and their circular thumbnails became squares.
-Nothing about the rule changed — the surviving call site is an icon container, which is what
-the exception is for, and the one that went was a photograph wearing a radius.
-
-Worth keeping straight across spec swaps, because the previous one was built on generous radii:
-**a corner radius is not a crop.** It is a surface treatment — `SanityPhoto` reads the box from
-the asset's own metadata and the CDN URL carries a width, a format and a quality, with no `fit`
-and no `rect`. Rule 2 is about who decides framing, and rounding a corner decides nothing. So
-`rounded-*` on a photograph is a design question, free to come and go with the spec;
-`object-cover` on one is a Rule 2 question and is not.
-
-**A bound is not a crop either, and the difference is whether the ratio survives.** A `max-*`
-shrinks the photograph and loses nothing, so it is a layout decision; a fixed `w`/`h` pair or an
-`object-cover` selects part of it, which is framing and belongs to Rule 2.
-
-The distinction is worth keeping even though the case that prompted it went the other way, and
-the history is the useful half. /copy's lead photo was first *bounded* — `md:max-h-[200px]
-md:w-auto md:max-w-full`, so a 2500×3333 cover rendered 150×200 with its proportions intact and
-a 3000×1000 panorama rendered 300×100 instead of overrunning its track. It behaved exactly as
-described and it looked wrong: the 300px column sat half empty and the block's right edge moved
-with whatever she uploaded. It is now `crop="lead"`, a real 300×200.
-
-So the rule is not "bounding good, cropping bad". It is that **a crop is a decision with a named
-owner and a written cost, and a bound is not.** Reach for the bound when the shape genuinely does
-not matter. When it does, make the crop a `CROPS` entry with the argument written down, rather
-than a class at a call site — a `max-h-*` on a photo is a design choice, an `object-cover` on one
-is a conversation.
+- **Two deliberate departures**, argued beside the tokens: canvas is cream `#fffaf0` (spec
+  `#ffffff`; `canvas-soft` `#f5f0e7` derived the same way), and `--color-accent` (deep maroon)
+  exists.
+- **Type via one `type-*` utility per token**, each setting all five of family, size,
+  line-height, letter-spacing, weight. Never `text-*`+`leading-*`+`tracking-*`+`font-*` at a call
+  site. Responsive steps live inside the token via `@variant`.
+- **No token carries `text-transform`.** Labels are stored sentence case; `uppercase` is a class
+  at the call site.
+- **Removing a colour token is silent** (the class emits nothing). After a palette change, grep
+  old token names across `web/src`.
+- **Radius scale is none.** `rounded-full` is the one exception (circular icon containers):
+  `grep -rn "rounded-" web/src` should show only the sidebar social links outside comments.
+- **Fonts are hotlinked from `fonts.gstatic.com`** (Playfair Display 400, Lora, Inter). Hashes
+  rotate; keep real fallback chains in `@theme`. The re-derivation command (with a load-bearing
+  `User-Agent`) is in the CSS comment.
+- Cream exposes pure-white borders baked into some photos. Not fixable in the app (trimming is a
+  crop) — re-upload or accept.
 
 ### Queries and types
 
-**GROQ lives in `web/src/sanity/queries/`, one file per route. Never inline in a component.**
-A query is the contract between a route and the content model. Keeping them in one directory
-means a schema change has one obvious place to look for breakage, and typegen can find them.
-
-`queries/photo.ts` is the one file there that is not a route, and it holds `PHOTO_PROJECTION` —
-the fields every query selects when it dereferences a photo. Rule 1 means every route reaches
-photographs the same way, so the alternative was the same seven lines pasted into six query
-files and a `SanityPhoto` that accepts six separately-maintained shapes. **Typegen resolves the
-interpolation**, verified: `${PHOTO_PROJECTION}` inside `defineQuery` produces a fully typed
-result, not `unknown`. It also exports `PhotoProjection`, read back off a generated query result
-rather than hand-written, because a hand-written shape sitting parallel to a generated one is
-exactly how a query and a component drift.
-
-**Queries are declared with `defineQuery` from `groq`.** Sanity's typegen only extracts and
-types queries wrapped in `defineQuery()`. A raw template literal produces no type and
-silently opts that route out of type checking.
-
-```ts
-// web/src/sanity/queries/trip.ts
-import { defineQuery } from 'groq'
-
-export const TRIP_QUERY = defineQuery(`
-  *[_type == "gallery" && slug.current == $slug][0]{
-    title, preset,
-    photos[]->{ _id, alt, caption, image }
-  }
-`)
-```
-
-Note the `->` dereference. Galleries store references; queries resolve them. That is Rule 1
-showing up at the query layer.
-
-`groq` is a direct dependency and `defineQuery` is imported explicitly in every query file.
-It is a tiny package — `defineQuery` is an identity function whose whole job is preserving the
-literal type — and typegen's parser reads these files, so being explicit costs nothing.
-
-**Every read goes through `sanityFetch` in `web/src/sanity/fetch.ts`, and four things about its
-signature are load-bearing.** The file carries the long version; the parts that constrain
-callers:
-
-- **It returns `{ data, error }`, not a bare result.** That is what makes "check the transport
-  failure before the null" a property of the type rather than a convention — see *Errors* below.
-- **`ClientReturn<Q, unknown>`, never the bare default.** `client.fetch`'s own fallback is
-  `Any` — that is, `any`. So if `sanity.types.ts` ever falls out of the TypeScript program, the
-  old behaviour is that every route keeps compiling and silently stops being typechecked.
-  Pinning the fallback to `unknown` turns that into a compile error at the first property
-  access. **A green typecheck is not evidence the types are live; a red one is.** The check, and
-  it takes thirty seconds: point a result at a field that does not exist and confirm the
-  compiler rejects it *naming the real shape*; then hand `sanityFetch` a query string that is
-  not in the generated map and confirm the result is `unknown` rather than `any`.
-- **`const Q extends string`**, mirroring `defineQuery`'s own signature, so a query's literal
-  type — interpolations already resolved — reaches the `SanityQueries` map. Widen it to
-  `string` and every result becomes the fallback.
-- **Naming the result type *inside* the helper** is what sidesteps the overload trap below. One
-  non-overloaded signature covers both the no-params and with-params call shapes.
-
-**`client.fetch` is overloaded four ways, and a params object of plain values matches
-`QueryWithoutParams` first.** A direct call therefore resolves to the no-params overload and
-reports "string is not assignable to undefined" — an error about the overload it landed on
-rather than about the call. This is why there is exactly one `client.fetch` call site on the
-site. Do not add a second; add a query and let `sanityFetch` take it.
-
-**A GROQ parameter cannot be named after a fetch option, and the error will not tell you
-that.** `QueryParams` in `@sanity/client` declares a list of keys as `never` — `tag`, `query`,
-`perspective`, `signal`, `token`, `cache`, `headers`, `method`, `body`, `timeout`, `next` and
-more — on the grounds that passing one as a GROQ parameter is nearly always a mistake. `tag` is
-Sanity's request tagging. A parameter named `$tag` therefore fails with **"Type 'string' is not
-assignable to type 'undefined'"**, which names the overload the call fell through to and says
-nothing about the collision. `/gallery/all` filters on `$filterTags` for exactly this reason.
-Check that list before naming a parameter after anything that sounds like a request setting.
-**This is a `@sanity/client` fact and not a framework one** — it survived the port from Nuxt
-unchanged and will survive the next one.
+- **GROQ lives in `web/src/sanity/queries/`, one file per route, never inline.** Exceptions that
+  aren't routes: `photo.ts` (`PHOTO_PROJECTION`, `INDEX_VISIBILITY`, `PHOTO_BY_ID_QUERY`),
+  `nav.ts`, `siteSettings.ts` (only call via `getSiteSettings()`).
+- **Always `defineQuery` from `groq`**, or typegen skips the query silently. Interpolations are
+  resolved by typegen. Typegen's glob is `../web/src/**/*.{ts,tsx}`; a query outside it gets no
+  types and no error.
+- Derive shapes from generated results (`PhotoProjection`, `TagOption`) — never hand-write a
+  parallel interface, never `as any` past a type error.
+- **Every read goes through `sanityFetch`** (`sanity/fetch.ts`), the only `client.fetch` call
+  site. It returns `{ data, error }`; it uses `ClientReturn<Q, unknown>` so a lost typegen
+  augmentation becomes a compile error rather than silent `any`; `const Q extends string` keeps
+  the literal type. A direct `client.fetch` with params hits the wrong overload ("string is not
+  assignable to undefined").
+- **GROQ params can't be named after fetch options** (`tag`, `query`, `perspective`, `token`,
+  `cache`, `next`, …) — same misleading error. Hence `$filterTags`.
+- `@sanity/client` switches to POST above 11,264 encoded chars, and Next doesn't cache POSTs.
+- **A green typecheck isn't proof types are live.** Verify: a nonexistent field on a result must
+  error naming the real shape; an unmapped query string must yield `unknown`, not `any`.
 
 ### Caching
 
-**One number, at the fetch layer.** `REVALIDATE` in `sanity/fetch.ts` is 60 seconds, and it is
-passed as `next: { revalidate }` on *every* read. Next then derives a route segment's own
-revalidate from the lowest among the fetches it makes, so `/`, `/bio`, `/copy` and
-`/copy/[slug]` prerender and revalidate on their own — confirm in `next build`'s output, which
-prints the interval per route.
-
-**There is deliberately no `export const revalidate` on any page**, and two reasons:
-
-- Next's implicit caching only covers fetches discovered *before* a request-time API is used,
-  and `/gallery/all` awaits `searchParams` first. Relying on the segment default would cache every
-  route except the one page that pages. Stating it on the fetch removes the asymmetry.
-- A segment export must be a **literal**, read by static analysis rather than evaluated —
-  `export const revalidate = REVALIDATE` fails the build with "Invalid segment configuration
-  export". So it would mean the number in two places, with the second copy unable to reference
-  the first.
-
-**Both `/gallery/*` routes and `/featured` are dynamic, and that is a decision.** They read
-`searchParams` for the showcase. `/featured` has no dynamic segment, so it awaits `searchParams` in
-the page body to say so — without that Next prerenders it and the showcase's `useSearchParams()`
-fails the build. `generateStaticParams` there would look like an optimisation and do nothing, which is
-why it is absent from `/gallery/[slug]` and present on `/copy/[slug]`. What it costs is one React
-render per request; it is *not* a Sanity request per request, because the read comes from the
-Data Cache. What it buys is in *The showcase*: a shared `?photo=` link server-renders the
-photograph, with its caption as the `<title>`.
-
-One thing worth knowing before any query grows: **`@sanity/client` switches from GET to POST
-above 11,264 encoded characters**, and Next's Data Cache does not cache POSTs. Every query here
-is far under. A query that crosses that line stops being cached with nothing saying so.
+`REVALIDATE = 60` in `sanity/fetch.ts`, passed as `next: { revalidate }` on every read. **No
+`export const revalidate` on any page** (segment exports must be literals, and /gallery/all reads
+`searchParams` before fetching). `/gallery/*` and `/featured` are dynamic by design (they read
+`searchParams` for the showcase; `/featured` awaits it explicitly or the build fails). No
+`generateStaticParams` on `/gallery/[slug]`; present on `/copy/[slug]`.
 
 ### Errors
 
-**Check the transport failure before the null.** A failed request and an empty result both leave
-you holding `null`, and they mean opposite things — the CORS history in *The Studio* is the
-archetype, and it cost real debugging time.
+**Check the transport failure before the null** — a failed request and an empty result both look
+like `null`. `orThrow(await sanityFetch(...))` throws `SanityUnreachableError` on transport
+failure; the null check stays at the call site:
 
-`orThrow(await sanityFetch(...))` makes that structural: it throws `SanityUnreachableError` on a
-transport failure and hands back a value that, for a `*[…][0]` query, is still `X | null`. So the
-second check stays a second check and stays at the call site, **where the answer differs**:
+| Missing | Result |
+| --- | --- |
+| `homePage`, `aboutPage`, `featuredPage` | 500, `MissingDocumentError` |
+| `writingPage` | nothing (costs an intro paragraph) |
+| `post` / `gallery` by slug | `notFound()` |
+| `?photo=` id | a message in place |
 
-| Missing | Route | Because |
-| --- | --- | --- |
-| `homePage` | 500, `MissingDocumentError` | A singleton the Studio will not let her delete — the dataset is wrong. |
-| `aboutPage` | 500, `MissingDocumentError` | Same. |
-| `featuredPage` | 500, `MissingDocumentError` | Same — and the menu links to `/featured` on every page. |
-| `writingPage` | *nothing* | It holds a tab title and an optional intro; the page's content is the list beside it. Absent costs a paragraph. |
-| a `post` / `gallery` by slug | 404, `notFound()` | Nothing guarantees the document exists; the address may be mistyped or changed. |
-| a `?photo=` id | **a message in place** | A query parameter must never replace a working page with an error screen. |
-
-Two things this gave up, both deliberately:
-
-- **The 502 is gone; both errors are HTTP 500.** App Router gives a page no way to set a status —
-  `notFound()` is the only exception. Nothing consumed the 502, and the distinction survives
-  where it was actually used: `Error.name` in the server log.
-- **Production redacts the message.** `error.tsx` receives a generic string and a `digest` hash;
-  the real error, with its `cause`, is in the Vercel function log. That is the same hardening
-  Nuxt did, and the reason the page prints the digest.
-
-**Exactly two call sites swallow a query error, and neither uses `orThrow`:** `SiteNav` and
-`getSiteSettings()` in `sanity/siteSettings.ts`. Both are chrome on every page: a Sanity outage
-taking down the whole site because four gallery links or a byline could not be read would be
-worse than the failure it reports — and `getSiteSettings()` runs in the root layout, where a
-throw would bypass `error.tsx` altogether. A failed nav read means no gallery links; a failed
-settings read means `SITE_FALLBACK`'s text, logged. A third such call site needs the same
-argument made for it, out loud.
+Both errors are HTTP 500 (App Router can't set other statuses); production redacts messages —
+the real error is in the Vercel function log, matched by `digest`. **Exactly two call sites
+swallow errors: `SiteNav` and `getSiteSettings()`** (chrome on every page). A third needs the
+argument made out loud.
 
 ### Server and client
 
-A `'use client'` directive is only needed at a **boundary** — a module imported by a Server
-Component that itself needs hooks or event handlers. Anything imported by a client component is
-already in the client graph and needs no directive of its own.
-
-There are ten, and `grep -rln "^'use client'" web/src` is the list: `NavDrawerContext`,
-`SiteSidebar`, `SiteNavList`, `MainColumn`, `AllShotsView`, `GalleryView`, `PhotoShowcase`,
-`PhotoLink`, `useShowcase.ts`, and `error.tsx`. Everything else — every page,
-every prose component, `SiteNav`, `FilterBar`, `PhotoStrip`, `FeaturedWriting`, `Lead`, `Row`,
-`Intro` — is a Server Component.
-
-**`SanityPhoto`, `GalleryGrid` and `GalleryStack` carry no directive and are dual-use**, and
-that is what makes the presets' `renderPhoto` render prop legal. The front page passes one from
-a Server Component; `AllShotsView` passes one from a client component; because the presets are
-never marked, the function never crosses a boundary in either direction. **Marking a preset
-`'use client'` would break the front page** with "functions cannot be passed to client
-components" — so if one ever needs a hook, the render prop has to be reconsidered at the same
-time.
-
-Two client components exist only because of one attribute each — `MainColumn` for `inert`,
-`SiteNavList` for `usePathname`. Splitting them off keeps the pages themselves on the server.
-
-**`useSearchParams()` must not appear in the root layout's tree.** In a *prerendered* route it
-drops everything below the nearest Suspense boundary out of the static HTML; from the layout
-that would be every page on the site. `SiteSidebar` closes the drawer on `usePathname` alone for
-this reason, and nothing in the chrome needs the query string.
-
-**Types are generated, never hand-written.** `web/sanity.types.ts` is output from
-`sanity schemas extract` + `sanity typegen generate`, run from `studio/`. Do not hand-edit it, do not write a
-parallel `interface Photo` somewhere, and do not `as any` past a type error — a type error
-here means the query and the schema disagree, which is information, not an obstacle. If a
-type looks wrong, fix the schema or the query and re-run typegen.
+- `'use client'` only at boundaries. There are ten: `grep -rln "^'use client'" web/src`.
+- **`SanityPhoto`, `GalleryGrid`, `GalleryStack` carry no directive** — that's what makes the
+  `renderPhoto` render prop legal from both server (front page) and client callers. Marking a
+  preset `'use client'` breaks the front page.
+- **No `useSearchParams()` in the root layout's tree** — it would drop every prerendered page
+  below the nearest Suspense boundary out of static HTML.
 
 ### Photographs
 
-**Every image on the site renders through `SanityPhoto`.** One component, no exceptions —
-not in presets, not in the hero, not in the Studio preview.
+**Every photograph renders through `SanityPhoto`** — srcset/sizes off the CDN, LQIP blur-up,
+aspect-ratio reservation, alt from the document. It takes a whole photo projection (plus optional
+`crop` name), never an `alt`, ratio, size or offset. Candidate widths never exceed the source.
+Not `next/image` (double transform, billed, hides the decisions).
 
-It is responsible for:
-- `srcset` / `sizes` off the Sanity image CDN, so phones don't download desktop pixels
-- LQIP blur-up placeholder from the asset's metadata
-- Aspect-ratio reservation, so nothing shifts as images load
-- `alt` sourced from the photo document — never passed in ad hoc by a caller
+`grep -rl "<img" web/src` finds exactly three files: `SanityPhoto.tsx`, `SiteSidebar.tsx` (static
+illustrated portrait) and `docs/DocImage.tsx` (Field Guide screenshots). A fourth is a bug until
+argued otherwise.
 
-Centralizing this is what makes ~250 photos on a phone connection acceptable. A raw `<img>`
-or a bare CDN URL anywhere in the app is a bug.
+### The schema wins; the app never writes
 
-It takes a whole photo projection and **not** an `alt`, an aspect ratio, a size, or a crop
-offset. Passing `alt` per call site is how one photograph ends up described two ways; passing
-a shape is a framing control, which is Rule 2's whole subject. By default the box is the
-photograph's own proportions, read from the asset metadata, and the CDN URL carries a width, a
-format and a quality — no `fit`, no `rect` — so the no-crop rule holds at the URL and not merely
-by convention.
+Schema → typegen → queries → components. When they disagree, the schema is right. The app never
+writes to Sanity: no write token in app code, no mutation endpoints. Writes happen in the Studio,
+`promote.mjs`, migrations and `studio/scripts/`.
 
-The one exception is the `crop` prop, which selects one of the named presets in `CROPS` —
-`crop="square"` for preview thumbnails, `crop="lead"` for the /copy lead — each with its own
-centred framing and its own much shorter srcset ladder. It takes a name and never dimensions or
-an offset, so a call site still cannot invent a framing. See the thumbnail note in *The content
-model* for why the list exists and what each entry costs.
+## Directory map
 
-**It is deliberately not `next/image`.** That would put Vercel's optimiser in front of an image
-CDN that already does everything it does — a second transform of an already-transformed file,
-billed per source image, to re-derive a width and a format Sanity negotiated. It would also move
-the srcset ladder, the format choice and the placeholder behind a component this project does
-not control, which is the opposite of the rule above: the value here is that one file decides
-all of it and the decisions are readable. **The no-upscale clamp has no `next/image` equivalent
-at all** — every candidate width is capped at the asset's own, and for a crop at what the source
-can fill *at that ratio*, so a 599px original is offered at 400w and 599w and stops.
+Two sibling packages, separate `package.json`s and `node_modules`. The only coupling: Studio
+typegen writes `web/sanity.types.ts`. Most files carry their own rationale in comments.
 
-The same argument covers `public/joan-animated.png` in the sidebar: a static file, already at
-the size it renders, with no second pipeline needed to serve it. It renders only when
-`siteSettings.showPortrait` is on, which defaults to off — she did not like it and may want it
-back. The file and the `<img>` stay either way, so the grep below is unaffected.
-
-**Every *photograph* renders through one `<img>`, and `grep -rl "<img" web/src` is the check.**
-It finds three *files*, and the count is the thing to read rather than the number: `SanityPhoto`;
-the illustrated portrait in `SiteSidebar`; and `docs/DocImage`, the Field Guide's Studio
-screenshots. The second and third are one argument made twice — a static asset that is chrome
-or documentation rather than one of her photographs, so it has no photo document, no alt from
-Sanity and nothing to dereference. A fourth file is a bug until argued otherwise.
-
-(`-l` rather than `-n`, because these files also *discuss* `<img>` at length in their comments —
-a line-count grep reads like a violation. The actual elements are one each, in
-`SanityPhoto.tsx`, `SiteSidebar.tsx` and `docs/DocImage.tsx`.)
-
-It was briefly two for a much worse reason: `SitePhoto` and `RichParagraph` were static twins
-of `SanityPhoto` and `ProseText` serving /copy while that page was on Unsplash placeholders.
-All three — both twins and `~/content/writing` — died when /copy got its query. The
-alternative considered at the time, teaching `SanityPhoto` to also accept bare URLs, would have
-put a permanent hole in the rule to paper over a temporary one.
-
-### The schema wins
-
-**Sanity schema files are the source of truth for the content model.** Not this document,
-not the generated types, not the GROQ queries. Schema changes flow outward:
-schema → `typegen` → queries → components. When they disagree, the schema is right and the
-rest needs updating.
-
-**The app never writes to Sanity.** All content mutation happens in the Studio, in
-`studio/promote.mjs`, or in `scripts/`. No write token in app code, no mutation endpoints, no
-server routes that POST to the Content Lake.
+```text
+CLAUDE.md, DESIGN.md, .env.example (root, for scripts only), .worktreeinclude
+web/                         Next app; Vercel's root directory
+  next.config.ts             redirects() only
+  vercel.json                {"framework": "nextjs"} — see Deploying
+  sanity.types.ts            GENERATED by studio typegen; committed
+  content/docs/              field-guide.md (ships with the Studio change it documents)
+  public/                    joan-animated.png; docs/ for Field Guide screenshots
+  src/app/                   layout.tsx (only layout), globals.css, error.tsx, not-found.tsx,
+                             page.tsx, bio/, copy/, copy/[slug]/, gallery/all/,
+                             gallery/[slug]/, featured/, docs/, admin/route.ts,
+                             api/photos/ (+ [id]/) — the only browser-called endpoints
+  src/sanity/                client.ts (server-only, no defaults), fetch.ts, errors.ts,
+                             siteSettings.ts, queries/
+  src/components/            SanityPhoto, SiteSidebar, SiteNav(+List), MainColumn,
+                             NavDrawerContext (state only, no effects), Prose*, BodyPhoto,
+                             about/, home/, writing/, shots/, presets/, docs/
+  src/content/site.ts        nav routes, socials, copyright, SITE_FALLBACK
+  src/lib/                   date, photo (photoRatio), showcase, docs — pure helpers shared
+                             across the server boundary
+studio/
+  sanity.config.ts, sanity.cli.ts, structure.ts, dataset.ts, promote.mjs
+  schemaTypes/               documents/, objects/, galleryFields.ts, photoPicker.ts
+  components/                PhotoOrderInput, GalleryOrderInput, orderInputParts
+  migrations/                create-tag-documents → tags-to-references; gallery-tag-to-tags;
+                             unset-gallery-nav-order (after seed-site-settings);
+                             unset-home-parked-fields
+  scripts/                   seed-site-settings.ts (sanity exec --with-user-token)
+  .promote/, schema.json     GENERATED, gitignored
+```
 
 ## Commands
 
-There is no root `package.json`. Next commands run from `web/`, Studio and schema commands run
-from `studio/`, and the seed scripts run from the repo root — check which directory you are in
-before running anything.
+No root `package.json`. Check your directory before running anything.
 
-From **`web/`** — the Next app:
+**`web/`:** `npm run dev` (:3000), `npm run build`, `npm run start`, `npm run typecheck`
+(`next typegen && tsc --noEmit` — `next typegen` generates `PageProps`/`RouteContext`; don't drop
+it).
 
-| Command | Purpose | Status |
-| --- | --- | --- |
-| `npm run dev` | Next dev server on :3000 | ✎ works |
-| `npm run build` | Production build for Vercel — app only, never the Studio | ✎ works |
-| `npm run start` | Serve the built output locally | ✎ works |
-| `npm run typecheck` | `next typegen && tsc --noEmit` | ✎ works |
+Read `next build`'s route table: `/`, `/bio`, `/copy`, `/copy/[slug]` prerendered with 1m
+revalidate; `/gallery/*`, `/featured`, `/admin`, `/api/photos*` dynamic. A content route turning
+dynamic means something started reading a request-time API.
 
-**`next typegen` is not optional in that last one.** It writes `.next/types/routes.d.ts`, where
-the global `PageProps<'/gallery/[slug]'>` and `RouteContext<'/api/photos/[id]'>` live. A cold
-`tsc --noEmit` without it fails on every page and route-handler signature.
+**`studio/`:**
 
-`npm run build` reports each route's rendering mode, and that output is worth reading rather
-than skimming: `○`/`●` are prerendered, `ƒ` is dynamic. `/`, `/bio`, `/copy` and the
-`/copy/[slug]` pages should be prerendered with a 1m revalidate; `/gallery/*`, `/featured`,
-`/admin` and `/api/photos*` should be dynamic. A content route silently becoming dynamic means something
-started reading a request-time API.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Studio on :3333 against `SANITY_STUDIO_DATASET` |
+| `npm run build` | Build the Studio bundle |
+| `npm run deploy` | Ship the Studio, pinned to `production` (code, no content) |
+| `npm run promote` | Mirror `development` → `production` (content, no code). `-- --dry-run` first |
+| `npm run typegen` | `sanity schemas extract --force && sanity typegen generate` |
+| `npx sanity schemas validate` | Check the schema |
+| `npx sanity documents validate --dataset <ds>` | Check content against the schema; run after migrations |
+| `npx sanity migrations run <id> --project c3808h1v --dataset <ds>` | Dry by default |
 
-From **`studio/`** — the Sanity Studio:
+- **`--force` on `schemas extract` is load-bearing** — without it the extract refuses and types
+  silently don't regenerate. It's `schemas`, plural.
+- **Re-run typegen after any schema or query change and commit `web/sanity.types.ts` in the same
+  commit.** Vercel never runs typegen.
+- `enforceRequiredFields: true` makes `required()` fields non-optional in types. Revisit if
+  preview/visual editing ever lands (drafts can be invalid).
 
-| Command | Purpose | Status |
-| --- | --- | --- |
-| `npm run dev` | Studio on :3333, against `SANITY_STUDIO_DATASET` | ✎ works |
-| `npm run build` | Build the Studio bundle | ✎ works |
-| `npm run deploy` | Ship the Studio to `joanatstake.sanity.studio`, pinned to `production` | ✎ host claimed and live |
-| `npm run promote` | Mirror `development` onto `production`. `-- --dry-run` first. | ✎ works |
-| `npm run typegen` | `sanity schemas extract --force` then `sanity typegen generate` | ✎ works |
-| `npx sanity schemas validate` | Check the schema for problems. Touches no data. | ✎ works |
-| `npx sanity documents validate --dataset <ds>` | Check the *content* against the schema. Read-only. Run it after any migration. | ✎ works |
-| `npx sanity migrations run <id> --project c3808h1v --dataset <ds>` | A content migration, dry by default. `--no-dry-run` executes. Both `--project` and `--dataset` or neither. | ✎ works |
-
-`deploy` and `promote` are the two commands that reach `production`, and they are not
-substitutes: `deploy` ships the Studio bundle and no content, `promote` ships content and no
-code. A schema change reaches her through the first; a content change through the second.
-
-Note it is `sanity schemas extract` — plural. The singular form is not the command.
-
-**The `--force` is load-bearing.** `schemas extract` refuses to overwrite an existing
-`schema.json` without it — unattended it exits `USAGE_ERROR`, interactively it prompts and
-defaults to *no*. Either way the `&&` short-circuits and the types silently do not
-regenerate. Do not remove it.
-
-`typegen` lives in `studio/` because the Studio owns the schema, but it writes
-`web/sanity.types.ts`. Paths are configured under `typegen` in `studio/sanity.cli.ts`, whose
-`path` glob is `../web/src/**/*.{ts,tsx}` — **a query file outside that glob generates no
-types and no error.** Re-run
-it after any schema change or any new/edited query, and **commit the regenerated types in
-the same commit as the schema change** — the diff is what shows the change's effect on the
-contract. Vercel builds `web/` and never runs typegen, so the file has to be in the repo.
-
-`schemaExtraction` in `sanity.cli.ts` sets two things:
-
-- `enabled: true` re-extracts `schema.json` during `sanity dev` and `sanity build`, so the
-  schema can't drift from the generated types while the dev server is running.
-- `enforceRequiredFields: true` makes `rule.required()` fields non-optional in the output —
-  `photo.alt` types as `string`, not `string | undefined`, so `SanityPhoto` has no fallback
-  branch. The caveat is that a *draft* can be invalid, so a required field can still be
-  missing under a preview perspective. That does not apply while the app reads published
-  content over the CDN with no preview token. **Revisit this flag the day Presentation or
-  visual editing lands.**
-
-  **It does not look at the validation level, and that makes `rule.required().warning()` a
-  trap.** The warning form is the obvious way to spell "recommended, not required" — it shows
-  an amber marker she can publish straight past — but typegen reads the `required()` and types
-  the field as though it were mandatory. Verified on `post.summary` and `article.summary`:
-  adding it flipped `summary` from `string | null` to `string` in all four query result types,
-  while six of the seven documents in `development` have no summary at all. Nothing errors. The
-  types simply start claiming a field is always there, every `item.summary &&` guard becomes a
-  redundant check as far as the compiler is concerned, and the first code that trusts the type
-  crashes on real content.
-
-  **So a recommended-but-optional field checks for emptiness with `rule.custom(...).warning()`
-  instead.** A custom function is opaque to schema extraction, so the field stays optional in
-  the types and the Studio still shows the marker. Both summary fields do this; keep them in
-  step, and keep the comment explaining why, because the shorter spelling will look like an
-  obvious simplification to whoever reads it next.
-
-Still TBD: `seed` (populate `development` with stock photos), which lands in `scripts/` at
-the repo root. It stays there rather than joining `promote.mjs` in `studio/` because the two
-authenticate differently — seeding writes documents through the client and needs
-`SANITY_WRITE_TOKEN`, where the promote goes through the CLI and needs nothing. Its value has
-also dropped: `development` now holds real content, so seeding it with stock photos is
-something to do to a *third* dataset, not to the one being authored in.
-
-### Fresh checkouts and worktrees
-
-A worktree is a fresh checkout: no `.env` files, no `node_modules`. `npm run dev` in
-`studio/` is impossible without the second and refuses to start without the first, since
-`dataset.ts` throws on an unset `SANITY_STUDIO_DATASET`.
-
-**`.worktreeinclude`** closes the first half. It lists the three gitignored `.env` files,
-and Claude Code copies them into every worktree it creates — native, and no code to own.
-It only fires for worktrees Claude Code makes, so `git worktree add` by hand and a fresh
-`git clone` still need the files put there some other way.
-
-It copies `studio/.env` verbatim, which is safe only because that file has exactly one
-legitimate value. **`studio/.env` holds `development`.** Production is reached three other
-ways and none of them needs this file to say so: `npm run deploy` pins
-`SANITY_STUDIO_DATASET=production` itself, `npm run promote` pins the variable in the child
-environment it hands the CLI, and a one-off look at real content is an inline override for that
-single command, `SANITY_STUDIO_DATASET=production npm run dev` — an inline value beats the file,
-which `npx sanity debug` will confirm.
-
-So `production` never needs to be in that file, and it is the one edit that propagates:
-every Claude-created worktree inherits the copy in silence, which turns a single mistake
-into the rule in *Datasets* being defeated in every checkout at once rather than in one.
-Finding it there is the bug — in the main checkout quite as much as in the worktree.
-
-Dependencies are still a manual `npm ci` in each package of a new worktree. Automating that
-sits unmerged on `chore/worktree-setup-script`, pending a decision on approach.
+**Worktrees / fresh checkouts:** `.worktreeinclude` copies the three `.env` files into Claude Code
+worktrees; dependencies still need `npm ci` in each package. **`studio/.env` must say
+`development`** — `production` there propagates to every worktree. For a one-off look at
+production: `SANITY_STUDIO_DATASET=production npm run dev`.
 
 ## Environment variables
 
-Three `.env` files, because each tool loads `.env` from its own directory. They are separate
-on purpose — do not consolidate them into one root file.
+Three `.env` files, one per tool directory. Don't consolidate.
 
-**`web/.env`** — read by Next. **All server-side. Nothing here is public, and nothing here
-carries a `NEXT_PUBLIC_` prefix.**
+**`web/.env`** — server-only; **no `NEXT_PUBLIC_` prefix**, ever. No defaults: `client.ts` throws
+at module scope and fails the build.
 
-| Name | Purpose |
-| --- | --- |
-| `SANITY_PROJECT_ID` | `c3808h1v`. Public information, but not a public *variable* — see below. |
-| `SANITY_DATASET` | `development` locally, `production` on Vercel. |
-| `SANITY_API_VERSION` | Pinned API date. Pin it; don't float. |
-| `SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio`. `/admin` redirects here. If empty, `/admin` returns a 503 with a legible message rather than failing oddly. |
+| Name | Value | Missing on Vercel |
+| --- | --- | --- |
+| `SANITY_PROJECT_ID` | `c3808h1v` | red build |
+| `SANITY_DATASET` | `development` locally, `production` on Vercel | red build |
+| `SANITY_API_VERSION` | pinned date | red build |
+| `SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio` | **green build**, `/admin` 503 — only opening `/admin` catches it |
 
-**`web/.env` used to say "all public: these ship in the browser bundle", and the invariant has
-flipped.** These were `NUXT_PUBLIC_SANITY_*` and were inlined into the client bundle, because
-the app read Sanity from the browser. It no longer does — every read is on the server, and the
-one that used to happen after hydration goes through `app/api/photos`. So:
+`web/.env` proves nothing about production — every value must also be set in Vercel. Non-prefixed
+vars are live server reads (no rebuild needed, prerendered routes update on revalidation). A local
+`next build` bakes in `development`.
 
-- **No prefix.** `NEXT_PUBLIC_*` is substituted into the *bundle* at build time, so a value only
-  the server reads should never carry one. Adding one to any of these would put the project id
-  back in the JS for no gain.
-- **`import 'server-only'` in `src/sanity/client.ts` enforces it.** Importing that module from
-  anything in the client graph is a build error naming the file that did it, so the boundary is
-  checked rather than remembered.
-- **The check after any change here:** `grep -r "c3808h1v" web/.next/static/` must return
-  nothing after a build.
+**`studio/.env`** — `SANITY_STUDIO_DATASET` only, required. Project id is hardcoded in config.
 
-**No defaults, deliberately.** `nuxt.config.ts` defaulted the dataset to `development`, and that
-is exactly the failure worth preventing: a deploy missing the variable would quietly read a
-dataset the live site does not publish from and look like it was working. `client.ts` throws at
-module scope instead, which fails the **build** and names the variable. Same refusal
-`studio/dataset.ts` makes, for the same reason — both wrong answers fail silently, so neither
-gets to be the default.
+**Root `.env`** — `SANITY_WRITE_TOKEN`, for root `scripts/` only (doesn't exist yet). **Never in
+`web/`, `next.config.ts` or Vercel.**
 
-**`web/.env` is a local file**, loaded by `next dev`, `next build` and `next start`. Only the
-deployed server ignores it and reads real environment variables. So **every value here must also
-be set in Vercel's project settings; a correct `web/.env` proves nothing about production.**
+## Deploying
 
-Three consequences, all verified:
+**`web/vercel.json` pins `"framework": "nextjs"`.** Without it, Vercel's auto-detection once
+served `web/public/` as a static site: a **green deploy that 404s every route**. It overrides only
+the keys it declares — explicit Output Directory / Build Command overrides in the dashboard still
+win and must stay cleared. Root Directory (`web`) lives only in the dashboard. Don't add
+`outputDirectory`.
 
-- **A rename has to land in Vercel in the same window as the deploy.** Delete the old
-  `NUXT_PUBLIC_*` entries rather than leaving them, so a half-finished rename cannot look
-  half-working.
-- **Non-prefixed variables are live `process.env` reads on the server**, so changing one in
-  Vercel does not require a rebuild for anything rendered at request time. The prerendered
-  routes are the caveat: their *first* HTML reflects build-time values and picks the change up on
-  the next revalidation.
-- **`next build` loads `web/.env`**, so a locally built artifact carries your `development`
-  dataset. Vercel is unaffected, because `.env` is gitignored and never gets there.
+Signature of that failure: `/` returns `text/plain` `NOT_FOUND` while a `public/` file returns
+200, and there's no HTML to name a `/_next/static/` asset. Never test with a guessed asset path —
+those 404 on healthy deployments too:
 
-**`studio/.env`** — read by the Sanity CLI and baked into the Studio bundle at build time.
+```sh
+H=https://<host>
+curl -sS -o /dev/null -w '/ -> %{http_code}\n' "$H/"
+curl -sS -o /dev/null -w 'public -> %{http_code}\n' "$H/joan-animated.png"
+A=$(curl -sS "$H/" | grep -oE '/_next/static/[^"]+\.js' | head -1)
+echo "asset: ${A:-NONE — / served no HTML}"; [ -n "$A" ] && curl -sS -o /dev/null -w "asset -> %{http_code}\n" "$H$A"
+```
 
-| Name | Purpose |
-| --- | --- |
-| `SANITY_STUDIO_DATASET` | Dataset the Studio points at. **Required** — unset throws, via `studio/dataset.ts`. Set `development` here for local work; `npm run deploy` supplies `production` itself and overrides this file. |
-
-There is no `SANITY_STUDIO_PROJECT_ID` — the project ID is hardcoded in the Studio config,
-which is standard for Sanity and avoids a variable that can only ever have one value.
-
-**`.env`** at the repo root — for `scripts/` only.
-
-| Name | Purpose |
-| --- | --- |
-| `SANITY_WRITE_TOKEN` | Write access for seeding. |
-
-**`SANITY_WRITE_TOKEN` is used by scripts only and is never referenced in app code.** Not in
-`web/src/`, not in `next.config.ts`, nowhere. It never reaches the browser and never reaches
-the Vercel runtime. If a task seems to need it in the app, re-read "The app never writes to
-Sanity" above.
-
-Note the name no longer disambiguates itself by prefix, now that the app's variables are also
-bare `SANITY_*`. They never meet — this one lives in the repo-root `.env` and is read only by
-`scripts/`, which has its own `package.json` and its own directory — but a variable named
-`SANITY_WRITE_TOKEN` turning up in `web/.env` or in Vercel is a bug, not a convenience.
+A failed build normally leaves the previous deployment serving, so on this project an all-routes
+404 points at project settings before the build log.
 
 ## Non-goals
 
-Not "later" — **not part of this project**. Don't build them, don't leave hooks for them,
-don't add a dependency that anticipates them.
+Not "later" — don't build them, don't leave hooks, don't add dependencies anticipating them.
 
-- **No commerce.** No prints, no cart, no payments, no licensing flow.
-- **No visitor accounts.** No login, no favorites, no comments. The only authenticated user is the editor, in the Studio.
-- **No contact form.** `/contact` is text and links — email address, social links. No form, no form handler, no spam mitigation, no inbox to check.
-- **No freeform page builder.** No drag-and-drop, no canvas, no per-photo position/size/crop controls, no arbitrary section nesting. See Rule 2.
-- **No long-form writing by anyone else, and no rich text beyond `post.body` and `proseText`.** This non-goal used to read "no long-form writing in the CMS, no post type" and it was wrong — it assumed all her writing lived on someone else's site. Half of it does, and `article` covers that. The other half is ~15 pieces she self-published on the Squarespace site being replaced; they have nowhere to go, so `post` exists. What still holds: `article` stays body-less, and **the block config stays as short as it is** — one style, two decorators, one annotation. Adding a style, a decorator or a block type is a decision with a cost, not a default.
-
-  This used to also read "prose fields elsewhere stay plain `text`", and that clause is gone: `homePage.featuredTitle` and `.featuredSubtitle` (since removed) became `proseText` when her front-page copy turned out to need an italic and a link. Nothing was added to the type to allow it. The line worth defending was never *which fields* use `proseText` — it is what `proseText` is allowed to contain, which is unchanged. Widening the former is a normal content decision; widening the latter is the one that needs an argument.
+- No commerce (prints, cart, payments, licensing).
+- No visitor accounts, favourites or comments.
+- No contact form — `/contact` is text and links.
+- No freeform page builder or per-photo position/size/crop controls (Rule 2).
+- No writing by anyone else; `article` stays body-less; the rich-text block config stays as short
+  as it is.
 
 ## Working agreements
 
-**Ask before adding any dependency.** Every one — runtime, dev, Sanity plugin, Tailwind
-plugin, Next plugin. No exceptions for "tiny" or "everyone uses it". State what it's for and what
-the alternative is without it, then wait. This applies to transitive-in-spirit additions too:
-pulling in a component library to get one component is the thing this rule exists to catch.
-
-**Flag rule conflicts before coding, not after.** If an ask appears to need an embedded image
-or a positioning control, say so and propose the preset-shaped version instead.
-
-**Prefer deleting a knob to documenting it.** The Studio should be boring.
+- **Ask before adding any dependency** — runtime, dev, Sanity/Tailwind/Next plugin, no exceptions.
+  State what it's for and the alternative, then wait.
+- **Flag rule conflicts before coding** and propose the preset-shaped version.
+- **Prefer deleting a knob to documenting it.**
 
 ## Open questions
 
-Unresolved. Don't paper over these — raise them when the relevant work comes up.
+Raise these when the relevant work comes up; don't paper over them.
 
-- **The going-live checklist is down to one item, and the CORS half is retired.**
-  1. **Replace the front page's six stock house photos** with Joan's own (six recommended —
-     two even desktop rows of three), in `development`, then `npm run promote`. See the note
-     under *The front page* — replace, do not delete.
-  2. ~~`npx sanity cors add https://joanatstake.com --no-credentials`~~ — **no longer required.**
-     Nothing in the browser talks to Sanity, so no request from `joanatstake.com` ever carries an
-     `Origin` header to the Content Lake. See the CORS bullet in *The Studio*. **This stops being
-     true the moment something in the client graph imports the Sanity client** — which
-     `import 'server-only'` makes a build error rather than a surprise on DNS day.
-- **The deploy checklist gained two items instead, and they broke production in that order.**
-  1. **The framework preset.** Deleting `nuxt.config.ts` made Vercel's auto-detection fall
-     through to no framework, which served `web/public/` as a static site and 404'd every route
-     on a **green** deploy. `web/vercel.json` now pins `"framework": "nextjs"`. What that file
-     cannot do, and so had to be done in the dashboard by hand: **clear any explicit Output
-     Directory or Build Command override** left from the Nuxt project, because vercel.json
-     overrides only the keys it declares. Same for **Root Directory**, which stays `web`. See
-     *Directory structure* for the diagnostic signature — it is not a Next 404.
-  2. **The four `SANITY_*` variables** must exist in Vercel's project settings under their new
-     names, with the old `NUXT_PUBLIC_*` entries deleted, **in the same window as the deploy**.
-     They do not all fail the same way, and the split is worth knowing before reading a green
-     build as proof all four are set:
-
-     | Variable | Needed | Missing |
-     | --- | --- | --- |
-     | `SANITY_PROJECT_ID` | **build** | red build, naming the variable |
-     | `SANITY_DATASET` | **build** | same |
-     | `SANITY_API_VERSION` | **build** | same |
-     | `SANITY_STUDIO_URL` | **request** | **green build**, and `/admin` returns a 503 |
-
-     The first three are `required()` calls at module scope in `sanity/client.ts`, so they throw
-     during `next build` — unlike the Nuxt build, a missing one fails loudly rather than
-     defaulting, which is the intended behaviour and still means a red deploy if forgotten. The
-     fourth is read at request time by `app/admin/route.ts`, which is `force-dynamic` precisely
-     so the Studio host resolves per request; absent, it deliberately answers 503 with a legible
-     message rather than breaking the build. **So `SANITY_STUDIO_URL` is the one that a
-     successful deploy says nothing about** — the only thing that catches it is opening `/admin`.
-     See *Environment variables*.
-
-  **The first hides the second, which is why they are numbered.** A green deploy that served
-  `public/` proves nothing about the variables either way, so **(2) cannot be inferred from the
-  site having deployed — check the settings.** Fixing (1) alone is what makes a missing variable
-  able to go red, so a build failing on `SANITY_PROJECT_ID` straight after a preset fix is the
-  system working rather than a new problem.
-
-  **Both are done, verified live on 2026-08-11**, by dashboard changes — `vercel.json` was not
-  merged at the time, so the repo half is what stops it regressing rather than what fixed it.
-  Every route answers: `/`, `/bio`, `/copy`, `/shots/all` 200; the four old addresses 307; an
-  unknown route 404s as `text/html` from `not-found.tsx` rather than as Vercel's plain text; and
-  `/admin` 302s to `https://joanatstake.sanity.studio`, which is the only check that covers
-  `SANITY_STUDIO_URL`. `x-vercel-cache` and `x-nextjs-prerender: 1` are present on `/`, so ISR is
-  live. Kept here rather than deleted because the *ordering* is the reusable part.
-- **When the promote stops.** The deployed Studio writes to `production` and `npm run promote`
-  overwrites it, so the day Joan starts editing is the day the direction reverses for good.
-  Nothing detects "she has been given the URL" — the preflight only catches it *after* she has
-  created her first document. Decide deliberately when to retire the promote rather than
-  letting the tripwire decide, and say so here when it happens.
-- **Vision plugin in the Studio.** `@sanity/vision` (a GROQ playground) ships in
-  `studio/sanity.config.ts` from the generator. It's useful while building and clutter for
-  her — a visible tab that does nothing she needs. Keep it through the query-building phase;
-  it is how the image metadata and the GROQ get verified. Delete the one line in the
-  handover PR, so the decision has a home instead of drifting.
-- ~~**ISR revalidation.**~~ **Half settled: it is 60 seconds, set once at the fetch layer.** See
-  *Caching*. What is still open is the other half of the original question — **whether a delay is
-  the right shape at all.** If a minute feels wrong to her, the answer is a Sanity webhook doing
-  on-demand revalidation, which costs a secret, an endpoint and a hook to configure. Do not reach
-  for it before she says the delay is a problem.
-- **`cacheComponents` (PPR) is the thing that would let `/gallery/[slug]` be static *and*
-  server-render its showcase.** Today it is dynamic, because reading `searchParams` makes it so —
-  see *Caching* for why that is the right trade at this size. A static shell with a dynamic hole
-  would get both. It was deliberately not taken on inside a framework port: enabling it removes
-  `dynamic`, `dynamicParams`, `revalidate` and `fetchCache` wholesale, which is a second
-  migration wearing a flag. Revisit when the render cost is measurable rather than theoretical.
-- **Fonts are hotlinked rather than vendored.** ~171 kB of latin woff2 across five files, from
-  `fonts.gstatic.com`. Copying them into `web/public/fonts/` and serving them same-origin
-  removes a third-party dependency, removes a DNS + TLS handshake from the critical path, and
-  removes the silent-404 failure mode entirely. Deferred, not rejected — `web/public/` does not
-  exist yet. Note the number moves with the spec: it was ~48 kB and one file under the previous
-  one, so re-measure rather than quoting this line after a swap.
-- **The copyright is only visible on a phone with the nav drawer open.** It sits at the bottom
-  of the sidebar. If that turns out to matter, the fix is to *move* the single node into a slim
-  `<footer>` at the end of `<main>` — never to duplicate it into both.
-- ~~**`/bio` reads `homePage.introPhoto`.**~~ **Settled: the field is gone and so is the
-  cross-document read.** `ABOUT_QUERY` is one document and one projection again. The rule that
-  survives it is `aboutPage`'s: photographs on that page come from the body, as `postPhoto`
-  members she places by typing around them, and there is no photo field to reach for instead.
-  Worth knowing how the removal had to be finished, because the schema edit alone was not
-  enough: Sanity's reference integrity reads *stored data*, not the schema, so the value left
-  behind on `homePage` would have kept that photograph undeletable in the Studio with nothing
-  on screen explaining why. The field was unset on the document as well.
-- ~~**`homePage.blurb`, `.featuredTitle` and `.featuredSubtitle` are fetched and not
-  rendered.**~~ **Settled: removed**, fields, query lines, `ProseHeading` and stored values. See
-  the note under *The front page*.
-- ~~**The photo grid's `K` is tuned against five photographs.**~~ **Half retired: the front
-  page's row breaks no longer come from `K` at all.** `home/PhotoStrip.tsx` sets `perRow={3}`
-  on `GalleryGrid`, which chunks the photographs into fixed rows of three from `sm` up
-  (5 → 3+2, 6 → 3+3, 7 → 3+3+1) with each cell `flex-basis: 0` + `flex-grow: var(--r)`, so a
-  row still shares one height at native ratios and any count of photographs produces a working
-  page — which is what let `featuredPhotos` stop being exactly five (six is the recommended
-  count: two even desktop rows). `K` still decides where *gallery* rows break under the
-  wrap-and-fill packing, and on the front page it survives only in the growth cap. Both `K`
-  and the cap remain properties of the grid, never of a photograph — neither is a Rule 2
-  control.
-
-  **The cap is `max-w-[calc(var(--r)*var(--k)*1.5)]` and used to be `sm:max-w-[55%]`.** Both
-  exist for the degenerate case — a row left holding one photograph, which `flex-grow` stretches
-  to the full column; a portrait at full width measured 765px tall before any cap existed. The
-  percentage was still letting a lone photograph reach ~600px on a ~1100px column, which reads
-  as a mistake rather than as a varying grid, so the cap now says what it is actually about:
-  how much larger than its neighbours a photograph may get. **The cost is that it applies to
-  every row, not only the last** — a row whose items all hit the cap leaves a ragged right edge
-  instead of stretching to fill. `1.5` is the one number to turn.
-- ~~**The preset set itself.**~~ **Settled: both are built.** `GalleryGrid` packs rows where
-  every photo shares a height and takes a width from its own shape; `GalleryStack` gives each
-  the full reading measure down a column. Neither crops. What is *not* settled is whether two
-  is the right number — a third would be a component plus a `LAYOUT_PRESETS` line, always
-  together, and the `PRESETS` map in `shots/GalleryView.tsx` now makes that pairing a
-  typecheck failure rather than a convention.
-- ~~**The tag vocabulary is real now, but only half-decided.**~~ **Settled, in the direction
-  the evidence pointed.** The six placeholders (Street, Portrait, Landscape, Architecture,
-  Water, Night) sat on zero photographs and existed only because the vocabulary was hardcoded
-  and adding to it was a code change. They were not migrated. Only the five she actually used —
-  South Africa, Life, Mexico 2022, USA 2020, Chile 2021 — became `tag` documents. Dropping them
-  is safe in a way it never was before: she can add any of them back in two clicks, which is
-  the point of the change.
-- **The tagging ergonomics got worse, and that is the open question the tag change leaves.**
-  She trades a checkbox grid for a reference picker — see the tag bullets in *The content
-  model*. Watch it across a real upload session. The no-dependency fix is a custom input
-  component on `photo.tags`; reaching for a plugin instead is a dependency and needs asking.
-- **Infinite scroll on /gallery/all gives up one thing that was not recoverable.** The
-  filter lives in the URL and is shareable; scroll depth does not, so a refresh returns you to
-  the first 24. Recording depth in the URL was considered and dropped, because restoring it
-  means fetching every photograph up to that point in one request — the exact cost the paging
-  exists to avoid. The other two usual objections do not apply or are handled: nothing is
-  stranded below the scroll because the copyright lives in the sticky sidebar rather than a
-  footer, and a `role="status"` region plus a real Load more button cover screen-reader and
-  keyboard users. If the lost place ever matters, numbered pages are the fix, not a patch.
-- **`PAGE_SIZE` is 24 and untested against real volume.** The dataset holds ~28 photographs;
-  she is expected to upload ~250. The number that matters is not the document count but the
-  LQIP payload — roughly a kilobyte per photo — so re-measure the first-page weight once the
-  real set is in, rather than assuming 24 is still right.
-- ~~**Nav ordering is title A–Z.**~~ **Settled: the order is hers, and it moved once.** She
-  asked for it, and it first landed as `navOrder` ("Menu position"), a number on each gallery.
-  Her feedback on that was that numbering galleries one by one was fiddly, so it became a drag
-  list in Site settings (`siteSettings.galleryOrder`), with unplaced galleries following A–Z.
-  ALL SHOTS is still appended last in code. See `queries/nav.ts` and *The front page*.
-- **A gallery with a tag nothing carries yet renders "No photos here yet."** That is a real and
-  legitimate state — she can make the page before tagging the photographs — but it is also what
-  a mistyped tag looks like, and the two are indistinguishable from the page. If that bites, the
-  fix is in the Studio rather than the app: a warning on `gallery.tag` when nothing carries it.
-- ~~**`@portabletext/vue` is approved but not installed.**~~ **Settled, then reopened by the
-  port and settled the other way.** Under Nuxt the renderer arrived transitively inside
-  `@nuxtjs/sanity`'s `SanityContent`, so declaring it would have pinned a second copy of
-  something already present. With that module gone there is nothing to inherit it from, so
-  `@portabletext/react` is now a **direct** dependency — the same library family, the same
-  `components` map shape (`block` for the styles, `marks` for the `hyperlink` annotation,
-  `types` for `postPhoto`), just declared rather than borrowed.
-
-  It brought one improvement worth using: **`InferComponents<T>`** derives each handler's
-  `value` type from the TypeGen result, so a schema rename fails at the `components` map instead
-  of falling through to an unknown-type renderer. `ProseBody` and `ProseText` both use it. `InferStrictComponents` goes further and *requires* a handler per custom type —
-  worth considering for `ProseBody`, which has exactly one.
-- **Porting the Squarespace posts.** ~15 of them, and the schema is ready for them but the
-  content is not. Every Squarespace date reads `January 01, 2030`, so real dates have to be
-  recovered from the text; several slugs are junk
-  (`/2018/8/22/8mc14cj2kpvx8ufmgy9utxtw0z8kbc`) and need clean replacements. Old links in
-  the world break either way, so decide about redirects at the same time. A `scripts/` job
-  against `development` first.
-Resolved, kept because the reasoning still applies:
-
-- ~~**`web/sanity.types.ts` may fall outside the app's TypeScript program.**~~ **The mechanism
-  changed and the hazard did not.** Under Nuxt this was a real bug: `.nuxt/tsconfig.app.json`
-  included `../app/**/*` and `../*.d.ts`, a `.ts` file at the web root matched neither, and the
-  `declare module "@sanity/client"` augmentation typegen emits under
-  `overloadClientMethods: true` sat outside the program. It needed an explicit
-  `typescript.tsConfig.include` entry.
-
-  That workaround is gone: `tsconfig.json`'s glob covers the whole of `web/`, so the file is in
-  the program by ordinary means. **Keep the paragraph anyway, because the failure has a second
-  face and it is nastier than the first.** `ClientReturn`'s own default fallback is `Any` — that
-  is, `any`. So a lost augmentation does not merely weaken the types, it *silently switches them
-  off*: every route keeps compiling and stops being checked. `sanityFetch` pins the fallback to
-  `unknown` precisely to convert that into a compile error.
-
-  **A green `npm run typecheck` is not evidence.** Two checks that are, and they take a minute:
-
-  1. Point a query result at a field that does not exist. The compiler must reject it *naming
-     the real result shape* — that proves the map is live.
-  2. Hand `sanityFetch` a query string that is not in the generated map. The result must be
-     `unknown`, not `any` — that proves the fallback is pinned.
+- **Launch blocker:** replace the six stock photos in `homePage.featuredPhotos` with Joan's (in
+  `development`, then promote) before `joanatstake.com` points here.
+- **When to retire the promote.** Nothing detects that she's been given the Studio URL; the
+  preflight only trips after she creates a document. Decide deliberately and record it here.
+- **`@sanity/vision`** is in `sanity.config.ts` for query building; remove it in the handover PR.
+- **Revalidation shape.** 60s is set. If a minute bothers her, the fix is a webhook doing
+  on-demand revalidation — not before she says so.
+- **`cacheComponents` (PPR)** would let `/gallery/[slug]` be static and still server-render the
+  showcase. It removes `dynamic`/`revalidate`/etc. wholesale — a migration in itself. Revisit when
+  render cost is measurable.
+- **Vendoring fonts** into `web/public/fonts/` (~171 kB woff2) would remove a third party and the
+  silent-404 risk. Deferred; re-measure after any spec swap.
+- **Tagging ergonomics.** A reference picker replaced a checkbox grid. If it bites across ~250
+  photos, the fix is a custom input on `photo.tags` — not a plugin without asking.
+- **Infinite scroll loses depth on refresh.** If that matters, numbered pages, not a patch.
+- **`PAGE_SIZE` is 24**, untested at ~250 photos. Re-measure first-page LQIP weight (~1 kB/photo)
+  once the real set is in.
+- **Grid growth cap** `max-w-[calc(var(--r)*var(--k)*1.5)]` in `GalleryGrid` applies to every row;
+  `1.5` is the one number to turn. `K` and the cap are grid properties, never per-photo.
+- **Two presets** (`GalleryGrid`, `GalleryStack`). Whether that's the right number is open.
+- **A gallery whose tags nothing carries** renders "No photos here yet." — indistinguishable from a
+  mistyped tag on the page (the Studio's `PhotoOrderInput` empty state does name it). If it bites,
+  add a Studio warning on `gallery.tags`.
+- **`InferStrictComponents`** could require a handler per custom type in `ProseBody`.
+- **Porting ~15 Squarespace posts.** Dates all read `January 01, 2030` and must be recovered;
+  several slugs are junk. Decide redirects at the same time. A script against `development` first.

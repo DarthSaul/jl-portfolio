@@ -68,7 +68,7 @@ export default async function CopyPage() {
     /*
       The full main column, like every page under the top nav: the lead and the ledger's rules run
       edge to edge with the photo grid above them on the front page. (It was `max-w-read` under the
-      sidebar.) /copy/[slug] keeps the reading measure — that one is a page of running prose.
+      sidebar.) /copy/[slug] and /bio fill the column too.
     */
     <div>
       <h2 className="type-display-lg text-ink">Copy</h2>

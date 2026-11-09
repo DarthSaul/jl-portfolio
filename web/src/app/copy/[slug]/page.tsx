@@ -66,12 +66,11 @@ export default async function PostPage({ params }: PageProps<'/copy/[slug]'>) {
 
   return (
     /*
-      Left-aligned, and that is two changes rather than one: the three `text-center` classes are
-      gone, and so is the `mx-auto` that centred the column itself. A centred column of centred text
-      made sense under a centred wordmark; under a sidenav the page has a left edge and everything
-      should agree on where it is.
+      Left-aligned and the full main column, like every page under the top nav (it was `max-w-read`
+      under the sidebar). The page shares its left edge with the wordmark and its right edge with
+      the last header icon.
     */
-    <article className="max-w-read">
+    <article>
       <h2 className="type-display-lg text-ink">{post.title}</h2>
 
       <p className="type-byline text-muted">

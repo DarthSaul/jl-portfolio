@@ -3,7 +3,7 @@ import type { InferComponents } from '@portabletext/react'
 
 import type { POST_QUERY_RESULT } from '~~/sanity.types'
 
-import { BodyPhoto, type Measure } from './BodyPhoto'
+import { BodyPhoto } from './BodyPhoto'
 import { ProseLink } from './ProseLink'
 
 type Body = NonNullable<POST_QUERY_RESULT>['body']
@@ -76,19 +76,7 @@ function floatSides(blocks: Body) {
   return sides
 }
 
-/**
- * `measure` is how wide the page sets this body: `read` (the 750px prose measure — a post) or
- * `column` (the whole main column — /bio). Only full-width photos care; it picks their `sizes`.
- */
-export function ProseBody({
-  value,
-  className,
-  measure = 'read',
-}: {
-  value: Body
-  className?: string
-  measure?: Measure
-}) {
+export function ProseBody({ value, className }: { value: Body, className?: string }) {
   const sides = floatSides(value)
 
   const components = {
@@ -109,7 +97,7 @@ export function ProseBody({
     },
     marks: { hyperlink: ProseLink },
     types: {
-      postPhoto: ({ value: photo }) => <BodyPhoto value={photo} side={sides.get(photo._key)} measure={measure} />,
+      postPhoto: ({ value: photo }) => <BodyPhoto value={photo} side={sides.get(photo._key)} />,
     },
   } satisfies InferComponents<Body>
 

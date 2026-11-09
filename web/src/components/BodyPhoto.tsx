@@ -54,20 +54,14 @@ const LAYOUTS = {
   full: 'w-full md:clear-both',
 } satisfies Record<NonNullable<PostPhoto['layout']>, string>
 
-/** How wide the page sets the body this photo sits in — see `ProseBody`. */
-export type Measure = 'read' | 'column'
-
 /**
- * A full-width photo's `sizes`, by measure. `column` is the main column: the viewport less its
- * two gutters at each of `main-column`'s steps in `globals.css` (1.25rem, 2.5rem from `lg`,
+ * A full-width photo's `sizes`. Both bodies (a post, /bio) fill the main column: the viewport less
+ * its two gutters at each of `main-column`'s steps in `globals.css` (1.25rem, 2.5rem from `lg`,
  * 3.5rem from `xl`), capped at 1328px (`--container-shell` 90rem less two `xl` gutters — the same
  * figure `PhotoShowcase` uses). Change the gutters and this follows them.
  */
-const FULL_SIZES = {
-  read: '(min-width: 768px) 750px, 100vw',
-  column:
-    '(min-width: 90rem) 1328px, (min-width: 80rem) calc(100vw - 7rem), (min-width: 64rem) calc(100vw - 5rem), calc(100vw - 2.5rem)',
-} satisfies Record<Measure, string>
+const FULL_SIZES
+  = '(min-width: 90rem) 1328px, (min-width: 80rem) calc(100vw - 7rem), (min-width: 64rem) calc(100vw - 5rem), calc(100vw - 2.5rem)'
 
 const FLOAT = {
   right: 'md:float-right md:ml-8',
@@ -77,21 +71,19 @@ const FLOAT = {
 export function BodyPhoto({
   value,
   side,
-  measure = 'read',
 }: {
   value: PostPhoto
-  measure?: Measure
   /** Which way a wrapped photo floats. Ignored when the layout is full width. */
   side?: 'left' | 'right'
 }) {
   const layout = value.layout ?? 'wrap'
 
   // `sizes` follows the layout, not the viewport: a wrapped photo never exceeds 350px, while a
-  // full-width one fills its measure. Asking for the larger ladder in both cases would download
+  // full-width one fills the main column. Asking for the larger ladder in both cases would download
   // several times the pixels a wrapped photo can show.
   const sizes
     = layout === 'full'
-      ? FULL_SIZES[measure]
+      ? FULL_SIZES
       : '(min-width: 768px) 350px, 100vw'
 
   const float = layout === 'wrap' && side ? FLOAT[side] : ''

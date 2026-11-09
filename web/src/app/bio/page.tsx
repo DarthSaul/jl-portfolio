@@ -47,8 +47,7 @@ export default async function BioPage() {
   return (
     /*
       The full main column, like every page under the top nav (it was `max-w-read` under the
-      sidebar). `measure="column"` tells full-width body photos how wide they now are, so they ask
-      for a large enough image.
+      sidebar).
 
       `space-y` rather than a margin on the body, so the gap disappears along with the intro when
       both of its fields are empty — both are optional in the schema.
@@ -60,7 +59,7 @@ export default async function BioPage() {
         className="border-b border-hairline pb-4"
       />
 
-      <ProseBody value={about.body} measure="column" className="type-body-serif-lg" />
+      <ProseBody value={about.body} className="type-body-serif-lg" />
     </div>
   )
 }

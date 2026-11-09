@@ -1,17 +1,20 @@
 import type { Metadata } from 'next'
 
 import { FeaturedWriting } from '@/components/home/FeaturedWriting'
-import { PhotoStrip } from '@/components/home/PhotoStrip'
+import { FeaturedPhotos } from '@/components/home/FeaturedPhotos'
 import { MissingDocumentError } from '@/sanity/errors'
 import { orThrow, sanityFetch } from '@/sanity/fetch'
 import { HOME_QUERY } from '@/sanity/queries/home'
+import { getSiteSettings } from '@/sanity/siteSettings'
 
 /**
- * The front page: the featured photographs — three to a desktop row, six recommended — then
- * three featured pieces of writing. See CLAUDE.md.
+ * The front page: the featured photographs — equal square cards, three to a desktop row, six
+ * recommended — then her byline, then three featured pieces of writing. See CLAUDE.md.
  *
- * The site name, the byline and the nav are not here. They are chrome on every page and are
- * rendered by the sidebar in the layout. Everything this page does show comes from one request.
+ * The site name and the nav are not here; they are chrome on every page, rendered by the header
+ * in the layout. The page's content comes from one request. The byline is `siteSettings`, read
+ * through `getSiteSettings()` — cached per request and already read by the layout, so it costs
+ * nothing extra, and it falls back rather than throwing.
  *
  * One query for the whole page, following references as it goes. That is the shape CLAUDE.md asks
  * for: a route fetches exactly its own shape, and the GROQ that defines it lives in
@@ -63,7 +66,10 @@ export default async function HomePage() {
    * must never look like a query that found nothing — and `orThrow` now makes it structural rather
    * than something each route remembers.
    */
-  const home = orThrow(await sanityFetch(HOME_QUERY))
+  const [home, { byline }] = await Promise.all([
+    sanityFetch(HOME_QUERY).then(result => orThrow(result)),
+    getSiteSettings(),
+  ])
 
   /**
    * `homePage` is a singleton and the Studio will not let her delete it, so a missing document
@@ -83,11 +89,18 @@ export default async function HomePage() {
       `<main>` owns the gutter, and `bleed` is how the photo grid reaches past it. See
       `app/layout.tsx`.
 
-      `space-y-section` is DESIGN.md's 48px section padding, opened up on a phone where the photo
-      grid collapses to one column and the bands need more air to stay distinct.
+      `space-y-section` is DESIGN.md's 48px section padding, opened up on a phone where the bands
+      need more air to stay distinct.
+
+      The byline sits directly under the photographs, tighter than a section gap — it captions the
+      grid rather than opening a new band. It lived in the sidebar until the top nav, which has no
+      room for it. Uppercase is a class, not part of the token: she types it in sentence case.
     */
     <div className="space-y-14 lg:space-y-section">
-      <PhotoStrip photos={home.featuredPhotos} />
+      <div>
+        <FeaturedPhotos photos={home.featuredPhotos} />
+        <p className="type-body-sm mt-5 uppercase tracking-[0.18em] text-muted">{byline}</p>
+      </div>
 
       <FeaturedWriting items={home.featuredWriting} />
     </div>

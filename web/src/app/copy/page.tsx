@@ -21,7 +21,7 @@ import { WRITING_QUERY } from '@/sanity/queries/writing'
  * first thing on the page, which reads as a label floating above nothing. `/gallery/all` sets the
  * same precedent for the same reason.
  *
- * It is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`, so a piece's own title
+ * It is an `<h2>`: `SiteHeader` renders the wordmark as the page's `<h1>`, so a piece's own title
  * is an `<h3>` below this.
  *
  * ## The lead is hers to choose, and by default it is the newest
@@ -66,10 +66,11 @@ export default async function CopyPage() {
 
   return (
     /*
-      `max-w-read` and not the full column: the design's own measure is ~740px, which is what this
-      token already is, and it keeps /copy in step with /copy/[slug] and /bio.
+      The full main column, like every page under the top nav: the lead and the ledger's rules run
+      edge to edge with the photo grid above them on the front page. (It was `max-w-read` under the
+      sidebar.) /copy/[slug] and /bio fill the column too.
     */
-    <div className="max-w-read">
+    <div>
       <h2 className="type-display-lg text-ink">Copy</h2>
 
       {/*

@@ -43,7 +43,7 @@ The left sidebar is the whole Studio. Top to bottom:
 
 **Copy links** — pointers to writing published elsewhere, like your NY Times piece. A link, not an essay — you never paste the text in.
 
-**Site settings** — the handful of things that belong to the whole site: your name, the byline under it, the words in the menu and the order of everything in it, and your email/Instagram/LinkedIn links.
+**Site settings** — the handful of things that belong to the whole site: your name, the byline, and the words in the menu and the order of everything in it.
 
 ## 3. Drafts, publishing, and undo
 
@@ -113,7 +113,7 @@ When creating a "Web address" for a tag, do not use spaces. Use hyphens instead;
 
 ## 6. Galleries
 
-A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's menu, in the list that opens under **Galleries** (or whatever you've called it in Site settings).
+A gallery is a page of photos on the site. Creating one is the only step — the moment it exists, it has its own page and appears in the site's menu, in the list that opens under **Images** at the top of the page (the word is set in Site settings).
 
 A new gallery joins the end of that menu (alphabetically, with any others you haven't placed). To move it, go to **Site settings → Menu → Gallery order** — see *Site settings* below.
 
@@ -158,14 +158,14 @@ A pointer to a piece published by someone else (the Times, HuffPost). Headline, 
 
 The front page, edited top-to-bottom in the order it reads:
 
-- **Featured photos** — as many as you like, at the top of the page; on a desktop they sit three to a row, so **six photos make two even rows** and that's the number to aim for. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked.
+- **Featured photos** — at the top of the page, as equal squares: three to a row on a desktop, two on a phone, so **six photos make two even rows** and that's the number to aim for. Each photo is trimmed to a square from its centre, so pick ones whose subject sits near the middle. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked. On a computer, pointing at a linked photo opens it into a peek at that gallery: the photo itself in the top-left corner, then the gallery's first three other photos. The order you give a gallery decides its peek.
 - **Featured writing** — exactly three pieces, posts and links mixed however you like, in the order they appear.
 
 ![Screenshot: the Home page document with the featured photo slots](/docs/home-featured.png)
 
 ### Featured
 
-A page of photos at /featured, with its own item in the menu. It works exactly like a gallery — the same **Layout** choice and the same two ways to fill it (by hand, or from tags), described in *Galleries* above. The difference is that it always lives at /featured and can't be deleted, and it isn't listed under Galleries in the menu.
+A page of photos at /featured, with its own item in the menu across the top. It works exactly like a gallery — the same **Layout** choice and the same two ways to fill it (by hand, or from tags), described in *Galleries* above. The difference is that it always lives at /featured and can't be deleted, and it isn't part of **Gallery order** — it isn't in the Images list at all.
 
 - **Title** — the heading at the top of the page and the browser tab. The word in the menu is set separately, in **Site settings → Menu labels**.
 - **Short description** — optional; the blurb that appears when someone shares a link to the page.
@@ -182,7 +182,7 @@ A heading, an introduction set in larger type, and then the bio itself — writt
 
 ### Contact
 
-A short introduction in your own words. The actual links — email, Instagram, LinkedIn, Substack — live in **Site settings**, because they appear across the site, not just here.
+A short introduction in your own words. (This page isn't on the site yet.) The links at the top right of every page — Instagram, Substack and email — are set by Saul rather than in the Studio; ask him to change one.
 
 ### Site settings
 
@@ -190,17 +190,18 @@ Two tabs across the top: **Site** and **Menu**.
 
 **Site**
 
-- **Site name** and **Byline** — your name and the line under it, on every page. Type the byline normally; the site puts it in capitals.
+- **Site name** — your name, at the top left of every page.
+- **Byline** — the line under the photos on the front page. Type it normally; the site puts it in capitals.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
-- **Show the illustrated portrait in the sidebar** — the drawing at the bottom of the sidebar. Off hides it; turn it on any time to bring it back.
+- **Show the illustrated portrait in the sidebar** — no longer does anything: the site has a top menu now, with no sidebar. It will be removed.
 - **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one. Recommended, not required.
-- **Links** — your email and social links. Drag to reorder.
+- **Links** — not used by the site at the moment: the Instagram, Substack and email icons at the top right are set by Saul. Editing this list changes nothing.
 
 **Menu**
 
-- **Menu labels** — the words in the menu: Start, Galleries, Featured, All Shots, Copy and Bio. **Galleries** is the heading your galleries are listed under — call it Images or Photos if you prefer. Type them normally; the site puts them in capitals. This changes the words only — the pages they lead to stay the same.
-- **Menu order** — the main items in the menu: Front page, Galleries, Featured, Writing and About you. **Drag to reorder.** You can only move them, not remove them. Your galleries and All Shots stay listed under Galleries wherever it goes; clicking Galleries on the site opens and closes that list.
-- **Gallery order** — your galleries, in the order they appear under Galleries. **Drag to reorder.** Galleries you haven't placed yet are listed underneath and show up at the end of the menu, alphabetically; press **Place** (or **Place all**) to bring them into the list you can drag. All Shots always sits last.
+- **Menu labels** — the words in the menu. The menu across the top has four items: **Featured**, **Galleries** (the one that opens your list of photo pages — set it to "Images" to match the design), **Copy** and **Bio**. **All Shots** names the last entry in that list. **Start** is no longer used — your name at the top left is the link home. Type them normally; the site puts them in capitals. This changes the words only — the pages they lead to stay the same.
+- **Menu order** — drag to reorder the four top-menu items: Featured, Galleries, Copy and Bio. Front page is still listed here but no longer has its own place in the top menu, so moving it changes nothing.
+- **Gallery order** — your galleries, in the order they appear in the Images list. **Drag to reorder.** Galleries you haven't placed yet are listed underneath and show up at the end of the menu, alphabetically; press **Place** (or **Place all**) to bring them into the list you can drag. All Shots always sits last.
 
 A gallery that's in the gallery order can't be deleted until you remove it from the list — the Studio will tell you that's why.
 

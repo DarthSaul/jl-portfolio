@@ -47,11 +47,12 @@ ComponentType<GalleryPresetProps>>`, so forgetting either half — or a preset t
 
 **Framing.** No `hotspot` anywhere (`grep -rn "hotspot *:" studio/schemaTypes/` returns nothing).
 Every preset keeps the photograph's native ratio. The only crops are the named entries in
-`CROPS` in `SanityPhoto.tsx` — `square` (the /copy ledger thumbnail) and `lead` (the /copy lead
-cover, 300×200) — always centred, with no control for her or the call site. The prop takes a
-name, never dimensions. **Adding a `CROPS` entry is a Rule 2 decision** needing a written
-argument. `grep -rn "crop=" web/src/components/` should stay a short list of thumbnails and the
-/copy lead.
+`CROPS` in `SanityPhoto.tsx` — `square` (the /copy ledger thumbnail and the front page's
+featured cards) and `lead` (the /copy lead cover, 300×200) — always centred, with no control for
+her or the call site. The prop takes a name, never dimensions. **Adding a `CROPS` entry is a
+Rule 2 decision** needing a written argument; extending an entry's srcset ladder for a larger use
+of the same framing is not. `grep -rn "crop=" web/src/components/` should stay a short list: the
+ledger, the /copy lead and `home/FeaturedPhotos`.
 
 - **A bound is not a crop.** `max-*` shrinks a photograph and keeps its ratio — a layout
   decision. A fixed `w`/`h` pair or `object-cover` selects part of it — framing, Rule 2.
@@ -250,13 +251,19 @@ page. The front page is the exception: its photos link into galleries.
 
 ## The front page and site chrome
 
-`/` renders `homePage.featuredPhotos` (any count, three per desktop row via `PhotoStrip` →
-`GalleryGrid perRow={3}`; six recommended; each optionally links a gallery) then
-`homePage.featuredWriting` (exactly 3; "Featured Writing" is a hardcoded heading). `PhotoStrip`
-no longer owns a layout — rename it next time it's touched.
+`/` renders `homePage.featuredPhotos` as **equal square cards** (`home/FeaturedPhotos.tsx`: a
+CSS grid, three across from `md`, two on a phone; six recommended for two even rows; any count
+works; each optionally links a gallery — a linked card fades into four quadrants on hover/focus —
+its own photo top-left (same URL as the card, so no second download), then its gallery's first
+three photos excluding it, fetched with the page via `GALLERY_PREVIEW_PROJECTION` in
+`queries/shots.ts`, which **must change with `GALLERY_PROJECTION`'s order**; hidden and never
+downloaded on touch screens), then the byline, then `homePage.featuredWriting`
+(exactly 3; "Featured Writing" is a hardcoded heading). The cards use `crop="square"` — see
+Rule 2. Galleries do not; only the front page crops.
 
 **`siteSettings`** holds the site name, byline, description, six menu labels, top-level menu
-order, gallery order and a `showPortrait` switch (sidebar portrait, default off). Read via
+order, gallery order and a `showPortrait` switch (**dead since the top nav** — nothing renders the
+portrait; remove the field with the Studio follow-up below). Read via
 `getSiteSettings()` in `web/src/sanity/siteSettings.ts` (React `cache()`), which falls back
 **field by field** to `SITE_FALLBACK` in `content/site.ts` on a failed read, missing doc or empty
 field, and logs `siteSettings: …`. `SITE_FALLBACK` is not the source — don't chase her edits into
@@ -269,25 +276,32 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 
 **The nav:**
 
-- The five top-level items' **routes** are hardcoded (`SITE.nav` in `content/site.ts`): START
-  (`/`), GALLERIES (a toggle, no route), FEATURED, COPY, BIO. Their **labels and order** are hers
-  (`navLabels`, `menuOrder`). `menuOrder` is drag-only in the Studio; `orderNav` drops
-  unknown/repeated keys and inserts missing items after their default predecessor, so no stored
-  value can drop a menu item.
-- Galleries under GALLERIES come from `NAV_QUERY` (`queries/nav.ts`): `placed` (her
-  `siteSettings.galleryOrder`, strong refs) + `rest` (unplaced published galleries, A–Z). ALL
-  SHOTS appended last in code.
+- The four top-level items' **routes** are hardcoded (`SITE.nav` in `content/site.ts`): FEATURED,
+  IMAGES (key `galleries` — a dropdown toggle, no route), COPY, BIO. There is no START (the
+  wordmark links home). **Labels and order** are hers (`navLabels`, `menuOrder`). `orderNav` drops
+  unknown/repeated keys — so a stored `start` entry is ignored — and inserts missing items after their default predecessor, so no stored value can
+  drop a menu item.
+- The IMAGES dropdown is galleries from `NAV_QUERY` (`queries/nav.ts`):
+  `placed` (her `siteSettings.galleryOrder`, strong refs) + `rest` (unplaced published
+  galleries, A–Z), then ALL SHOTS (code).
   - **`coalesce(…, [])` in `rest` is load-bearing** — `_id in null` drops every gallery.
   - Settings queries filter on `_type` as well as `_id`, or typegen returns a union.
   - `GalleryOrderInput`'s `TAIL_QUERY` must match `NAV_QUERY`'s `rest`, or the Studio previews a
     menu the site doesn't render.
 - `SiteNav.tsx` (async server, runs the query) + `SiteNavList.tsx` (client: `usePathname`,
-  collapse state). GALLERIES is a real `<button>`; the group uses **`hidden={!open}`, never
-  conditional rendering**, so `aria-controls` always resolves.
-- `SiteSidebar.tsx` is all the chrome — desktop column and mobile drawer, one instance, single
-  `<h1>`. No header or footer. It receives settings as props (client component). On mobile the
-  byline and copyright are only visible with the drawer open; if that matters, *move* the node to
-  a `<footer>`, never duplicate it.
+  dropdown state). IMAGES is a real `<button>` (disclosure pattern, not an ARIA menu; closed by
+  default; closes on navigation, outside click, focus leaving, Escape). The list uses
+  **`hidden={!open}`, never conditional rendering**, so `aria-controls` always resolves.
+- **Chrome is a sticky top bar + slim footer.** `SiteHeader.tsx` (client): wordmark `<h1>` on the
+  left; menu then three icon links (Instagram, Substack, email — `SITE.social`) on the right.
+  Below `md` the menu and icons are a full-screen drawer — one panel element at every width, never
+  rendered twice. It owns every drawer effect (Escape, scroll lock, close on `md` crossing and on
+  navigation). `MainColumn` makes `<main>` and the footer `inert` while the drawer is open.
+  `SiteFooter.tsx` (server): copyright and credit. Header, `<main>` and footer share one
+  `max-w-shell` + `main-column` box, so their edges line up.
+- **The bar's height is two tokens**, `--spacing-bar` (below `md`) and `--spacing-bar-md`. The
+  showcase's height budget (`showcase-frame`) and the Field Guide's TOC/scroll offsets subtract
+  them; change the bar and check both.
 
 ## The content model
 
@@ -373,7 +387,7 @@ show.
 `DESIGN.md` is the spec (Wired-derived: three faces, square corners, hairline dividers);
 `web/src/app/globals.css` is the implementation and the only place tokens are decided. **The spec
 is swappable; the layout is not** — a new spec re-skins `globals.css` and `type-*` call sites, and
-does not reopen the sidebar shell or the two rules.
+does not reopen the top-bar shell or the two rules.
 
 - **Two deliberate departures**, argued beside the tokens: canvas is cream `#fffaf0` (spec
   `#ffffff`; `canvas-soft` `#f5f0e7` derived the same way), and `--color-accent` (deep maroon)
@@ -386,7 +400,7 @@ does not reopen the sidebar shell or the two rules.
 - **Removing a colour token is silent** (the class emits nothing). After a palette change, grep
   old token names across `web/src`.
 - **Radius scale is none.** `rounded-full` is the one exception (circular icon containers):
-  `grep -rn "rounded-" web/src` should show only the sidebar social links outside comments.
+  `grep -rn "rounded-" web/src` should show only the header's social links outside comments.
 - **Fonts are hotlinked from `fonts.gstatic.com`** (Playfair Display 400, Lora, Inter). Hashes
   rotate; keep real fallback chains in `@theme`. The re-derivation command (with a load-bearing
   `User-Agent`) is in the CSS comment.
@@ -443,9 +457,10 @@ argument made out loud.
 ### Server and client
 
 - `'use client'` only at boundaries. There are ten: `grep -rln "^'use client'" web/src`.
-- **`SanityPhoto`, `GalleryGrid`, `GalleryStack` carry no directive** — that's what makes the
-  `renderPhoto` render prop legal from both server (front page) and client callers. Marking a
-  preset `'use client'` breaks the front page.
+- **`SanityPhoto`, `GalleryGrid`, `GalleryStack` carry no directive** — dual-use. Today every
+  preset caller is a client component (`GalleryView`, `AllShotsView`); keeping the presets
+  unmarked is what keeps a server caller passing `renderPhoto` legal. Marking one `'use client'`
+  would make that a "functions cannot be passed to client components" error.
 - **No `useSearchParams()` in the root layout's tree** — it would drop every prerendered page
   below the nearest Suspense boundary out of static HTML.
 
@@ -456,9 +471,10 @@ aspect-ratio reservation, alt from the document. It takes a whole photo projecti
 `crop` name), never an `alt`, ratio, size or offset. Candidate widths never exceed the source.
 Not `next/image` (double transform, billed, hides the decisions).
 
-`grep -rl "<img" web/src` finds exactly three files: `SanityPhoto.tsx`, `SiteSidebar.tsx` (static
-illustrated portrait) and `docs/DocImage.tsx` (Field Guide screenshots). A fourth is a bug until
-argued otherwise.
+`grep -rl "<img" web/src` finds exactly two files: `SanityPhoto.tsx` and `docs/DocImage.tsx`
+(Field Guide screenshots — static files, no photo document). A third is a bug until argued
+otherwise. (`web/public/joan-animated.png`, the old sidebar portrait, is no longer rendered; it
+stays as the known `public/` file the deploy diagnostic below fetches.)
 
 ### The schema wins; the app never writes
 
@@ -485,7 +501,7 @@ web/                         Next app; Vercel's root directory
                              api/photos/ (+ [id]/) — the only browser-called endpoints
   src/sanity/                client.ts (server-only, no defaults), fetch.ts, errors.ts,
                              siteSettings.ts, queries/
-  src/components/            SanityPhoto, SiteSidebar, SiteNav(+List), MainColumn,
+  src/components/            SanityPhoto, SiteHeader, SiteFooter, SiteNav(+List), MainColumn,
                              NavDrawerContext (state only, no effects), Prose*, BodyPhoto,
                              about/, home/, writing/, shots/, presets/, docs/
   src/content/site.ts        nav routes, socials, copyright, SITE_FALLBACK
@@ -609,6 +625,15 @@ Raise these when the relevant work comes up; don't paper over them.
 
 - **Launch blocker:** replace the six stock photos in `homePage.featuredPhotos` with Joan's (in
   `development`, then promote) before `joanatstake.com` points here.
+- **Studio follow-up for the top nav** (needs a schema change + `npm run deploy`, not done):
+  `navLabels.galleries` is stored as "Galleries" in `development`, so the menu reads GALLERIES
+  until she (or a content edit) changes it to "Images" — the code fallback already says Images.
+  `menuOrder` still offers START, which the site now ignores; `navLabels.start` and
+  `showPortrait` drive nothing, and `siteSettings.links` is never read (the header uses
+  `SITE.social`). Remove or relabel those fields so the Studio stops offering knobs that do
+  nothing, and consider capping `homePage.featuredPhotos` at six. **Remove the read side in the
+  same change:** `showPortrait` and `navLabels{ start }` from `SITE_SETTINGS_QUERY`, the `start`
+  line in `getSiteSettings()`, `start` from `NavKey`/`SITE_FALLBACK.navLabels` — then typegen.
 - **When to retire the promote.** Nothing detects that she's been given the Studio URL; the
   preflight only trips after she creates a document. Decide deliberately and record it here.
 - **`@sanity/vision`** is in `sanity.config.ts` for query building; remove it in the handover PR.

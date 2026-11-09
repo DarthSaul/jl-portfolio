@@ -7,11 +7,10 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  * srcset, lazy loading, the blur-up placeholder and aspect-ratio reservation are decided in a
  * single place for ~250 photos on a phone connection. This is that place.
  *
- * `grep -rn "<img" web/src` finds **two** tags: this one, and the illustrated portrait in
- * `SiteSidebar.tsx`. The second is chrome shipped as a static file in `web/public/`, with no
- * Sanity asset behind it and therefore nothing for any of the four features above to read. The
- * rejected alternative — teaching this component to also accept a bare URL — is written up at
- * that call site. A third hit that *is* a photograph is a bug.
+ * `grep -rl "<img" web/src` finds **two** files: this one, and `docs/DocImage.tsx`, the Field
+ * Guide's Studio screenshots — static files in `web/public/` with no Sanity asset behind them and
+ * therefore nothing for any of the four features above to read. Teaching this component to also
+ * accept a bare URL was considered and rejected. A third hit that *is* a photograph is a bug.
  *
  * ## Why this is not `next/image`
  *
@@ -64,16 +63,18 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  * known, so offering the full-size ladder would quietly hand a phone a 2000px file to paint a
  * 92px square.
  *
- *  - **`square`** — preview thumbnails. /copy's ledger lists each piece behind one at 72px on a
- *    phone and 92px above it, so the largest worth sending is a 384px square, a 3x phone. The
- *    bottom rung sits a little above the 1x phone size rather than on it, deliberately: adding a
- *    rung per call site is how one ladder becomes several.
+ *  - **`square`** — equal square cards. Two call sites: /copy's ledger thumbnail (72px on a
+ *    phone, 92px above it) and the front page's featured photographs (half a phone's width, up to
+ *    ~440px on a desktop). One ladder serves both — `sizes` picks the rung, so the ledger still
+ *    takes the small ones and the front page the large. It tops out at 1200, a 3x phone at half
+ *    width. Adding a rung per call site is how one ladder becomes several; extending the top for
+ *    a larger use of the same framing is not.
  *  - **`lead`** — the cover of the lead story on /copy, 300×200 in its column. The ladder runs
  *    well past 300 because this is the one crop that goes full-width on a phone, where `sizes`
  *    resolves to 100vw and a 3x device wants ~1300px.
  */
 const CROPS = {
-  square: { w: 1, h: 1, widths: [80, 128, 160, 256, 384], fallback: 128 },
+  square: { w: 1, h: 1, widths: [80, 128, 160, 256, 384, 640, 900, 1200], fallback: 384 },
   lead: { w: 3, h: 2, widths: [300, 450, 600, 900, 1200, 1400], fallback: 600 },
 } as const
 

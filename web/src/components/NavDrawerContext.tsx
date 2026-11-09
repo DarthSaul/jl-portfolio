@@ -7,9 +7,9 @@ import type { ReactNode } from 'react'
  * Whether the mobile nav drawer is open. The only piece of state shared across the chrome.
  *
  * **State and actions only — no effects, and that is a rule rather than an omission.** This has
- * three consumers (`SiteSidebar`, `MainColumn`, `PhotoShowcase`), so an effect registered here
+ * three consumers (`SiteHeader`, `MainColumn`, `PhotoShowcase`), so an effect registered here
  * would register once per consumer: three `keydown` listeners, three `matchMedia` subscriptions,
- * and an Escape press closing the drawer three times. Every effect belongs to `SiteSidebar`,
+ * and an Escape press closing the drawer three times. Every effect belongs to `SiteHeader`,
  * which is the single component that owns the element.
  *
  * The provider sits in the root layout, so the state survives client-side navigation — the same

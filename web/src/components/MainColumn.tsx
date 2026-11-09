@@ -5,33 +5,33 @@ import type { ReactNode } from 'react'
 import { useNavDrawer } from './NavDrawerContext'
 
 /**
- * The main column, and the other half of the drawer's focus management.
+ * Everything below the header — `<main>` and the footer — and the other half of the drawer's
+ * focus management.
  *
- * A Client Component only because of `inert`, which has to follow the drawer state. Everything
- * inside it arrives as `children` from the root layout, so the pages themselves stay Server
- * Components — passing a server-rendered tree through a client boundary as children is the whole
- * point of the prop.
+ * A Client Component only because of `inert`, which has to follow the drawer state. The page and
+ * the footer arrive as props from the root layout, so both stay Server Components — passing a
+ * server-rendered tree through a client boundary is the whole point of the props.
  *
- * `min-w-0`, for the usual flex reason: a flex item's automatic minimum is its min-content size,
- * so the photo grid or one long unbroken word would widen this column and squeeze the sidebar
- * rather than wrapping inside it.
+ * `inert` is on a wrapper rather than on `<main>` so the footer goes inert with it: the drawer is
+ * a full-screen sheet, and nothing beneath it should be reachable by Tab while it is open. React
+ * 19 treats `inert` as a real boolean attribute and emits nothing when it is false.
  *
- * `inert={isOpen}` — a plain boolean, and in React that is correct. Vue needed
- * `:inert="isOpen || undefined"` because `inert="false"` is still inert (presence is what
- * counts, not the value) and Vue's SSR would emit the attribute for a `false` binding; the
- * failure was a page that became permanently unclickable after hydration. React 19 handles
- * `inert` as a real boolean attribute and emits nothing when it is false, so the workaround —
- * and the paragraph explaining it — is deleted rather than translated.
+ * `<main>` owns the gutter (`main-column`) and the shell width, so a page owns only its vertical
+ * rhythm and — for prose — a reading measure. `SiteHeader` uses the same box, so the wordmark and
+ * the page's left edge line up.
  *
- * `SiteSidebar` also closes the drawer when the viewport crosses `lg`, which is the other half of
+ * `SiteHeader` also closes the drawer when the viewport crosses `md`, which is the other half of
  * never leaving this attribute stranded over a layout that has no drawer.
  */
-export function MainColumn({ children }: { children: ReactNode }) {
+export function MainColumn({ children, footer }: { children: ReactNode, footer: ReactNode }) {
   const { isOpen } = useNavDrawer()
 
   return (
-    <main inert={isOpen} className="main-column min-w-0 flex-1 pt-10 pb-20 lg:pt-14 lg:pb-28">
-      {children}
-    </main>
+    <div inert={isOpen} className="flex flex-1 flex-col">
+      <main className="main-column mx-auto w-full max-w-shell flex-1 pt-4 pb-20 lg:pt-6 lg:pb-28">
+        {children}
+      </main>
+      {footer}
+    </div>
   )
 }

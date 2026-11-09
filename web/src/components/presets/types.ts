@@ -13,9 +13,9 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  *
  * ## `renderPhoto` replaces Vue's scoped slot
  *
- * Rendering one photograph is the caller's business: the front page wraps each in a link to its
- * gallery, a gallery page wraps each in a link to the showcase, and a caller that wants neither
- * passes nothing and gets a bare `SanityPhoto`.
+ * Rendering one photograph is the caller's business: a gallery page and /gallery/all wrap each in
+ * a link to the showcase, and a caller that wants neither passes nothing and gets a bare
+ * `SanityPhoto`.
  *
  * **Both presets must declare the identical signature**, including the `sizes` in the argument.
  * That is what lets one call site render `PRESETS[gallery.preset]` with one render prop that

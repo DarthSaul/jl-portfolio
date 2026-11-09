@@ -6,8 +6,8 @@ import { SiteNavList } from './SiteNavList'
 import type { SubNavItem } from './SiteNavList'
 
 /**
- * The galleries listed under GALLERIES — the one part of the nav that is content rather than route
- * table. See `sanity/queries/nav` for why that split exists and why it stops where it does.
+ * The menu, and the list under IMAGES — her galleries, then ALL SHOTS. The galleries
+ * are the one part of the nav that is content rather than route table. See `sanity/queries/nav` for why that split exists and why it stops where it does.
  *
  * An async Server Component. It renders inside the root layout, which App Router preserves
  * across client-side navigation, so this runs once per full render rather than once per page —
@@ -47,14 +47,13 @@ export async function SiteNav() {
   }))
 
   /**
-   * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not
-   * content she made — the same reason the top-level routes live in `content/site.ts`. Only its
-   * label is hers. It is also why it survives a Sanity outage along with them: `data` failing
-   * empties the galleries and leaves this one standing, under its fallback label.
+   * ALL SHOTS is added in code rather than fetched, because it is a route we ship and not content
+   * she made — the same reason the top-level routes live in `content/site.ts`. Only its label is
+   * hers. It is also why it survives a Sanity outage: `data` failing empties the galleries and
+   * leaves it standing, under its fallback label. It sits last: the galleries are the curated
+   * views and it is the unfiltered pile behind them.
    *
-   * It sits last. The galleries above it are the curated views and this is the unfiltered pile
-   * behind them, so the list reads as her selections first and the catch-all at the bottom —
-   * which is also the order someone browsing wants them in.
+   * Featured is not here: it is a top-level item of its own (`SITE.nav`), before IMAGES.
    */
   const subNav: SubNavItem[] = [
     ...galleries,

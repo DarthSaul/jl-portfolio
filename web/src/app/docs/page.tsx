@@ -33,13 +33,13 @@ export default function DocsPage() {
   const sections = extractSections(markdown)
 
   /*
-   * From `xl` up the TOC rail sits in the spare width right of the reading column; the column
-   * itself may give up a few pixels of `max-w-read` at exactly `xl` (`flex-1` + `min-w-0` let
-   * it), which reads better than pushing the rail below the fold until `2xl`.
+   * The full main column, like /copy and /bio under the top nav (it was `max-w-read` under the
+   * sidebar). From `xl` up the TOC rail takes a fixed strip at the right edge and the guide fills
+   * the rest (`flex-1` + `min-w-0`); below `xl` the inline TOC sits above it at full width.
    */
   return (
     <div className="xl:flex xl:gap-10">
-      <div className="min-w-0 max-w-read xl:flex-1">
+      <div className="min-w-0 xl:flex-1">
         <DocsTocInline sections={sections} />
         <DocsMarkdown markdown={markdown} className="type-body-serif-lg" />
       </div>

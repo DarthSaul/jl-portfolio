@@ -46,13 +46,13 @@ export default async function BioPage() {
 
   return (
     /*
-      `max-w-read` and no `mx-auto`: the prose measure sits flush left in the main column, under the
-      sidenav's alignment rather than floating in the middle of the page.
+      The full main column, like every page under the top nav (it was `max-w-read` under the
+      sidebar).
 
       `space-y` rather than a margin on the body, so the gap disappears along with the intro when
       both of its fields are empty — both are optional in the schema.
     */
-    <div className="max-w-read space-y-5">
+    <div className="space-y-5">
       <Intro
         heading={about.introHeading}
         intro={about.intro}

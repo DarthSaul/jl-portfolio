@@ -109,7 +109,7 @@ export function Row({ item }: { item: WritingItem }) {
             `aria-hidden`, because the row is already one link whose accessible name is the
             headline and everything beside it. Without this a screen reader hears "Read more"
             appended to a name that has just described the piece — the same reasoning that hides
-            the caption band in `home/PhotoStrip.tsx`.
+            the caption band in `home/FeaturedPhotos.tsx`.
 
             It occupies its space at `opacity-0` rather than being removed, so revealing it shifts
             nothing. That does make every row one line taller whether or not anything is shown,
@@ -117,7 +117,7 @@ export function Row({ item }: { item: WritingItem }) {
             cursor.
 
             **`group-focus-visible` and `[@media(hover:none)]` are both mandatory**, and the note
-            in `home/PhotoStrip.tsx` explains why at length: a keyboard user gets no hover, and
+            in `home/FeaturedPhotos.tsx` explains why at length: a keyboard user gets no hover, and
             Tailwind compiles `hover:` to a real `:hover` that a touch device never fires — so on
             the phones most of her visitors use, the affordance is simply always on.
 

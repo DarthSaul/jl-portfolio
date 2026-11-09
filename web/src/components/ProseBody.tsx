@@ -27,7 +27,7 @@ type Body = NonNullable<POST_QUERY_RESULT>['body']
  *
  * The style is *stored* as `h2` — that is the value in the schema, and Sanity's convention is to
  * name block styles after the element they resemble. It is not an instruction about depth. On this
- * site `SiteSidebar` puts the wordmark in an `<h1>` on every page and the post's own title is the
+ * site `SiteHeader` puts the wordmark in an `<h1>` on every page and the post's own title is the
  * `<h2>`, so rendering a subheading as a literal `<h2>` would put it level with the title of the
  * piece it sits inside. `<h3>` is what the outline actually calls for.
  *

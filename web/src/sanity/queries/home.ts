@@ -1,6 +1,7 @@
 import { defineQuery } from 'groq'
 
 import { PHOTO_PROJECTION } from './photo'
+import { GALLERY_PREVIEW_PROJECTION } from './shots'
 import { WRITING_ITEM_PROJECTION } from './writing'
 
 /**
@@ -27,7 +28,10 @@ import { WRITING_ITEM_PROJECTION } from './writing'
  *
  * `gallery` resolves to a title and a slug rather than a stored path, so renaming a gallery's
  * address updates every front-page link to it with no edit. It comes back `null` when the slot
- * has no link, and the photograph renders unlinked.
+ * has no link, and the photograph renders unlinked. It also carries `preview`, the gallery's first
+three photographs other than the card's own, for the card's hover animation — see `GALLERY_PREVIEW_PROJECTION` in
+`shots.ts`. Fetched here, in the same request, rather than per card from the browser: the page
+is prerendered, so the previews cost one query at revalidation and nothing per visit.
  *
  * ## The whole introduction has left this page
  *
@@ -44,7 +48,7 @@ export const HOME_QUERY = defineQuery(`
     featuredPhotos[]{
       _key,
       photo->{ ${PHOTO_PROJECTION} },
-      "gallery": gallery->{ title, "slug": slug.current }
+      "gallery": gallery->{ title, "slug": slug.current, ${GALLERY_PREVIEW_PROJECTION} }
     }
   }
 `)

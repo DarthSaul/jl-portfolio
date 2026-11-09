@@ -19,9 +19,9 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  *
  * In-page, inside `<main>`. No `role="dialog"`, no focus trap, no scroll lock, no backdrop. Three
  * reasons, in order of weight: a shared link should render the photograph *as the page* on the
- * server rather than as an overlay above a grid nobody asked to see; the sidebar stays usable, so
+ * server rather than as an overlay above a grid nobody asked to see; the header stays usable, so
  * a visitor who arrived on one photograph can reach the rest of the site; and none of
- * `SiteSidebar`'s drawer machinery has to be duplicated to hold it open. Escape and Back still
+ * `SiteHeader`'s drawer machinery has to be duplicated to hold it open. Escape and Back still
  * close it, which is the part of a dialog that people actually expect.
  *
  * The page keeps its own `<h2>` above this, so the heading outline is identical whether the
@@ -84,15 +84,15 @@ export function PhotoShowcase({
    * pixels the layout can show, on the one page showing exactly one photograph and the one moment
    * a visitor is waiting for it.
    *
-   * 1088px is the widest the main column gets: `--container-shell` 90rem, less
-   * `--container-sidebar` 15rem, less two 3.5rem `xl` gutters. Re-derive it if the shell changes.
+   * 1328px is the widest the main column gets: `--container-shell` 90rem less two 3.5rem `xl`
+   * gutters. Re-derive it if the shell changes.
    *
    * `78vh` approximates `--showcase-h` rather than restating it. `sizes` only picks a rung from a
    * five-rung ladder, so being a little out lands on the same rung nearly always — and `vh` against
    * `dvh` over-asks slightly, which is the safe direction to be wrong in.
    */
   const sizes
-    = `(min-width: 1024px) min(1088px, calc(78vh * ${ratio})), min(100vw, calc(78vh * ${ratio}))`
+    = `(min-width: 1024px) min(1328px, calc(78vh * ${ratio})), min(100vw, calc(78vh * ${ratio}))`
 
   /**
    * The keyboard.

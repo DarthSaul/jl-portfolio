@@ -18,7 +18,7 @@ import { POST_QUERY, POST_SLUGS_QUERY } from '@/sanity/queries/writing'
  * writing below for that" — so showing it here would contradict the field's own description, and
  * the photos in the body are the ones she chose for the piece.
  *
- * The title is an `<h2>`: `SiteSidebar` renders the wordmark as the page's `<h1>`. Subheadings
+ * The title is an `<h2>`: `SiteHeader` renders the wordmark as the page's `<h1>`. Subheadings
  * inside the body land on `<h3>` for the same reason — see `ProseBody`.
  */
 /**
@@ -66,12 +66,11 @@ export default async function PostPage({ params }: PageProps<'/copy/[slug]'>) {
 
   return (
     /*
-      Left-aligned, and that is two changes rather than one: the three `text-center` classes are
-      gone, and so is the `mx-auto` that centred the column itself. A centred column of centred text
-      made sense under a centred wordmark; under a sidenav the page has a left edge and everything
-      should agree on where it is.
+      Left-aligned and the full main column, like every page under the top nav (it was `max-w-read`
+      under the sidebar). The page shares its left edge with the wordmark and its right edge with
+      the last header icon.
     */
-    <article className="max-w-read">
+    <article>
       <h2 className="type-display-lg text-ink">{post.title}</h2>
 
       <p className="type-byline text-muted">

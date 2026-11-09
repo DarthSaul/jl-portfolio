@@ -33,7 +33,7 @@ function TocList({ sections, className = '' }: { sections: DocSection[], classNa
 export function DocsTocRail({ sections }: { sections: DocSection[] }) {
   return (
     <nav aria-label="On this page" className="hidden w-44 shrink-0 xl:block print:hidden">
-      <div className="sticky top-14 max-h-[calc(100dvh-7rem)] overflow-y-auto">
+      <div className="sticky top-[calc(var(--spacing-bar-md)+3.5rem)] max-h-[calc(100dvh-var(--spacing-bar-md)-7rem)] overflow-y-auto">
         <p className="type-body-sm-strong uppercase tracking-[0.18em] text-muted">On this page</p>
         <TocList sections={sections} className="mt-4" />
       </div>

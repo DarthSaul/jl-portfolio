@@ -12,10 +12,15 @@ import { join } from 'node:path'
 
 const root = import.meta.dirname
 
+// `portVar` is the variable each dev server reads its port from: Next reads `PORT` from the
+// shell only (not .env); Sanity reads `SANITY_STUDIO_SERVER_PORT` from the shell or studio/.env.
 const PACKAGES = [
-  { name: 'web', color: 36, url: 'http://localhost:3000', datasetVar: 'SANITY_DATASET' },
-  { name: 'studio', color: 35, url: 'http://localhost:3333', datasetVar: 'SANITY_STUDIO_DATASET' },
+  { name: 'web', color: 36, datasetVar: 'SANITY_DATASET', portVar: 'PORT', portFromEnvFile: false, defaultPort: 3000 },
+  { name: 'studio', color: 35, datasetVar: 'SANITY_STUDIO_DATASET', portVar: 'SANITY_STUDIO_SERVER_PORT', portFromEnvFile: true, defaultPort: 3333 },
 ]
+
+const readEnvVar = (source, name) =>
+  source.match(new RegExp(`^${name}=(.*)$`, 'm'))?.[1].trim().replace(/^["']|["']$/g, '') || undefined
 
 const fail = (msg) => {
   console.error(`\n✖ ${msg}\n`)
@@ -27,9 +32,12 @@ const fail = (msg) => {
 for (const pkg of PACKAGES) {
   const envFile = join(root, pkg.name, '.env')
   if (!existsSync(envFile)) fail(`${pkg.name}/.env is missing. See CLAUDE.md, "Environment variables".`)
-  const match = readFileSync(envFile, 'utf8').match(new RegExp(`^${pkg.datasetVar}=(.*)$`, 'm'))
-  pkg.dataset = match?.[1].trim().replace(/^["']|["']$/g, '')
+  const envSource = readFileSync(envFile, 'utf8')
+  pkg.dataset = readEnvVar(envSource, pkg.datasetVar)
   if (!pkg.dataset) fail(`${pkg.name}/.env does not set ${pkg.datasetVar}.`)
+  const port =
+    process.env[pkg.portVar] || (pkg.portFromEnvFile && readEnvVar(envSource, pkg.portVar)) || pkg.defaultPort
+  pkg.url = `http://localhost:${port}`
 }
 
 // --- Install: `npm ci` when node_modules is absent or older than package-lock.json. ---
@@ -76,6 +84,12 @@ const children = PACKAGES.map((pkg) => {
       for (const line of lines) process.stdout.write(prefix(pkg) + line + '\n')
     })
   }
+  // A failed spawn (e.g. `npm` not on PATH) emits 'error' and may never emit 'exit'.
+  child.on('error', (err) => {
+    if (shuttingDown) return
+    console.error(`\n${prefix(pkg)}failed to start (${err.message}); stopping the other server.`)
+    shutdown(1)
+  })
   child.on('exit', (code, signal) => {
     if (shuttingDown) return
     console.log(`\n${prefix(pkg)}exited (${signal ?? `code ${code}`}); stopping the other server.`)
@@ -89,7 +103,7 @@ function shutdown(code = 0) {
   if (shuttingDown) return
   shuttingDown = true
   for (const child of children) {
-    if (child.exitCode === null) {
+    if (child.pid && child.exitCode === null) {
       try {
         process.kill(-child.pid, 'SIGTERM')
       } catch {

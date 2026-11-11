@@ -6,6 +6,6 @@
     "dev": "node dev.mjs"
   },
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.12"
   }
 }

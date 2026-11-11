@@ -38,6 +38,9 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  *
  * ## The preview: one photograph becomes four
  *
+ * Per card, and off unless she ticks `featuredPhoto.showPeek` — a behaviour switch, not a shape
+ * one (see that file's Rule 2 note). An unticked linked card keeps its link and its title band.
+ *
  * On hover or keyboard focus, a linked card's photograph cross-fades into the gallery's first four
  * photographs as the card's four quadrants — a look inside before the click. The top-left quadrant
  * is always the card's own photograph; the other three are the gallery's first three, skipping it. A plain fade, no
@@ -90,7 +93,9 @@ export function FeaturedPhotos({ photos }: { photos: Home['featuredPhotos'] }) {
           */
           const priority = index < 3
           const gallery = slot.gallery
-          const preview = gallery?.preview?.length === 3 ? gallery.preview : null
+          // Her switch first (`featuredPhoto.showPeek`, off unless ticked), then the data
+          // condition: a gallery with fewer than three other photos has no peek to show.
+          const preview = slot.showPeek && gallery?.preview?.length === 3 ? gallery.preview : null
 
           return (
             <li key={slot._key}>

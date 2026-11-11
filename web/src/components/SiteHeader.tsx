@@ -11,8 +11,8 @@ import { useNavDrawer } from './NavDrawerContext'
 import { SiteSocialIcon } from './SiteSocialIcon'
 
 /**
- * The site's top bar: her name on the left edge; the menu (IMAGES, COPY, BIO) and three icon
- * links (Instagram, Substack, email) on the right. Below `md` the menu and icons collapse into a
+ * The site's masthead: her name and byline on the left; the menu (Featured, Images, Copy, Bio)
+ * and three icon links (Instagram, Substack, email) on the right. Below `md` the menu and icons collapse into a
  * full-screen drawer behind a menu button. The copyright and credit live in `SiteFooter`.
  *
  * It replaced `SiteSidebar`, the left-hand column the site launched with. What carried over is
@@ -25,7 +25,7 @@ import { SiteSocialIcon } from './SiteSocialIcon'
  * width, because the server cannot know the viewport and any attempt to would be a hydration
  * mismatch rather than a layout. It also means the nav (and the `id`s inside it) exist once.
  *
- * The wordmark is outside the panel, in the bar itself, so it is always present and always the
+ * The wordmark is outside the panel, in the masthead itself, so it is always present and always the
  * page's level-1 heading. Inside the drawer it would be `display: none` on a phone with the menu
  * closed, which takes it out of the accessibility tree and leaves the page with no `<h1>`.
  *
@@ -48,10 +48,10 @@ import { SiteSocialIcon } from './SiteSocialIcon'
  *
  * `SiteNav` is an async Server Component and this is a Client Component, so this file cannot
  * import it. The root layout renders `<SiteHeader nav={<SiteNav />} />` instead — the element is
- * created on the server and passed through already rendered. `title` arrives the same way, from
- * `getSiteSettings()` in the layout. This file never touches Sanity.
+ * created on the server and passed through already rendered. `title` and `byline` arrive the same
+ * way, from `getSiteSettings()` in the layout. This file never touches Sanity.
  */
-export function SiteHeader({ nav, title }: { nav: ReactNode, title: string }) {
+export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: string, byline: string }) {
   const { isOpen, close, toggle } = useNavDrawer()
   const toggleBtn = useRef<HTMLButtonElement>(null)
 
@@ -117,98 +117,110 @@ export function SiteHeader({ nav, title }: { nav: ReactNode, title: string }) {
 
   return (
     /*
-      Sticky at every width, so `--spacing-bar` / `--spacing-bar-md` are the chrome the showcase's
-      height budget and the docs' scroll offsets subtract. Change the bar's height and those move
-      with it — they read the same tokens.
+      A masthead, not a bar: it scrolls away with the page. Nothing in the chrome is sticky, so
+      nothing else subtracts a bar height — except `showcase-frame`, which opens scrolled to the
+      top with the masthead above it and reads `--spacing-masthead(-md)` for that.
 
-      The bar spans the viewport with no bottom rule (the canvas alone separates it); its contents sit in the same
-      `max-w-shell` + `main-column` box as `<main>`, so the wordmark lines up with the page's
-      left edge and the last icon with its right.
+      Her name and the byline stack on the left; the menu and icons sit bottom-right on the same
+      baseline (`items-end`), over a 1px ink rule — the mockup's masthead. Contents sit in the
+      same `max-w-shell` + `main-column` box as `<main>`, so the rule and the page share edges.
 
       `print:hidden` takes the chrome out of every printed page — added for the Field Guide.
     */
-    <header className="sticky top-0 z-40 bg-canvas print:hidden">
-      <div className="main-column mx-auto flex h-bar max-w-shell items-center justify-between gap-8 md:h-bar-md">
-        <h1 className="type-display-sm shrink-0">
-          <Link href="/" className="text-ink transition-opacity hover:opacity-60">
-            {title}
-          </Link>
-        </h1>
-
-        <button
-          ref={toggleBtn}
-          type="button"
-          className="-mr-2 p-2 text-ink md:hidden"
-          aria-expanded={isOpen}
-          aria-label={isOpen ? 'Close menu' : 'Open menu'}
-          aria-controls="site-nav-panel"
-          onClick={() => {
-            toggle()
-            // Explicit, because Safari on macOS does not move focus to a button on click.
-            toggleBtn.current?.focus()
-          }}
-        >
-          <svg
-            className="size-6"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            {isOpen
-              ? (
-                  <>
-                    <path d="M5 5 19 19" />
-                    <path d="M19 5 5 19" />
-                  </>
-                )
-              : (
-                  <>
-                    <path d="M3 7h18" />
-                    <path d="M3 17h18" />
-                  </>
-                )}
-          </svg>
-        </button>
-
-        {/*
-          The panel. Below `md` a full-screen sheet starting under the bar (`top-bar`); from `md`
-          up `md:static` returns it to the bar as a row.
-        */}
-        <div
-          id="site-nav-panel"
-          className={`fixed inset-x-0 bottom-0 top-bar z-40 flex-col gap-10 overflow-y-auto overscroll-contain bg-canvas px-5 pt-8 pb-10 md:static md:z-auto md:flex-row md:items-center md:gap-8 md:overflow-visible md:p-0 ${
-            isOpen ? 'flex' : 'hidden md:flex'
-          }`}
-        >
-          {nav}
+    <header className="print:hidden">
+      <div className="main-column mx-auto max-w-shell">
+        <div className="flex items-start justify-between gap-x-8 gap-y-5 border-b border-hairline pt-6 pb-4 md:flex-wrap md:items-end md:pt-9 md:pb-[22px]">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h1 className="type-wordmark">
+              <Link href="/" className="text-ink transition-colors hover:text-accent">
+                {title}
+              </Link>
+            </h1>
+            {/* As she typed it — no `uppercase`; the italic is the token's. */}
+            <p className="type-tagline text-muted">{byline}</p>
+          </div>
 
           {/*
-            Bare glyphs rather than filled circles: a filled container on a page whose only other
-            mark is a 1px hairline reads as three buttons demanding attention. `rounded-full` is
-            kept for the focus ring's shape — DESIGN.md's one allowed radius, "circular icon
-            containers only".
+            `relative z-50` lifts the toggle above the open drawer (`z-40`), so the same button
+            closes it. The masthead is not sticky, but the toggle is on screen whenever it can be
+            clicked, and the scroll lock keeps it there while the drawer is open.
           */}
-          <ul className="flex items-center gap-5">
-            {SITE.social.map(link => (
-              <li key={link.href}>
-                {/*
-                  Icon-only, so `aria-label` is the only name a screen reader gets. `mail` opens a
-                  mail client rather than a tab, which is why it alone skips target/rel.
-                */}
-                <a
-                  href={link.href}
-                  aria-label={link.label}
-                  {...(link.icon === 'mail' ? {} : { target: '_blank', rel: 'me noopener' })}
-                  className="block rounded-full text-muted transition-colors hover:text-ink"
-                >
-                  <SiteSocialIcon name={link.icon} className="size-5" />
-                </a>
-              </li>
-            ))}
-          </ul>
+          <button
+            ref={toggleBtn}
+            type="button"
+            className="relative z-50 -mr-2 mt-1 p-2 text-ink md:hidden"
+            aria-expanded={isOpen}
+            aria-label={isOpen ? 'Close menu' : 'Open menu'}
+            aria-controls="site-nav-panel"
+            onClick={() => {
+              toggle()
+              // Explicit, because Safari on macOS does not move focus to a button on click.
+              toggleBtn.current?.focus()
+            }}
+          >
+            <svg
+              className="size-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              {isOpen
+                ? (
+                    <>
+                      <path d="M5 5 19 19" />
+                      <path d="M19 5 5 19" />
+                    </>
+                  )
+                : (
+                    <>
+                      <path d="M3 7h18" />
+                      <path d="M3 17h18" />
+                    </>
+                  )}
+            </svg>
+          </button>
+
+          {/*
+            The panel. Below `md` a full-screen sheet (`inset-0`) under the toggle; its top
+            padding clears the masthead. From `md` up `md:static` returns it to the masthead as a
+            row, lifted 6px off the rule like the mockup's nav.
+          */}
+          <div
+            id="site-nav-panel"
+            className={`fixed inset-0 z-40 flex-col gap-10 overflow-y-auto overscroll-contain bg-canvas px-5 pt-36 pb-10 md:static md:z-auto md:flex-row md:items-center md:gap-8 md:overflow-visible md:p-0 md:pb-1.5 ${
+              isOpen ? 'flex' : 'hidden md:flex'
+            }`}
+          >
+            {nav}
+
+            {/*
+              Bare glyphs rather than filled circles: a filled container on a page whose only other
+              mark is a 1px hairline reads as three buttons demanding attention. `rounded-full` is
+              kept for the focus ring's shape — one of the two `rounded-full` exceptions (the other
+              is the Instagram strip's Follow pill).
+            */}
+            <ul className="flex items-center gap-5">
+              {SITE.social.map(link => (
+                <li key={link.href}>
+                  {/*
+                    Icon-only, so `aria-label` is the only name a screen reader gets. `mail` opens a
+                    mail client rather than a tab, which is why it alone skips target/rel.
+                  */}
+                  <a
+                    href={link.href}
+                    aria-label={link.label}
+                    {...(link.icon === 'mail' ? {} : { target: '_blank', rel: 'me noopener' })}
+                    className="block rounded-full text-ink transition-colors hover:text-accent"
+                  >
+                    <SiteSocialIcon name={link.icon} className="size-5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </header>

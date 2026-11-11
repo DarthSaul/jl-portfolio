@@ -6,7 +6,7 @@ type AboutPage = NonNullable<ABOUT_QUERY_RESULT>
 /**
  * The heading and introduction at the top of /bio. DESIGN.md's `hero-band`.
  *
- * The headline in `display-hero` — Playfair at 64px, the spec's most-recognisable typographic
+ * The headline in `display-hero` — Newsreader 600 at 64px, the spec's largest typographic
  * signature — and the introduction in the serif body face beneath it, one step larger than the
  * writing that follows. No card, no fill, no border: `hero-band` sits on the canvas, and the
  * elevation table is emphatic that "Level 0 — Flat" is where almost every surface lives. The size
@@ -51,7 +51,7 @@ export function Intro({
       {heading && <h2 className="type-display-hero text-ink">{heading}</h2>}
 
       {/*
-        `body-serif-lg` is DESIGN.md's lead-paragraph token — Lora at 19px. Serif for narrative,
+        `body-serif-lg` is DESIGN.md's lead-paragraph token — Newsreader at 19px. Serif for narrative,
         sans for structure: this is narrative.
       */}
       {intro && (

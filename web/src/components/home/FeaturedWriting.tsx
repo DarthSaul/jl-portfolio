@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { SanityPhoto } from '@/components/SanityPhoto'
 import { WritingLink } from '@/components/writing/WritingLink'
 import { formatDate } from '@/lib/date'
@@ -45,23 +47,21 @@ type Home = NonNullable<HOME_QUERY_RESULT>
  */
 export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
   return (
-    <section>
+    <section aria-labelledby="featured-writing-heading">
       {/*
-        DESIGN.md's `category-eyebrow`, with no rule above it: a small uppercase sans label rather than a
-        heading in the display serif. That keeps the three card headlines below it as the largest
-        type in the section, which is what the eye should land on.
+        The mockup's band heading: the serif headline on the left, a way into /copy on the right,
+        both sitting on a 1px ink rule. "Featured writing" is hardcoded, sentence case.
       */}
-      <h2 className="type-display-xs pt-10 uppercase tracking-[0.1em] text-ink">
-        Featured Writing
-      </h2>
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-3.5">
+        <h2 id="featured-writing-heading" className="type-display-lg text-ink">
+          Featured writing
+        </h2>
+        <Link href="/copy" className="type-body-sm-strong text-ink transition-colors hover:text-accent">
+          All copy →
+        </Link>
+      </div>
 
-      {/*
-        Straight from one column to three. Two columns orphans the third card into a row of its own
-        with a half-page of white space beside it, and the schema guarantees there are always
-        exactly three, so the awkward middle step is worth skipping.
-        The two shared rows are: thumbnail area, then everything else.
-      */}
-      <ul className="mt-8 grid gap-10 md:grid-cols-3 md:grid-rows-[auto_auto] md:gap-y-0">
+      <ul className="mt-7 grid gap-10 md:grid-cols-3 md:grid-rows-[auto_auto] md:gap-x-8 md:gap-y-0">
         {items.map(item => (
           <li key={item._id} className="md:row-span-2 md:grid md:grid-rows-subgrid">
             {/*
@@ -75,14 +75,14 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
             */}
             <WritingLink item={item} tabIndex={-1} aria-hidden className="block md:self-start">
               {/*
-                A third of the main column, not of the viewport — the shell caps at 1440px with the
-                sidenav beside it, so the column never exceeds ~1120px.
+                A third of the main column, not of the viewport — the shell caps at 1320px less its
+                gutters, so a card never exceeds ~400px.
               */}
               {item.coverPhoto
                 ? (
                     <SanityPhoto
                       photo={item.coverPhoto}
-                      sizes="(min-width: 1024px) 360px, (min-width: 768px) 33vw, 100vw"
+                      sizes="(min-width: 1320px) 400px, (min-width: 768px) 33vw, 100vw"
                     />
                   )
                 : null}
@@ -90,38 +90,37 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
 
             {/* One grid row for the rest, flowing freely inside it. */}
             <div>
-              <h3 className="type-display-sm mt-5">
-                <WritingLink item={item} className="transition-opacity hover:opacity-60">
-                  {item.title}
-                </WritingLink>
-              </h3>
-
-              <p className="type-byline mt-1 text-muted">
-                {/*
-                  A link out names its publication; a post is on this site and does not need to say
-                  so. Both carry the date, which is what orders her writing everywhere.
-                */}
+              {/*
+                The eyebrow: a link out names its publication; a post is on this site and does not
+                need to say so. Both carry the date, which is what orders her writing everywhere.
+              */}
+              <p className="type-byline mt-4 uppercase text-accent">
                 {item._type === 'article' && `${item.publication} · `}
                 <time dateTime={item.publishedAt}>{formatDate(item.publishedAt)}</time>
               </p>
 
+              <h3 className="type-display-sm mt-3">
+                <WritingLink item={item} className="text-ink transition-colors hover:text-accent">
+                  {item.title}
+                </WritingLink>
+              </h3>
+
               {item.summary && (
-                <p className="type-body-serif-md mt-2 text-ink">{item.summary}</p>
+                <p className="type-body-md mt-3 text-ink-soft">{item.summary}</p>
               )}
 
               {/*
                 "Read more" is meaningless out of context, and a screen reader can pull links out of
                 context. The aria-label names the destination.
 
-                `body-sm-strong` in caps is also what /copy's row uses, so the two lists say "read
-                more" the same way.
+                Sentence case with an arrow, the mockup's "Read more →".
               */}
               <WritingLink
                 item={item}
                 aria-label={`Read more: ${item.title}`}
-                className="type-body-sm-strong mt-4 inline-block uppercase tracking-[0.12em] text-ink hover:underline"
+                className="type-body-sm-strong mt-3 inline-block text-ink transition-colors hover:text-accent"
               >
-                Read more
+                Read more →
               </WritingLink>
             </div>
           </li>

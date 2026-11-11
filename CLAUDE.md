@@ -52,7 +52,8 @@ featured cards) and `lead` (the /copy lead cover, 300×200) — always centred, 
 her or the call site. The prop takes a name, never dimensions. **Adding a `CROPS` entry is a
 Rule 2 decision** needing a written argument; extending an entry's srcset ladder for a larger use
 of the same framing is not. `grep -rn "crop=" web/src/components/` should stay a short list: the
-ledger, the /copy lead and `home/FeaturedPhotos`.
+ledger, the /copy lead and `home/FeaturedPhotos`. The carousel had a centred 16:9 `hero` crop;
+it zoomed portraits far too much and was removed (2026-11) — the carousel fits each photo whole.
 
 - **A bound is not a crop.** `max-*` shrinks a photograph and keeps its ratio — a layout
   decision. A fixed `w`/`h` pair or `object-cover` selects part of it — framing, Rule 2.
@@ -251,15 +252,39 @@ page. The front page is the exception: its photos link into galleries.
 
 ## The front page and site chrome
 
-`/` renders `homePage.featuredPhotos` as **equal square cards** (`home/FeaturedPhotos.tsx`: a
+`/` is a **hero**, then `homePage.featuredWriting`, then the Instagram strip. The hero is her
+choice, `homePage.heroLayout` — a radio over `HERO_LAYOUTS` (`grid` | `carousel`) in
+`homePage.ts`, rendered through the `HERO` map in `app/page.tsx`, which is `satisfies
+Record<Home['heroLayout'], …>`: the same two-halves contract as gallery presets (a value without
+a component is a typecheck failure). `HOME_QUERY` coalesces `heroLayout` to `grid` and
+`showCarouselMenu` to `true` (the `set-home-hero-layout` migration also backfilled them).
+
+- **Grid** renders `homePage.featuredPhotos` as **equal square cards** (`home/FeaturedPhotos.tsx`: a
 CSS grid, three across from `md`, two on a phone; six recommended for two even rows; any count
-works; each optionally links a gallery — a linked card fades into four quadrants on hover/focus —
-its own photo top-left (same URL as the card, so no second download), then its gallery's first
+works; each optionally links a gallery). A linked card with `featuredPhoto.showPeek` ticked (off by
+default; the Studio shows the switch only once a gallery is set) fades into four quadrants on
+hover/focus — its own photo top-left (same URL as the card, so no second download), then its gallery's first
 three photos excluding it, fetched with the page via `GALLERY_PREVIEW_PROJECTION` in
 `queries/shots.ts`, which **must change with `GALLERY_PROJECTION`'s order**; hidden and never
-downloaded on touch screens), then the byline, then `homePage.featuredWriting`
-(exactly 3; "Featured Writing" is a hardcoded heading). The cards use `crop="square"` — see
-Rule 2. Galleries do not; only the front page crops.
+downloaded on touch screens). The cards use `crop="square"` — see Rule 2. Galleries do not; only
+the front page crops. `featuredPhotos` is hidden in the Studio while the carousel is chosen and
+required only for the grid (a `rule.custom` reading `context.document` — a hidden field still
+validates).
+- **Carousel** (`home/HeroCarousel.tsx`, client): `homePage.carouselPhotos` (refs to `photo`,
+  her order; shown and required in the Studio only for the carousel), each **uncropped**: fitted
+  whole and centred inside a fixed 16:9 frame at every width (a bound — paper shows beside a
+  portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 5s, paused on hover/focus, no
+  autoplay under reduced motion. Slides mount when active or next, so two hero files load up
+  front. `homePage.showCarouselMenu` toggles the numbered markers beneath. `HOME_QUERY`
+  dereferences `carouselPhotos` only when `heroLayout == "carousel"`; an empty list falls back to
+  the grid.
+- **Featured writing**: exactly 3; "Featured writing" and "All copy →" are hardcoded.
+- **Instagram** (`home/InstagramFeed.tsx`, server) — **placeholders**: six blank tiles linking to
+  the profile; handle and URL derived from `SITE.social`. Not a Studio field.
+
+`featuredPhoto.showPeek` is the one per-slot switch, and the Rule 2 line it draws is in
+`featuredPhoto.ts`: a *behaviour* toggle that never changes a card's shape is allowed; a size,
+span, offset or crop on a slot never is.
 
 **`siteSettings`** holds the site name, byline, description, six menu labels, top-level menu
 order, gallery order and a `showPortrait` switch (**dead since the top nav** — nothing renders the
@@ -292,16 +317,21 @@ fields and inserts new `menuOrder` items beside their default neighbours).
   dropdown state). IMAGES is a real `<button>` (disclosure pattern, not an ARIA menu; closed by
   default; closes on navigation, outside click, focus leaving, Escape). The list uses
   **`hidden={!open}`, never conditional rendering**, so `aria-controls` always resolves.
-- **Chrome is a sticky top bar + slim footer.** `SiteHeader.tsx` (client): wordmark `<h1>` on the
-  left; menu then three icon links (Instagram, Substack, email — `SITE.social`) on the right.
-  Below `md` the menu and icons are a full-screen drawer — one panel element at every width, never
+- **Chrome is a masthead (not sticky) + footer.** `SiteHeader.tsx` (client): wordmark `<h1>` with
+  `siteSettings.byline` beneath it (passed from the layout) on the left; menu then three icon links
+  (Instagram, Substack, email — `SITE.social`) bottom-right, over a 1px ink rule. Menu labels are
+  sentence case, not uppercased; the active item has a 2px accent underline.
+  Below `md` the menu and icons are a full-screen drawer (`fixed inset-0`, the toggle raised
+  above it with `z-50` so it also closes it) — one panel element at every width, never
   rendered twice. It owns every drawer effect (Escape, scroll lock, close on `md` crossing and on
   navigation). `MainColumn` makes `<main>` and the footer `inert` while the drawer is open.
-  `SiteFooter.tsx` (server): copyright and credit. Header, `<main>` and footer share one
-  `max-w-shell` + `main-column` box, so their edges line up.
-- **The bar's height is two tokens**, `--spacing-bar` (below `md`) and `--spacing-bar-md`. The
-  showcase's height budget (`showcase-frame`) and the Field Guide's TOC/scroll offsets subtract
-  them; change the bar and check both.
+  `SiteFooter.tsx` (server): a rule, copyright and credit, and the same `SITE.social` as text
+  links. Header, `<main>` and footer share one `max-w-shell` + `main-column` box, so their edges
+  line up.
+- **Nothing sticks.** `--spacing-masthead` / `-md` are an *estimate* of the masthead's height,
+  read only by `showcase-frame` (the showcase opens scrolled to the top, under the masthead).
+  Change the masthead's type or padding and re-measure them. The Field Guide's TOC and scroll
+  offsets no longer subtract chrome.
 
 ## The content model
 
@@ -315,14 +345,14 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 | `tag` | title, slug, excludeFromIndex | Hers to add, rename, remove. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives here. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
-| `homePage` | title, featuredPhotos → `featuredPhoto[]`, featuredWriting → refs | Singleton. |
+| `homePage` | title, heroLayout, showCarouselMenu, featuredPhotos → `featuredPhoto[]`, featuredWriting → refs | Singleton. |
 | `writingPage` | title, intro, featured → ref | Singleton. Posts/articles are queried, not listed. |
 | `aboutPage` | title, introHeading, intro (`proseText`), body | Singleton, "About" in the Studio. |
 | `contactPage` | title, intro | Singleton. Links live on `siteSettings`. |
 | `siteSettings` | title, byline, description, showPortrait, shareImage → ref, links, navLabels, menuOrder, galleryOrder → refs | Singleton, two tabs. `shareImage` not rendered yet. |
 | `link` | label, url | Object, for `siteSettings.links`. |
 | `postPhoto` | photo → ref, layout | Object in a body. Never add a field. |
-| `featuredPhoto` | photo → ref, gallery → ref | Object, one front-page grid slot. |
+| `featuredPhoto` | photo → ref, gallery → ref, showPeek | Object, one front-page grid slot. |
 | `proseText` | one restricted block | Used by `aboutPage.intro`. |
 
 **Tags.** Strong references to `tag` documents: renaming is free, deleting an in-use tag is
@@ -384,14 +414,14 @@ show.
 
 ### Design system
 
-`DESIGN.md` is the spec (Wired-derived: three faces, square corners, hairline dividers);
+`DESIGN.md` is the spec (the approved "Homepage" mockup: Newsreader + Inter, ink rules, off-white
+`#fafaf7` paper, one red accent `#b3261e`; it replaced a Wired-derived spec);
 `web/src/app/globals.css` is the implementation and the only place tokens are decided. **The spec
 is swappable; the layout is not** — a new spec re-skins `globals.css` and `type-*` call sites, and
-does not reopen the top-bar shell or the two rules.
+does not reopen the shell or the two rules.
 
-- **Two deliberate departures**, argued beside the tokens: canvas is cream `#fffaf0` (spec
-  `#ffffff`; `canvas-soft` `#f5f0e7` derived the same way), and `--color-accent` (deep maroon)
-  exists.
+- The accent marks what you can act on (link hover, active menu underline, writing eyebrows,
+  READ MORE). `--color-hairline` is ink: rules are black 1px.
 - **Type via one `type-*` utility per token**, each setting all five of family, size,
   line-height, letter-spacing, weight. Never `text-*`+`leading-*`+`tracking-*`+`font-*` at a call
   site. Responsive steps live inside the token via `@variant`.
@@ -399,12 +429,14 @@ does not reopen the top-bar shell or the two rules.
   at the call site.
 - **Removing a colour token is silent** (the class emits nothing). After a palette change, grep
   old token names across `web/src`.
-- **Radius scale is none.** `rounded-full` is the one exception (circular icon containers):
-  `grep -rn "rounded-" web/src` should show only the header's social links outside comments.
-- **Fonts are hotlinked from `fonts.gstatic.com`** (Playfair Display 400, Lora, Inter). Hashes
+- **Radius scale is none.** `rounded-full` has two exceptions: the header's social icon links and
+  the Instagram strip's Follow pill. `grep -rn "rounded-" web/src` should show only those outside
+  comments.
+- **Fonts are hotlinked from `fonts.gstatic.com`** (Newsreader variable with `opsz`, 400–600
+  upright + 400 italic; Inter 400–700). Hashes
   rotate; keep real fallback chains in `@theme`. The re-derivation command (with a load-bearing
   `User-Agent`) is in the CSS comment.
-- Cream exposes pure-white borders baked into some photos. Not fixable in the app (trimming is a
+- The off-white canvas exposes pure-white borders baked into some photos. Not fixable in the app (trimming is a
   crop) — re-upload or accept.
 
 ### Queries and types
@@ -456,7 +488,7 @@ argument made out loud.
 
 ### Server and client
 
-- `'use client'` only at boundaries. There are ten: `grep -rln "^'use client'" web/src`.
+- `'use client'` only at boundaries. There are eleven: `grep -rln "^'use client'" web/src`.
 - **`SanityPhoto`, `GalleryGrid`, `GalleryStack` carry no directive** — dual-use. Today every
   preset caller is a client component (`GalleryView`, `AllShotsView`); keeping the presets
   unmarked is what keeps a server caller passing `renderPhoto` legal. Marking one `'use client'`
@@ -489,6 +521,7 @@ typegen writes `web/sanity.types.ts`. Most files carry their own rationale in co
 
 ```text
 CLAUDE.md, DESIGN.md, .env.example (root, for scripts only), .worktreeinclude
+package.json, dev.mjs        root `npm run dev` only; no dependencies
 web/                         Next app; Vercel's root directory
   next.config.ts             redirects() only
   vercel.json                {"framework": "nextjs"} — see Deploying
@@ -513,14 +546,17 @@ studio/
   components/                PhotoOrderInput, GalleryOrderInput, orderInputParts
   migrations/                create-tag-documents → tags-to-references; gallery-tag-to-tags;
                              unset-gallery-nav-order (after seed-site-settings);
-                             unset-home-parked-fields
+                             unset-home-parked-fields; set-home-hero-layout
   scripts/                   seed-site-settings.ts (sanity exec --with-user-token)
   .promote/, schema.json     GENERATED, gitignored
 ```
 
 ## Commands
 
-No root `package.json`. Check your directory before running anything.
+**Root:** `npm run dev` (`dev.mjs`) runs `npm ci` in a package whose `node_modules` is missing or
+older than its lockfile, then starts both dev servers with prefixed output; Ctrl-C stops both.
+The root `package.json` has that one script and **no dependencies** — not a workspace. Every
+other command runs from its package, so check your directory before running anything.
 
 **`web/`:** `npm run dev` (:3000), `npm run build`, `npm run start`, `npm run typecheck`
 (`next typegen && tsc --noEmit` — `next typegen` generates `PageProps`/`RouteContext`; don't drop
@@ -651,6 +687,8 @@ Raise these when the relevant work comes up; don't paper over them.
   once the real set is in.
 - **Grid growth cap** `max-w-[calc(var(--r)*var(--k)*1.5)]` in `GalleryGrid` applies to every row;
   `1.5` is the one number to turn. `K` and the cap are grid properties, never per-photo.
+- **The Instagram strip's source.** Posts must reach the page server-side; the browser never calls
+  Instagram. Needs a token and its renewal story — ask before adding any dependency.
 - **Two presets** (`GalleryGrid`, `GalleryStack`). Whether that's the right number is open.
 - **A gallery whose tags nothing carries** renders "No photos here yet." — indistinguishable from a
   mistyped tag on the page (the Studio's `PhotoOrderInput` empty state does name it). If it bites,

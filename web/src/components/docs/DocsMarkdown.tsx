@@ -48,13 +48,13 @@ const components: Components = {
   h1: ({ children }) => <h2 className="type-display-lg text-ink">{children}</h2>,
 
   /*
-   * `scroll-mt`: the header is sticky (3.5rem, 4.5rem from md), so a TOC jump without the
-   * offset lands the heading underneath it. The offset is the bar plus 1.5rem to breathe.
+   * `scroll-mt`: nothing in the chrome is sticky any more (the masthead scrolls away), so this
+   * is only breathing room above a heading a TOC jump lands on.
    */
   h2: ({ children }) => (
     <h3
       id={slugifyHeading(textOf(children))}
-      className="type-display-md mt-16 scroll-mt-20 border-t border-hairline pt-8 text-ink md:scroll-mt-24"
+      className="type-display-md mt-16 scroll-mt-6 border-t border-hairline pt-8 text-ink"
     >
       {children}
     </h3>

@@ -9,15 +9,17 @@ import type { NavItem, NavLabels } from '@/content/site'
 export type SubNavItem = { key: string, title: string, to: string }
 
 /**
- * The menu: IMAGES, COPY, BIO. A row in the header from `md` up, a column in the drawer below it.
+ * The menu: Featured, Images, Copy, Bio. A row in the masthead from `md` up, a column in the
+ * drawer below it.
  *
  * Split from `SiteNav` because that half is an async Server Component doing the Sanity read and
  * this half needs `usePathname` and a piece of state. The dropdown's items arrive as a prop.
  *
  * The items come from `SITE.nav`, arriving as `nav` already in her order (`siteSettings.menuOrder`,
  * via `orderNav`); the words are hers, from `siteSettings.navLabels`, and arrive as `labels`. They
- * are stored sentence case and uppercased in CSS, so assistive tech reads "Copy" rather than
- * spelling it out. That is why `uppercase` is a class here and not baked into a `type-*` token.
+ * are stored sentence case and shown as stored — the masthead's menu is not uppercased. The
+ * active page carries a 2px accent underline (a transparent border on the rest, so nothing
+ * shifts when it moves).
  *
  * ## Active state
  *
@@ -82,7 +84,7 @@ export function SiteNavList({
    * utilities on one element resolve by emitted-CSS order, not class-list order.
    */
   const topLevel
-    = 'type-body-sm-strong uppercase tracking-[0.16em] text-muted transition-colors hover:text-ink aria-[current=page]:text-ink'
+    = 'type-nav border-b-2 border-transparent pb-[3px] text-ink transition-colors hover:text-accent aria-[current=page]:border-accent'
 
   return (
     <nav aria-label="Main">
@@ -120,7 +122,7 @@ export function SiteNavList({
                 <button
                   ref={groupButton}
                   type="button"
-                  className={`${topLevel} inline-flex items-center gap-2 ${subNav.some(sub => isActive(sub.to)) ? 'text-ink' : ''}`}
+                  className={`${topLevel} inline-flex items-center gap-2 ${subNav.some(sub => isActive(sub.to)) ? 'border-accent' : ''}`}
                   aria-expanded={subNavOpen}
                   aria-controls="site-subnav"
                   onClick={() => setSubNavOpen(open => !open)}
@@ -141,10 +143,10 @@ export function SiteNavList({
                 </button>
 
                 {/*
-                  The dropdown from `md` up: just below the header bar (`mt-7` clears the
-                  bar from the button's baseline), its left edge aligned with the label, a
-                  hairline box on the canvas — DESIGN.md's only elevation cue is a
-                  hairline, so no shadow. `z-50` clears the sticky header's own `z-40` content.
+                  The dropdown from `md` up: just below the masthead's rule (`mt-7` clears it
+                  from the button's baseline — retune if the masthead's bottom padding moves),
+                  its left edge aligned with the label, a hairline box on the canvas. The only
+                  elevation cue is the rule, so no shadow.
                 */}
                 <ul
                   id="site-subnav"
@@ -156,7 +158,7 @@ export function SiteNavList({
                       <Link
                         href={sub.to}
                         aria-current={isActive(sub.to) ? 'page' : 'false'}
-                        className="type-body-sm inline-block uppercase tracking-[0.12em] text-muted transition-colors hover:text-ink aria-[current=page]:text-ink"
+                        className="type-nav inline-block text-ink transition-colors hover:text-accent aria-[current=page]:text-accent"
                         onClick={() => setSubNavOpen(false)}
                       >
                         {sub.title}

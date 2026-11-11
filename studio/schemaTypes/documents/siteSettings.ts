@@ -49,7 +49,7 @@ export default defineType({
       type: 'string',
       group: 'site',
       description:
-        'Your name at the top of the sidebar. Also used in the browser tab and when a link ' +
+        'Your name at the top of every page. Also used in the browser tab and when a link ' +
         'to the site is shared.',
       initialValue: 'Joan Lebow',
       validation: (rule) => rule.required(),
@@ -61,10 +61,10 @@ export default defineType({
       type: 'string',
       group: 'site',
       description:
-        'The line under your name in the sidebar, on every page. Type it normally — the site ' +
-        'puts it in capitals for you.',
-      // Sentence case on purpose: the sidebar uppercases it in CSS, and text stored in capitals
-      // cannot be un-shouted by a stylesheet if the design ever changes.
+        'The line under your name at the top of every page, shown in italics exactly as you ' +
+        'type it.',
+      // Sentence case on purpose: text stored in capitals cannot be un-shouted by a stylesheet
+      // if the design ever changes.
       initialValue: 'Staking things out, making a few claims',
       validation: (rule) => rule.required(),
     }),

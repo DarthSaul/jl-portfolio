@@ -33,6 +33,12 @@ three photographs other than the card's own, for the card's hover animation — 
 `shots.ts`. Fetched here, in the same request, rather than per card from the browser: the page
 is prerendered, so the previews cost one query at revalidation and nothing per visit.
  *
+ * `heroLayout` and `showCarouselMenu` are coalesced to the schema's `initialValue`s, so a
+ * homePage saved before those fields existed renders exactly as it did — the grid — and
+ * typegen sees non-null values. `featuredPhotos` is no longer `required()` (only the grid needs
+ * it), so it is coalesced to an empty array for the same reason. `showPeek == true` makes a
+ * missing switch read as off, the asked-for default, without a backfill.
+ *
  * ## The whole introduction has left this page
  *
  * `introHeading` and `intro` are `aboutPage`'s fields now and are rendered there. `introPhoto`
@@ -44,11 +50,18 @@ is prerendered, so the previews cost one query at revalidation and nothing per v
 export const HOME_QUERY = defineQuery(`
   *[_type == "homePage"][0]{
     title,
+    "heroLayout": coalesce(heroLayout, "grid"),
+    "showCarouselMenu": coalesce(showCarouselMenu, true),
+    "carouselPhotos": select(
+      heroLayout == "carousel" => coalesce(carouselPhotos[]->{ ${PHOTO_PROJECTION} }, []),
+      []
+    ),
     featuredWriting[]->{ ${WRITING_ITEM_PROJECTION} },
-    featuredPhotos[]{
+    "featuredPhotos": coalesce(featuredPhotos[]{
       _key,
+      "showPeek": showPeek == true,
       photo->{ ${PHOTO_PROJECTION} },
       "gallery": gallery->{ title, "slug": slug.current, ${GALLERY_PREVIEW_PROJECTION} }
-    }
+    }, [])
   }
 `)

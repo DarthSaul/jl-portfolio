@@ -158,8 +158,16 @@ A pointer to a piece published by someone else (the Times, HuffPost). Headline, 
 
 The front page, edited top-to-bottom in the order it reads:
 
-- **Featured photos** — at the top of the page, as equal squares: three to a row on a desktop, two on a phone, so **six photos make two even rows** and that's the number to aim for. Each photo is trimmed to a square from its centre, so pick ones whose subject sits near the middle. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked. On a computer, pointing at a linked photo opens it into a peek at that gallery: the photo itself in the top-left corner, then the gallery's first three other photos. The order you give a gallery decides its peek.
+- **Top of the page** — pick **Grid** or **Carousel**. Only one can be on at a time; switching never loses anything, so you can flip back and forth to compare.
+  - **Grid** shows your _Featured photos_ as equal squares: three to a row on a desktop, two on a phone, so **six photos make two even rows** and that's the number to aim for. Each photo is trimmed to a square from its centre, so pick ones whose subject sits near the middle. Drag to reorder. Open each slot to optionally make the photo _link to a gallery_ when clicked.
+    - **Peek at the gallery on hover** appears once a slot links to a gallery, and is off until you tick it. When it's on, pointing at that photo on a computer opens it into four squares: the photo itself in the top-left corner, then the gallery's first three other photos. The order you give a gallery decides its peek.
+  - **Carousel** shows one large picture at a time, fading to the next every five seconds. Choose them in **Carousel photos**, which appears when Carousel is picked — add as many as you like and drag to reorder. Every picture is shown whole and never cut off: wide ones fill the frame, and tall or square ones sit in the middle of it with plain space either side. While Carousel is chosen, the _Featured photos_ list is hidden (and kept, for when you switch back).
+    - **Show the slide menu under the carousel** — the thin numbered markers under it that let visitors jump between pictures. Untick it to show the pictures alone; they still change every five seconds.
 - **Featured writing** — exactly three pieces, posts and links mixed however you like, in the order they appear.
+
+Under the writing, the front page always ends with a strip linking to your Instagram. It shows blank squares for now, until it's connected to your account.
+
+> The screenshot below predates the Grid/Carousel choice.
 
 ![Screenshot: the Home page document with the featured photo slots](/docs/home-featured.png)
 
@@ -191,7 +199,7 @@ Two tabs across the top: **Site** and **Menu**.
 **Site**
 
 - **Site name** — your name, at the top left of every page.
-- **Byline** — the line under the photos on the front page. Type it normally; the site puts it in capitals.
+- **Byline** — the line under your name at the top of every page, shown in italics exactly as you type it.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
 - **Show the illustrated portrait in the sidebar** — no longer does anything: the site has a top menu now, with no sidebar. It will be removed.
 - **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one. Recommended, not required.

@@ -489,6 +489,7 @@ typegen writes `web/sanity.types.ts`. Most files carry their own rationale in co
 
 ```text
 CLAUDE.md, DESIGN.md, .env.example (root, for scripts only), .worktreeinclude
+package.json, dev.mjs        root `npm run dev` only; no dependencies
 web/                         Next app; Vercel's root directory
   next.config.ts             redirects() only
   vercel.json                {"framework": "nextjs"} — see Deploying
@@ -520,7 +521,10 @@ studio/
 
 ## Commands
 
-No root `package.json`. Check your directory before running anything.
+**Root:** `npm run dev` (`dev.mjs`) runs `npm ci` in a package whose `node_modules` is missing or
+older than its lockfile, then starts both dev servers with prefixed output; Ctrl-C stops both.
+The root `package.json` has that one script and **no dependencies** — not a workspace. Every
+other command runs from its package, so check your directory before running anything.
 
 **`web/`:** `npm run dev` (:3000), `npm run build`, `npm run start`, `npm run typecheck`
 (`next typegen && tsc --noEmit` — `next typegen` generates `PageProps`/`RouteContext`; don't drop

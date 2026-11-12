@@ -1,0 +1,11 @@
+{
+  "name": "jl-portfolio",
+  "private": true,
+  "description": "Convenience entry point only. web/ and studio/ are separate packages; this has no dependencies.",
+  "scripts": {
+    "dev": "node dev.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

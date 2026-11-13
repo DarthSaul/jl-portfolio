@@ -49,7 +49,8 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
  * It keeps rotating under the pointer — a mouse-over pause was removed as fussy (2026-11). It holds
  * still only while keyboard focus is inside it: inactive slides are `inert`, so advancing past a
  * focused slide link would drop focus to the top of the page. It never starts under
- * `prefers-reduced-motion` — the first slide stays, and the menu still works.
+ * `prefers-reduced-motion` — the first slide stays, and the menu is shown even if she switched it
+ * off, since it is then the only way to the other photographs.
  *
  * ## Loading
  *
@@ -173,7 +174,11 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
         })}
       </div>
 
-      {showMenu && count > 1 && (
+      {/*
+        Her switch decides the markers for everyone else; under reduced motion they show anyway,
+        because with no autoplay they are the only way past the first photograph.
+      */}
+      {(showMenu || reducedMotion) && count > 1 && (
         /*
           The markers: thin bars with a small number above each, under the frame. The active bar
           fills with the accent over the four seconds — a progress line, keyed on the index so it

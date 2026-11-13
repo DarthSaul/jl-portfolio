@@ -276,7 +276,7 @@ validates).
   whole and centred inside a fixed 20:9 frame at every width (a bound — paper shows beside a
   portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 4s, no pause on hover (paused only while keyboard focus is inside), no
   autoplay under reduced motion. Slides mount when active or next, so two hero files load up
-  front. `homePage.showCarouselMenu` toggles the numbered markers beneath. `HOME_QUERY`
+  front. `homePage.showCarouselMenu` toggles the numbered markers beneath (always shown under reduced motion, where they are the only way past slide one). `HOME_QUERY`
   dereferences `carouselPhotos` only when `heroLayout == "carousel"`; a list with no photos falls back
   to the grid. A linked slide's hover is the grid's unpeeked card exactly — the gallery-title band,
   `home/GalleryTitleBand.tsx`, shared by both so they can't drift; the link wraps the fitted

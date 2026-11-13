@@ -72,8 +72,8 @@ export function SiteHeader({ nav, title, titleSize, byline }: {
    * pressed deep in the nav would drop focus to the top of a page that just became interactive.
    *
    * No focus *trap* is needed: everything outside the header is `inert` while the drawer is open
-   * (see `MainColumn`), so the only tabbable things left are the wordmark, the toggle and the
-   * drawer's own links.
+   * (see `MainColumn`), and so is the wordmark the sheet covers, so the only tabbable things left
+   * are the toggle and the drawer's own links.
    */
   useEffect(() => {
     if (!isOpen) return
@@ -139,7 +139,11 @@ export function SiteHeader({ nav, title, titleSize, byline }: {
     <header className="print:hidden">
       <div className="main-column mx-auto max-w-shell">
         <div className="flex items-start justify-between gap-x-8 gap-y-5 border-b border-hairline pt-6 pb-4 md:flex-wrap md:items-baseline-last md:pt-9 md:pb-[22px]">
-          <div className="flex min-w-0 flex-col gap-1.5">
+          {/*
+            `inert` while the drawer is open: the full-screen sheet covers the wordmark on a
+            phone, and a hidden link should not take focus. The drawer only opens below `md`.
+          */}
+          <div className="flex min-w-0 flex-col gap-1.5" inert={isOpen}>
             {/* `data-size` is her `siteSettings.titleSize`; `type-wordmark` maps it to a size. */}
             <h1 className="type-wordmark" data-size={titleSize}>
               <Link href="/" className="text-ink transition-colors hover:text-accent">

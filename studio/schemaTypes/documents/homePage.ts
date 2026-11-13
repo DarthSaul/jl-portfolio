@@ -93,8 +93,13 @@ export default defineType({
           repeatsAPhoto(slots) ? 'The same photo is in the carousel more than once.' : true,
         ),
         // Conditional for the same reason as `featuredPhotos`: a hidden field still validates.
-        rule.custom((photos, context) =>
-          !isCarousel(context.document) || (Array.isArray(photos) && photos.length > 0)
+        // Counts slots with a photo picked, not slots: an added-but-empty slot would otherwise
+        // satisfy this, and the site would fall back to the grid. Each empty slot is also flagged
+        // on its own by `carouselPhoto.photo`'s `required()`.
+        rule.custom((slots, context) =>
+          !isCarousel(context.document) ||
+          (Array.isArray(slots) &&
+            slots.some((slot) => (slot as {photo?: {_ref?: string}})?.photo?._ref))
             ? true
             : 'The carousel needs at least one photo.',
         ),

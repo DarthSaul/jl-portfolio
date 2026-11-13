@@ -25,7 +25,7 @@ import { ProseLink } from './ProseLink'
  * ## `className` is an explicit prop
  *
  * Vue passed it down by attribute fallthrough onto the `<div>`. React has no fallthrough, so
- * callers that style this — `about/Intro` hands it `type-body-serif-lg` — name the prop. The
+ * callers that style this — `about/Intro` hands it `type-body-lg` — name the prop. The
  * `<div>` itself is not negotiable either way: `<PortableText>` renders no wrapper of its own, so
  * without one there is nothing for the vertical rhythm to sit on.
  */

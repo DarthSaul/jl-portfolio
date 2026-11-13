@@ -101,7 +101,7 @@ export function Lead({
           thing you land on in both places.
         */}
         {item.summary && (
-          <p className="type-body-serif-lg mt-3 text-muted">{item.summary}</p>
+          <p className="type-body-lg mt-3 text-muted">{item.summary}</p>
         )}
       </div>
 

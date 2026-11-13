@@ -121,15 +121,17 @@ export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: stri
       nothing else subtracts a bar height — except `showcase-frame`, which opens scrolled to the
       top with the masthead above it and reads `--spacing-masthead(-md)` for that.
 
-      Her name and the byline stack on the left; the menu and icons sit bottom-right on the same
-      baseline (`items-end`), over a 1px ink rule — the mockup's masthead. Contents sit in the
+      Her name and the byline stack on the left; the menu and icons sit bottom-right, over a 1px
+      ink rule — the mockup's masthead. `items-baseline-last` (`align-items: last baseline`) puts
+      the menu's text on the byline's baseline, so the byline and the menu read as one row; a
+      bottom edge (`items-end`) would not, as the menu's underline padding lifts its text. Contents sit in the
       same `max-w-shell` + `main-column` box as `<main>`, so the rule and the page share edges.
 
       `print:hidden` takes the chrome out of every printed page — added for the Field Guide.
     */
     <header className="print:hidden">
       <div className="main-column mx-auto max-w-shell">
-        <div className="flex items-start justify-between gap-x-8 gap-y-5 border-b border-hairline pt-6 pb-4 md:flex-wrap md:items-end md:pt-9 md:pb-[22px]">
+        <div className="flex items-start justify-between gap-x-8 gap-y-5 border-b border-hairline pt-6 pb-4 md:flex-wrap md:items-baseline-last md:pt-9 md:pb-[22px]">
           <div className="flex min-w-0 flex-col gap-1.5">
             <h1 className="type-wordmark">
               <Link href="/" className="text-ink transition-colors hover:text-accent">
@@ -186,11 +188,13 @@ export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: stri
           {/*
             The panel. Below `md` a full-screen sheet (`inset-0`) under the toggle; its top
             padding clears the masthead. From `md` up `md:static` returns it to the masthead as a
-            row, lifted 6px off the rule like the mockup's nav.
+            row, its text on the byline's baseline. The panel aligns on its last baseline so the
+            menu's text carries it outward; the icons opt out (`self-center`) — glyphs have no
+            baseline, and their box bottom would otherwise stand in for one.
           */}
           <div
             id="site-nav-panel"
-            className={`fixed inset-0 z-40 flex-col gap-10 overflow-y-auto overscroll-contain bg-canvas px-5 pt-36 pb-10 md:static md:z-auto md:flex-row md:items-center md:gap-8 md:overflow-visible md:p-0 md:pb-1.5 ${
+            className={`fixed inset-0 z-40 flex-col gap-10 overflow-y-auto overscroll-contain bg-canvas px-5 pt-36 pb-10 md:static md:z-auto md:flex-row md:items-baseline-last md:gap-8 md:overflow-visible md:p-0 ${
               isOpen ? 'flex' : 'hidden md:flex'
             }`}
           >
@@ -202,7 +206,7 @@ export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: stri
               kept for the focus ring's shape — one of the two `rounded-full` exceptions (the other
               is the Instagram strip's Follow pill).
             */}
-            <ul className="flex items-center gap-5">
+            <ul className="flex items-center gap-5 md:self-center">
               {SITE.social.map(link => (
                 <li key={link.href}>
                   {/*

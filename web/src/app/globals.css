@@ -12,8 +12,11 @@
  * The spec is the "Homepage" mockup Joan approved (2026-11): an editorial, newspaper-like page
  * in two faces —
  *
- *   Newsreader  ->  the wordmark, headlines, the byline, long-form body
- *   Inter       ->  nav, metadata, captions, buttons
+ *   Newsreader  ->  the wordmark, headlines, the byline
+ *   Inter       ->  reading text, nav, metadata, captions, buttons
+ *
+ * Reading text was Newsreader too, until 2026-11: paragraphs on /bio, posts and the rest moved
+ * to Inter, the site's base face, leaving the serif to her name, the byline and headlines.
  *
  * It replaced a Wired-derived spec set in Playfair Display, Lora and Inter. Per CLAUDE.md the
  * spec is swappable and the layout is not: this re-skinned tokens and call sites, and the two
@@ -25,7 +28,7 @@
  * wordmark and headlines 600); italic is pinned to 400 — the byline is the only italic the
  * design sets, and nothing asks for a bold italic. The files also carry Newsreader's optical
  * size axis (`opsz` 6..72), which browsers apply automatically from the font size
- * (`font-optical-sizing: auto` is the default): the 96px wordmark gets the tight display cut and
+ * (`font-optical-sizing: auto` is the default): the 64px wordmark gets the tight display cut and
  * 16px body the sturdier text cut, from the same file.
  *
  * Inter is a 400..700 variable range, upright only.
@@ -143,17 +146,18 @@
   --color-muted: #55524c; /* the byline, the footer, inactive nav */
   --color-subtle: #6b6760; /* captions, placeholder labels — the quietest text on the page */
   --color-hairline: #161616; /* the mockup rules everything in ink, at 1px */
-  --color-link: #b3261e; /* inline body links — the accent, so "you can click this" is one colour */
+  --color-link: #9b1b30; /* inline body links — the accent, so "you can click this" is one colour */
 
   /*
    * The accent: a deep red. It marks what you can act on — link hover, the active menu item's
    * underline, the source/date line on a writing card, READ MORE on /copy. Reach for `ink`
    * first; the accent is for the small recurring thing, not a second brand colour.
    *
-   * 6.4:1 against `canvas` — past AA for small text, which matters because the eyebrow lines
-   * that use it render at 12px.
+   * A burgundy-red, one step darker than the mockup's #b3261e (2026-11). About 7.7:1 against
+   * `canvas` — well past AA for small text, which matters because the eyebrow lines that use it
+   * render at 12px.
    */
-  --color-accent: #b3261e;
+  --color-accent: #9b1b30;
 
   --color-canvas: #fafaf7; /* the paper */
   --color-canvas-soft: #e7e2d8; /* LQIP backdrop, placeholders behind a photo that is loading */
@@ -195,7 +199,7 @@
    * the masthead's type or padding and re-measure these.
    */
   --spacing-masthead: 8rem; /* below md: 48px wordmark, byline, 24/16px padding */
-  --spacing-masthead-md: 11.5rem; /* md up: up to 96px wordmark, byline, 36/22px padding */
+  --spacing-masthead-md: 9.5rem; /* md up: up to 64px wordmark, byline, 36/22px padding */
 
   --container-shell: 82.5rem; /* 1320px — the mockup's container, centred */
   --container-read: 46.875rem; /* 750px — the prose measure */
@@ -237,10 +241,10 @@
 
 /* — Masthead. — */
 
-/* Her name, top left of every page. The mockup's `clamp(48px, 7vw, 96px)`. */
+/* Her name, top left of every page. The mockup's `clamp(48px, 7vw, 96px)`, capped at 64px (2026-11). */
 @utility type-wordmark {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 7vw, 6rem);
+  font-size: clamp(3rem, 7vw, 4rem);
   line-height: 0.95;
   letter-spacing: -0.03em;
   font-weight: 600;
@@ -270,14 +274,15 @@
 
 /* — Display. Newsreader 600. — */
 
+/* The /bio introduction's heading. Was 64px on desktop; 32px since 2026-11. */
 @utility type-display-hero {
   font-family: var(--font-display);
-  font-size: 2.5rem;
-  line-height: 1;
+  font-size: 1.75rem;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   font-weight: 600;
   @variant md {
-    font-size: 4rem;
+    font-size: 2rem;
   }
 }
 
@@ -326,21 +331,26 @@
   font-weight: 600;
 }
 
-/* — Body. Newsreader for narrative, Inter for structure. — */
+/*
+ * — Body. All Inter. —
+ *
+ * `body-lg` and `body-lead` are the reading sizes: prose on /bio, a post, /docs, and the lead
+ * paragraph under a page title. They were Newsreader (`type-body-serif-*`) until 2026-11.
+ */
 
-@utility type-body-serif-lg {
-  font-family: var(--font-serif);
+@utility type-body-lg {
+  font-family: var(--font-sans);
   font-size: 1.1875rem; /* 19px */
-  line-height: 1.5;
-  letter-spacing: 0em;
+  line-height: 1.55;
+  letter-spacing: -0.006em;
   font-weight: 400;
 }
 
-@utility type-body-serif-md {
-  font-family: var(--font-serif);
-  font-size: 1.0625rem;
+@utility type-body-lead {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem; /* 17px */
   line-height: 1.5;
-  letter-spacing: 0em;
+  letter-spacing: -0.004em;
   font-weight: 400;
 }
 

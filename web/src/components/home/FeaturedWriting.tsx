@@ -50,10 +50,11 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
     <section aria-labelledby="featured-writing-heading">
       {/*
         The mockup's band heading: the serif headline on the left, a way into /copy on the right,
-        both sitting on a 1px ink rule. "Featured writing" is hardcoded, sentence case.
+        both sitting on a 1px ink rule. "Featured writing" is hardcoded, sentence case, at the
+        Instagram handle's size (`type-display-md`, 32px on desktop) — smaller than a page title.
       */}
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-3.5">
-        <h2 id="featured-writing-heading" className="type-display-lg text-ink">
+        <h2 id="featured-writing-heading" className="type-display-md text-ink">
           Featured writing
         </h2>
         <Link href="/copy" className="type-body-sm-strong text-ink transition-colors hover:text-accent">
@@ -61,9 +62,16 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
         </Link>
       </div>
 
-      <ul className="mt-7 grid gap-10 md:grid-cols-3 md:grid-rows-[auto_auto] md:gap-x-8 md:gap-y-0">
+      {/*
+        85% scale from `md` up (2026-11). Each column is 85% of an even third, spread to the
+        column's edges (`justify-between`), so the thumbnails shrink while the row still spans
+        the rule above it; `zoom` on each card scales its type and spacing by the same 85%,
+        token sizes and all, rather than a second set of `type-*` tokens for one section. Phones
+        keep full size — one card per row, already narrow.
+      */}
+      <ul className="mt-7 grid gap-10 md:grid-cols-[repeat(3,calc((100%-4rem)/3*0.85))] md:grid-rows-[auto_auto] md:justify-between md:gap-x-8 md:gap-y-0">
         {items.map(item => (
-          <li key={item._id} className="md:row-span-2 md:grid md:grid-rows-subgrid">
+          <li key={item._id} className="md:row-span-2 md:grid md:grid-rows-subgrid md:[zoom:0.85]">
             {/*
               The photo, the headline and "Read more" are three hit areas for one destination. Only
               the headline carries an accessible name: the photo link is hidden from assistive tech
@@ -76,13 +84,13 @@ export function FeaturedWriting({ items }: { items: Home['featuredWriting'] }) {
             <WritingLink item={item} tabIndex={-1} aria-hidden className="block md:self-start">
               {/*
                 A third of the main column, not of the viewport — the shell caps at 1320px less its
-                gutters, so a card never exceeds ~400px.
+                gutters, and the card is 85% of that, so a card never exceeds ~340px.
               */}
               {item.coverPhoto
                 ? (
                     <SanityPhoto
                       photo={item.coverPhoto}
-                      sizes="(min-width: 1320px) 400px, (min-width: 768px) 33vw, 100vw"
+                      sizes="(min-width: 1320px) 340px, (min-width: 768px) 28vw, 100vw"
                     />
                   )
                 : null}

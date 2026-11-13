@@ -323,7 +323,7 @@ export function AllShotsView({
                   )
                 : (
                     <div className="max-w-read space-y-4">
-                      <p className="type-body-serif-lg text-muted">No photos here.</p>
+                      <p className="type-body-lg text-muted">No photos here.</p>
 
                       {/*
                         Only when a filter is what emptied the page. With nothing selected there is

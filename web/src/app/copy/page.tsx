@@ -71,20 +71,23 @@ export default async function CopyPage() {
       sidebar.) /copy/[slug] and /bio fill the column too.
     */
     <div>
-      <h2 className="type-display-lg text-ink">Copy</h2>
+      {/*
+        No visible title (removed 2026-11): the menu already says where you are. The heading stays
+        for screen readers, so the page still has an outline under the masthead's h1.
+      */}
+      <h2 className="sr-only">Copy</h2>
 
       {/*
-        Subordinate to the lead's summary on purpose — `body-serif-md` against its
-        `body-serif-lg`. The design has no intro line here, but the field is hers and editable, and
+        Subordinate to the lead's summary on purpose — `body-lead` against its `body-lg`. The design has no intro line here, but the field is hers and editable, and
         quietly dropping what she wrote into it is the wrong trade in a project where the editor
         wins.
       */}
       {writing?.page?.intro && (
-        <p className="type-body-serif-md mt-3 text-muted">{writing.page.intro}</p>
+        <p className="type-body-lead text-muted">{writing.page.intro}</p>
       )}
 
       {lead && (
-        <div className="mt-8">
+        <div className={writing?.page?.intro ? 'mt-8' : undefined}>
           <Lead item={lead} label={leadLabel} />
         </div>
       )}

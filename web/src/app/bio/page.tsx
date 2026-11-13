@@ -56,10 +56,9 @@ export default async function BioPage() {
       <Intro
         heading={about.introHeading}
         intro={about.intro}
-        className="border-b border-hairline pb-4"
       />
 
-      <ProseBody value={about.body} className="type-body-serif-lg" />
+      <ProseBody value={about.body} className="type-body-lg" />
     </div>
   )
 }

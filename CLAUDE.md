@@ -328,7 +328,8 @@ fields and inserts new `menuOrder` items beside their default neighbours).
   **`hidden={!open}`, never conditional rendering**, so `aria-controls` always resolves.
 - **Chrome is a masthead (not sticky) + footer.** `SiteHeader.tsx` (client): wordmark `<h1>` with
   `siteSettings.byline` beneath it (passed from the layout) on the left; menu then three icon links
-  (Instagram, Substack, email — `SITE.social`) bottom-right, over a 1px ink rule. Menu labels are
+  (Instagram, Substack, email — `SITE.social`) bottom-right, the menu's text on the byline's
+  baseline (`items-baseline-last`; the icons opt out with `self-center`), over a 1px ink rule. Menu labels are
   sentence case, not uppercased; the active item has a 2px accent underline.
   Below `md` the menu and icons are a full-screen drawer (`fixed inset-0`, the toggle raised
   above it with `z-50` so it also closes it) — one panel element at every width, never
@@ -424,8 +425,9 @@ show.
 
 ### Design system
 
-`DESIGN.md` is the spec (the approved "Homepage" mockup: Newsreader + Inter, ink rules, off-white
-`#fafaf7` paper, one red accent `#b3261e`; it replaced a Wired-derived spec);
+`DESIGN.md` is the spec (the approved "Homepage" mockup: Newsreader for her name, the byline and headlines, Inter for
+reading text and everything else; ink rules, off-white
+`#fafaf7` paper, one burgundy-red accent `#9b1b30`; it replaced a Wired-derived spec);
 `web/src/app/globals.css` is the implementation and the only place tokens are decided. **The spec
 is swappable; the layout is not** — a new spec re-skins `globals.css` and `type-*` call sites, and
 does not reopen the shell or the two rules.

@@ -32,32 +32,28 @@ type AboutPage = NonNullable<ABOUT_QUERY_RESULT>
  * own" — so both the element and the spacing below it are conditional. `intro` is optional too,
  * and this renders nothing at all when both are.
  *
- * `className` is an explicit prop: React has no attribute fallthrough, so the page's
- * `border-b border-hairline pb-4` has to be named rather than inherited.
+ * No rule under it since 2026-11; the page's own spacing separates it from the body.
  */
 export function Intro({
   heading,
   intro,
-  className,
 }: {
   heading: AboutPage['introHeading']
   intro: AboutPage['intro']
-  className?: string
 }) {
   if (!heading && !intro) return null
 
   return (
-    <section className={className}>
+    <section>
       {heading && <h2 className="type-display-hero text-ink">{heading}</h2>}
 
       {/*
-        `body-serif-lg` is DESIGN.md's lead-paragraph token — Newsreader at 19px. Serif for narrative,
-        sans for structure: this is narrative.
+        `body-lg` is DESIGN.md's reading token — Inter at 19px, like the body below it.
       */}
       {intro && (
         <ProseText
           value={intro}
-          className={['type-body-serif-lg', heading && 'mt-6'].filter(Boolean).join(' ')}
+          className={['type-body-lg', heading && 'mt-4'].filter(Boolean).join(' ')}
         />
       )}
     </section>

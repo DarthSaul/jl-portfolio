@@ -263,7 +263,7 @@ export function PhotoShowcase({
               waiting state is a gap rather than a blank screen.
             */
             <div className="max-w-read space-y-4">
-              <p className="type-body-serif-lg text-muted">
+              <p className="type-body-lg text-muted">
                 That photo is not here — it may have been removed.
               </p>
               <a

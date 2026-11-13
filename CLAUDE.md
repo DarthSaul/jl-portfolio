@@ -270,17 +270,26 @@ downloaded on touch screens). The cards use `crop="square"` — see Rule 2. Gall
 the front page crops. `featuredPhotos` is hidden in the Studio while the carousel is chosen and
 required only for the grid (a `rule.custom` reading `context.document` — a hidden field still
 validates).
-- **Carousel** (`home/HeroCarousel.tsx`, client): `homePage.carouselPhotos` (refs to `photo`,
-  her order; shown and required in the Studio only for the carousel), each **uncropped**: fitted
+- **Carousel** (`home/HeroCarousel.tsx`, client): `homePage.carouselPhotos` (`carouselPhoto[]`:
+  a photo ref plus an optional gallery ref — `featuredPhoto` without `showPeek`; her order; shown
+  and required in the Studio only for the carousel), each **uncropped**: fitted
   whole and centred inside a fixed 16:9 frame at every width (a bound — paper shows beside a
   portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 5s, paused on hover/focus, no
   autoplay under reduced motion. Slides mount when active or next, so two hero files load up
   front. `homePage.showCarouselMenu` toggles the numbered markers beneath. `HOME_QUERY`
-  dereferences `carouselPhotos` only when `heroLayout == "carousel"`; an empty list falls back to
-  the grid.
+  dereferences `carouselPhotos` only when `heroLayout == "carousel"`; a list with no photos falls back
+  to the grid. A linked slide's hover is the grid's unpeeked card exactly — the gallery-title band,
+  `home/GalleryTitleBand.tsx`, shared by both so they can't drift; the link wraps the fitted
+  photo, not the frame. No peek, so no gallery preview is fetched.
 - **Featured writing**: exactly 3; "Featured writing" and "All copy →" are hardcoded.
-- **Instagram** (`home/InstagramFeed.tsx`, server) — **placeholders**: six blank tiles linking to
-  the profile; handle and URL derived from `SITE.social`. Not a Studio field.
+- **Instagram** (`home/InstagramFeed.tsx`, async server): her six latest posts from
+  `getInstagramPosts()` (`src/instagram/feed.ts`, server-only) — the Instagram Graph API via
+  **Facebook Login** (`graph.facebook.com/v26.0/<IG user id>/media`, an `EAA…` token; the
+  Instagram-Login host `graph.instagram.com` rejects that token). Cached 1h (image URLs are signed
+  and expire, so they are re-read, never stored). Tiles link to each post; alt is the caption's
+  first line (this route hasn't returned `alt_text`). **Any failure — no token, expired token,
+  Instagram down — falls back to six blank tiles linking to the profile and logs `instagram: …`.**
+  Handle and URL derived from `SITE.social`. Not a Studio field.
 
 `featuredPhoto.showPeek` is the one per-slot switch, and the Rule 2 line it draws is in
 `featuredPhoto.ts`: a *behaviour* toggle that never changes a card's shape is allowed; a size,
@@ -345,7 +354,7 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 | `tag` | title, slug, excludeFromIndex | Hers to add, rename, remove. |
 | `post` | title, slug, summary, coverPhoto → ref, publishedAt, body | Writing that lives here. |
 | `article` | title, publication, url, publishedAt, summary, coverPhoto → ref | A link out. No body, by design. |
-| `homePage` | title, heroLayout, showCarouselMenu, featuredPhotos → `featuredPhoto[]`, featuredWriting → refs | Singleton. |
+| `homePage` | title, heroLayout, carouselPhotos → `carouselPhoto[]`, showCarouselMenu, featuredPhotos → `featuredPhoto[]`, featuredWriting → refs | Singleton. |
 | `writingPage` | title, intro, featured → ref | Singleton. Posts/articles are queried, not listed. |
 | `aboutPage` | title, introHeading, intro (`proseText`), body | Singleton, "About" in the Studio. |
 | `contactPage` | title, intro | Singleton. Links live on `siteSettings`. |
@@ -353,6 +362,7 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 | `link` | label, url | Object, for `siteSettings.links`. |
 | `postPhoto` | photo → ref, layout | Object in a body. Never add a field. |
 | `featuredPhoto` | photo → ref, gallery → ref, showPeek | Object, one front-page grid slot. |
+| `carouselPhoto` | photo → ref, gallery → ref | Object, one carousel slide. No peek. |
 | `proseText` | one restricted block | Used by `aboutPage.intro`. |
 
 **Tags.** Strong references to `tag` documents: renaming is free, deleting an in-use tag is
@@ -482,9 +492,10 @@ failure; the null check stays at the call site:
 | `?photo=` id | a message in place |
 
 Both errors are HTTP 500 (App Router can't set other statuses); production redacts messages —
-the real error is in the Vercel function log, matched by `digest`. **Exactly two call sites
-swallow errors: `SiteNav` and `getSiteSettings()`** (chrome on every page). A third needs the
-argument made out loud.
+the real error is in the Vercel function log, matched by `digest`. **Exactly three call sites
+swallow errors: `SiteNav` and `getSiteSettings()`** (chrome on every page) **and
+`getInstagramPosts()`** (a third party's outage or a lapsed token must never 500 the front page;
+the placeholder tiles are an honest page). A fourth needs the argument made out loud.
 
 ### Server and client
 
@@ -503,9 +514,11 @@ aspect-ratio reservation, alt from the document. It takes a whole photo projecti
 `crop` name), never an `alt`, ratio, size or offset. Candidate widths never exceed the source.
 Not `next/image` (double transform, billed, hides the decisions).
 
-`grep -rl "<img" web/src` finds exactly two files: `SanityPhoto.tsx` and `docs/DocImage.tsx`
-(Field Guide screenshots — static files, no photo document). A third is a bug until argued
-otherwise. (`web/public/joan-animated.png`, the old sidebar portrait, is no longer rendered; it
+`grep -rl "<img" web/src` finds exactly three files: `SanityPhoto.tsx`, `docs/DocImage.tsx`
+(Field Guide screenshots — static files, no photo document) and `home/InstagramFeed.tsx`
+(Instagram's CDN images — no Sanity asset; the square is CSS `object-cover` because that CDN
+takes no crop parameter, an argued exception to "crops belong in the URL"). A fourth is a bug
+until argued otherwise. (`web/public/joan-animated.png`, the old sidebar portrait, is no longer rendered; it
 stays as the known `public/` file the deploy diagnostic below fetches.)
 
 ### The schema wins; the app never writes
@@ -534,6 +547,7 @@ web/                         Next app; Vercel's root directory
                              api/photos/ (+ [id]/) — the only browser-called endpoints
   src/sanity/                client.ts (server-only, no defaults), fetch.ts, errors.ts,
                              siteSettings.ts, queries/
+  src/instagram/feed.ts      server-only Instagram read for the front-page strip
   src/components/            SanityPhoto, SiteHeader, SiteFooter, SiteNav(+List), MainColumn,
                              NavDrawerContext (state only, no effects), Prose*, BodyPhoto,
                              about/, home/, writing/, shots/, presets/, docs/
@@ -546,7 +560,8 @@ studio/
   components/                PhotoOrderInput, GalleryOrderInput, orderInputParts
   migrations/                create-tag-documents → tags-to-references; gallery-tag-to-tags;
                              unset-gallery-nav-order (after seed-site-settings);
-                             unset-home-parked-fields; set-home-hero-layout
+                             unset-home-parked-fields; set-home-hero-layout;
+                             wrap-carousel-photos (bare refs → carouselPhoto)
   scripts/                   seed-site-settings.ts (sanity exec --with-user-token)
   .promote/, schema.json     GENERATED, gitignored
 ```
@@ -604,6 +619,7 @@ at module scope and fails the build.
 | `SANITY_DATASET` | `development` locally, `production` on Vercel | red build |
 | `SANITY_API_VERSION` | pinned date | red build |
 | `SANITY_STUDIO_URL` | `https://joanatstake.sanity.studio` | **green build**, `/admin` 503 — only opening `/admin` catches it |
+| `INSTAGRAM_ACCESS_TOKEN` | Facebook user token (`EAA…`) with `instagram_basic` | **green build**, placeholder Instagram tiles; the function log says `instagram: …` |
 
 `web/.env` proves nothing about production — every value must also be set in Vercel. Non-prefixed
 vars are live server reads (no rebuild needed, prerendered routes update on revalidation). A local
@@ -687,8 +703,11 @@ Raise these when the relevant work comes up; don't paper over them.
   once the real set is in.
 - **Grid growth cap** `max-w-[calc(var(--r)*var(--k)*1.5)]` in `GalleryGrid` applies to every row;
   `1.5` is the one number to turn. `K` and the cap are grid properties, never per-photo.
-- **The Instagram strip's source.** Posts must reach the page server-side; the browser never calls
-  Instagram. Needs a token and its renewal story — ask before adding any dependency.
+- **The Instagram token's renewal.** Connected (see the front page section), but nothing renews
+  `INSTAGRAM_ACCESS_TOKEN`: when it expires the strip silently turns into placeholders. Check its
+  expiry in Meta's Access Token Debugger; options are a calendar reminder, or a Vercel Cron
+  refresh writing to a server-only store — ask before adding any dependency. The tile images are
+  full-size (~0.5 MB each, lazy, at the foot of the page); resizing them would mean proxying.
 - **Two presets** (`GalleryGrid`, `GalleryStack`). Whether that's the right number is open.
 - **A gallery whose tags nothing carries** renders "No photos here yet." — indistinguishable from a
   mistyped tag on the page (the Studio's `PhotoOrderInput` empty state does name it). If it bites,

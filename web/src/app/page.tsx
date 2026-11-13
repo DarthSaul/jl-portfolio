@@ -64,8 +64,8 @@ const HERO = {
   grid: home => <FeaturedPhotos photos={home.featuredPhotos} />,
   // The Studio will not publish a carousel with no photos, but a stale document saved before the
   // field existed could reach here; the grid is a working page rather than an empty band.
-  carousel: home => home.carouselPhotos.length > 0
-    ? <HeroCarousel photos={home.carouselPhotos} showMenu={home.showCarouselMenu} />
+  carousel: home => home.carouselPhotos.some(slide => slide.photo)
+    ? <HeroCarousel slides={home.carouselPhotos} showMenu={home.showCarouselMenu} />
     : <FeaturedPhotos photos={home.featuredPhotos} />,
 } satisfies Record<Home['heroLayout'], (home: Home) => ReactNode>
 

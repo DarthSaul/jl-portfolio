@@ -17,6 +17,18 @@ export const HERO_LAYOUTS = [
   {title: 'Carousel — one large picture at a time', value: 'carousel'},
 ]
 
+/**
+ * True when a list of photo slots (`featuredPhoto` / `carouselPhoto`) names the same photograph
+ * twice. `unique()` cannot answer it: it compares whole members, so one photograph linked to two
+ * different galleries reads as two different members.
+ */
+const repeatsAPhoto = (slots: unknown) => {
+  const refs = (Array.isArray(slots) ? slots : [])
+    .map((slot) => (slot as {photo?: {_ref?: string}})?.photo?._ref)
+    .filter(Boolean)
+  return new Set(refs).size !== refs.length
+}
+
 /** The hero is the grid unless the carousel is explicitly chosen — a missing value is grid. */
 const isCarousel = (doc: unknown) =>
   (doc as {heroLayout?: string} | undefined)?.heroLayout === 'carousel'
@@ -67,21 +79,19 @@ export default defineType({
       description:
         'The pictures the carousel shows, in order, one at a time — each for five seconds. ' +
         'Each picture is shown whole, never cut — tall ones sit in the middle of the frame with ' +
-        'space either side. Drag to reorder.',
+        'space either side. Drag to reorder. Each one can link to a gallery — open a picture to ' +
+        'set that.',
       options: {layout: 'grid'},
-      // RULE 1: references to photo documents, never images — the alt text and the asset stay
-      // on the photo. No crop: each is fitted whole inside the carousel's frame
-      // (HeroCarousel.tsx), with no framing control here.
-      of: [
-        defineArrayMember({
-          type: 'reference',
-          to: [{type: 'photo'}],
-          options: {filter: excludeAlreadyChosen},
-        }),
-      ],
+      // A `carouselPhoto` object — the photograph and an optional gallery link, the grid's slot
+      // without its peek switch (see objects/carouselPhoto.ts). These were bare references until
+      // the link arrived; the `wrap-carousel-photos` migration converted them.
+      // No crop: each is fitted whole inside the carousel's frame (HeroCarousel.tsx).
+      of: [defineArrayMember({type: 'carouselPhoto'})],
       hidden: ({parent}) => !isCarousel(parent),
       validation: (rule) => [
-        rule.unique().error('That photo is already in the carousel.'),
+        rule.custom((slots) =>
+          repeatsAPhoto(slots) ? 'The same photo is in the carousel more than once.' : true,
+        ),
         // Conditional for the same reason as `featuredPhotos`: a hidden field still validates.
         rule.custom((photos, context) =>
           !isCarousel(context.document) || (Array.isArray(photos) && photos.length > 0)
@@ -133,19 +143,10 @@ export default defineType({
             ? true
             : 'The grid needs at least one photo.',
         ),
-        // `unique()` cannot do this job any more. It compares whole members ignoring `_key`,
-        // and now that a member is an object, the same photograph pointed at two different
-        // galleries reads as two different members and passes. The rule below compares the
-        // part that actually has to be unique.
-        rule.custom((slots) => {
-          const refs = (Array.isArray(slots) ? slots : [])
-            .map((slot) => (slot as {photo?: {_ref?: string}})?.photo?._ref)
-            .filter(Boolean)
-
-          return new Set(refs).size === refs.length
-            ? true
-            : 'The same photo is featured more than once.'
-        }),
+        // Not `unique()` — see `repeatsAPhoto`.
+        rule.custom((slots) =>
+          repeatsAPhoto(slots) ? 'The same photo is featured more than once.' : true,
+        ),
       ],
     }),
 

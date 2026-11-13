@@ -11,6 +11,7 @@ import post from './documents/post'
 import siteSettings from './documents/siteSettings'
 import tag from './documents/tag'
 import writingPage from './documents/writingPage'
+import carouselPhoto from './objects/carouselPhoto'
 import featuredPhoto from './objects/featuredPhoto'
 import link from './objects/link'
 import postPhoto from './objects/postPhoto'
@@ -34,6 +35,7 @@ export const schemaTypes = [
   siteSettings,
 
   // Objects
+  carouselPhoto,
   featuredPhoto,
   link,
   postPhoto,

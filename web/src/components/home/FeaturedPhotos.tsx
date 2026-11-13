@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { SanityPhoto } from '@/components/SanityPhoto'
 import type { HOME_QUERY_RESULT } from '~~/sanity.types'
 
+import { GalleryTitleBand } from './GalleryTitleBand'
+
 type Home = NonNullable<HOME_QUERY_RESULT>
 
 /**
@@ -130,25 +132,7 @@ export function FeaturedPhotos({ photos }: { photos: Home['featuredPhotos'] }) {
                         </div>
                       )}
 
-                      {/*
-                        The band that names where this photograph goes. Ink at an opacity that
-                        keeps the photograph readable, square like everything else, and the same
-                        `body-sm-strong` caps treatment the nav gets.
-
-                        **`group-focus-visible` is not optional** — a keyboard user gets no hover.
-                        **`[@media(hover:none)]:opacity-100` is the other half**: Tailwind compiles
-                        `hover:` inside `@media (hover: hover)`, so on a touch screen the band would
-                        otherwise never appear. `aria-hidden`, because the link's `aria-label`
-                        already names the gallery.
-                      */}
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-0 bottom-0 bg-ink/70 px-3 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 md:px-4 md:py-3 [@media(hover:none)]:opacity-100"
-                      >
-                        <span className="type-body-sm-strong uppercase tracking-[0.12em] text-canvas">
-                          {gallery.title}
-                        </span>
-                      </div>
+                      <GalleryTitleBand title={gallery.title} />
                     </Link>
                   )
                 : <SanityPhoto photo={slot.photo} crop="square" sizes={sizes} priority={priority} />}

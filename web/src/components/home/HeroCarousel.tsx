@@ -1,10 +1,15 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { SanityPhoto } from '@/components/SanityPhoto'
 import { photoRatio } from '@/lib/photo'
-import type { PhotoProjection } from '@/sanity/queries/photo'
+import type { HOME_QUERY_RESULT } from '~~/sanity.types'
+
+import { GalleryTitleBand } from './GalleryTitleBand'
+
+type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
 
 /**
  * The front page's carousel: one large photograph at a time, cross-fading every five seconds,
@@ -23,6 +28,15 @@ import type { PhotoProjection } from '@/sanity/queries/photo'
  * It replaced a centred 16:9 `hero` crop (2026-11), which zoomed iPhone portraits until only the
  * middle 40% of their height survived. Nothing here — no prop, no Studio field — sets a position,
  * offset or zoom per photograph.
+ *
+ * ## Links
+ *
+ * A slide may link a gallery (`carouselPhoto.gallery`), like a grid card. Its hover is the grid's
+ * unpeeked card exactly: the gallery's title in a band over the bottom of the photograph
+ * (`GalleryTitleBand`, shared with the grid), always visible on a touch screen. No peek — the
+ * carousel never fetches gallery previews. The link is the fitted photograph, not the frame, so
+ * the paper beside a portrait is not clickable and the band spans the photograph's own width.
+ * Inactive slides are `inert`, so only the visible slide's link is reachable by keyboard.
  *
  * ## Motion
  *
@@ -69,7 +83,13 @@ const widthShare = (ratio: number) => Math.min(1, ratio / FRAME)
 const sizesFor = (share: number) =>
   `(min-width: 1320px) ${Math.ceil(1256 * share)}px, ${Math.ceil(100 * share)}vw`
 
-export function HeroCarousel({ photos, showMenu }: { photos: PhotoProjection[], showMenu: boolean }) {
+export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: boolean }) {
+  /*
+    `carouselPhoto.photo` is required, but a slide whose photo was never picked (or a
+    pre-migration shape) resolves to null — drop it rather than hand SanityPhoto nothing, as
+    `FeaturedPhotos` does.
+  */
+  const photos = slides.flatMap(({ _key, photo, gallery }) => (photo ? [{ _key, photo, gallery }] : []))
   const count = photos.length
   const [active, setActive] = useState(0)
   const [held, setHeld] = useState(false)
@@ -115,12 +135,13 @@ export function HeroCarousel({ photos, showMenu }: { photos: PhotoProjection[], 
     >
       {/* Full-bleed to the screen's edges on a phone; inside the column from `md` up. */}
       <div className="bleed relative aspect-video overflow-hidden md:mx-0">
-        {photos.map((photo, index) => {
+        {photos.map(({ _key, photo, gallery }, index) => {
           const isActive = index === active
           const share = widthShare(photoRatio(photo))
+          const picture = <SanityPhoto photo={photo} sizes={sizesFor(share)} priority={index === 0} />
           return (
             <figure
-              key={photo._id}
+              key={_key}
               aria-roledescription="slide"
               aria-label={`${index + 1} of ${count}`}
               aria-hidden={!isActive}
@@ -134,11 +155,19 @@ export function HeroCarousel({ photos, showMenu }: { photos: PhotoProjection[], 
                 photograph's own aspect-ratio (reserved by SanityPhoto) sets the height — which by
                 construction never exceeds the frame's. The flex parent centres it both ways.
               */}
-              {mounted.has(index) && (
-                <div style={{ width: `${share * 100}%` }}>
-                  <SanityPhoto photo={photo} sizes={sizesFor(share)} priority={index === 0} />
-                </div>
-              )}
+              {mounted.has(index) && (gallery
+                ? (
+                    <Link
+                      href={`/gallery/${gallery.slug}`}
+                      aria-label={`${gallery.title} — see the photos`}
+                      className="group relative block"
+                      style={{ width: `${share * 100}%` }}
+                    >
+                      {picture}
+                      <GalleryTitleBand title={gallery.title} />
+                    </Link>
+                  )
+                : <div style={{ width: `${share * 100}%` }}>{picture}</div>)}
             </figure>
           )
         })}
@@ -156,10 +185,10 @@ export function HeroCarousel({ photos, showMenu }: { photos: PhotoProjection[], 
           className="mt-4 grid gap-3 md:gap-5"
           style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
         >
-          {photos.map((photo, index) => {
+          {photos.map(({ _key }, index) => {
             const isActive = index === active
             return (
-              <li key={photo._id}>
+              <li key={_key}>
                 <button
                   type="button"
                   aria-label={`Show slide ${index + 1}`}

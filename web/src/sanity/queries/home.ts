@@ -39,6 +39,10 @@ is prerendered, so the previews cost one query at revalidation and nothing per v
  * it), so it is coalesced to an empty array for the same reason. `showPeek == true` makes a
  * missing switch read as off, the asked-for default, without a backfill.
  *
+ * `carouselPhotos` is projected like `featuredPhotos` — `[]{ }`, the `->` one level in — because
+ * each member is a `carouselPhoto` object. Its `gallery` carries only a title and slug: the
+ * carousel has no peek, so it fetches no preview.
+ *
  * ## The whole introduction has left this page
  *
  * `introHeading` and `intro` are `aboutPage`'s fields now and are rendered there. `introPhoto`
@@ -53,7 +57,11 @@ export const HOME_QUERY = defineQuery(`
     "heroLayout": coalesce(heroLayout, "grid"),
     "showCarouselMenu": coalesce(showCarouselMenu, true),
     "carouselPhotos": select(
-      heroLayout == "carousel" => coalesce(carouselPhotos[]->{ ${PHOTO_PROJECTION} }, []),
+      heroLayout == "carousel" => coalesce(carouselPhotos[]{
+        _key,
+        photo->{ ${PHOTO_PROJECTION} },
+        "gallery": gallery->{ title, "slug": slug.current }
+      }, []),
       []
     ),
     featuredWriting[]->{ ${WRITING_ITEM_PROJECTION} },

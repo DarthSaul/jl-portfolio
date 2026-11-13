@@ -77,7 +77,7 @@ export default defineType({
       title: 'Carousel photos',
       type: 'array',
       description:
-        'The pictures the carousel shows, in order, one at a time — each for five seconds. ' +
+        'The pictures the carousel shows, in order, one at a time — each for four seconds. ' +
         'Each picture is shown whole, never cut — tall ones sit in the middle of the frame with ' +
         'space either side. Drag to reorder. Each one can link to a gallery — open a picture to ' +
         'set that.',
@@ -107,7 +107,7 @@ export default defineType({
       type: 'boolean',
       description:
         'The thin row of markers under the carousel that lets visitors jump between pictures. ' +
-        'Off shows the pictures alone; they still change every five seconds.',
+        'Off shows the pictures alone; they still change every four seconds.',
       initialValue: true,
       // Hidden rather than disabled, as in galleryFields.ts: a switch that does nothing on the
       // grid should not be on screen while the grid is chosen.

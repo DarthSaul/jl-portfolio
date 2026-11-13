@@ -273,8 +273,8 @@ validates).
 - **Carousel** (`home/HeroCarousel.tsx`, client): `homePage.carouselPhotos` (`carouselPhoto[]`:
   a photo ref plus an optional gallery ref — `featuredPhoto` without `showPeek`; her order; shown
   and required in the Studio only for the carousel), each **uncropped**: fitted
-  whole and centred inside a fixed 16:9 frame at every width (a bound — paper shows beside a
-  portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 5s, paused on hover/focus, no
+  whole and centred inside a fixed 20:9 frame at every width (a bound — paper shows beside a
+  portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 4s, no pause on hover (paused only while keyboard focus is inside), no
   autoplay under reduced motion. Slides mount when active or next, so two hero files load up
   front. `homePage.showCarouselMenu` toggles the numbered markers beneath. `HOME_QUERY`
   dereferences `carouselPhotos` only when `heroLayout == "carousel"`; a list with no photos falls back

@@ -67,7 +67,7 @@ has a 2px accent underline. Below `md` the menu and icons fold into a full-scree
 ## Front page, top to bottom
 
 1. **Hero** — her choice in the Studio: the square photo grid, or the carousel (one large picture
-   at a time, shown whole inside a 16:9 frame — never cropped — a 700ms crossfade every five seconds, optional thin numbered markers beneath
+   at a time, shown whole inside a 20:9 frame — never cropped — a 700ms crossfade every four seconds, optional thin numbered markers beneath
    whose active bar fills with the accent).
 2. **Featured writing** — band heading with "All copy →" on the right over a rule; three cards,
    each cover, eyebrow (source · date, accent), headline, summary, "Read more →".

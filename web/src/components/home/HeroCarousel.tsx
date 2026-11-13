@@ -12,16 +12,17 @@ import { GalleryTitleBand } from './GalleryTitleBand'
 type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
 
 /**
- * The front page's carousel: one large photograph at a time, cross-fading every five seconds,
+ * The front page's carousel: one large photograph at a time, cross-fading every four seconds,
  * with an optional row of slide markers beneath. Chosen in the Studio by `homePage.heroLayout`;
  * the photographs are `homePage.carouselPhotos`, in her order; the markers are
  * `homePage.showCarouselMenu`.
  *
  * ## Framing — RULE 2
  *
- * One fixed 16:9 frame at every width, so the page never jumps between slides — and **no crop**.
- * Each photograph is shown whole at its own ratio, as large as fits inside the frame and centred
- * in it: a landscape wider than 16:9 spans the width with paper above and below, a 4:3 or a
+ * One fixed 20:9 frame at every width — the full column wide, 80% of the height a 16:9 frame had
+ * (shortened 2026-11) — so the page never jumps between slides, and **no crop**. Each photograph
+ * is shown whole at its own ratio, as large as fits inside the frame and centred in it: a
+ * landscape wider than 20:9 spans the width with paper above and below, a 4:3 or a
  * portrait spans the height with paper either side. That is a bound, not a crop (CLAUDE.md,
  * Rule 2), so there is no `crop=` here and nothing she can lose off the edges.
  *
@@ -42,12 +43,13 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
  *
  * Every slide is stacked in the same box and only opacity moves — a 700ms crossfade, no sliding.
  * A `setTimeout` keyed on the active index advances it, so choosing a slide from the menu restarts
- * the five seconds rather than cutting the next one short. A single photograph never advances and
+ * the four seconds rather than cutting the next one short. A single photograph never advances and
  * shows no menu.
  *
- * It holds still while the pointer is over it or focus is inside it (so a visitor reaching for a
- * marker is not chased by it), and never starts under `prefers-reduced-motion` — the first slide
- * stays, and the menu still works.
+ * It keeps rotating under the pointer — a mouse-over pause was removed as fussy (2026-11). It holds
+ * still only while keyboard focus is inside it: inactive slides are `inert`, so advancing past a
+ * focused slide link would drop focus to the top of the page. It never starts under
+ * `prefers-reduced-motion` — the first slide stays, and the menu still works.
  *
  * ## Loading
  *
@@ -64,14 +66,14 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
  * tab panel a visitor reads into.
  */
 
-const INTERVAL_MS = 5000
+const INTERVAL_MS = 4000
 
 /** The frame's ratio. Only the frame's — a photograph inside it keeps its own. */
-const FRAME = 16 / 9
+const FRAME = 20 / 9
 
 /**
  * How much of the frame's width a photograph fills when fitted inside it: all of it for anything
- * at least as wide as 16:9, proportionally less for anything taller.
+ * at least as wide as 20:9, proportionally less for anything taller.
  */
 const widthShare = (ratio: number) => Math.min(1, ratio / FRAME)
 
@@ -92,7 +94,7 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
   const photos = slides.flatMap(({ _key, photo, gallery }) => (photo ? [{ _key, photo, gallery }] : []))
   const count = photos.length
   const [active, setActive] = useState(0)
-  const [held, setHeld] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [mounted, setMounted] = useState<ReadonlySet<number>>(() => new Set([0, 1]))
 
@@ -112,7 +114,7 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
       : new Set([...previous, active, next]))
   }, [active, count])
 
-  const playing = count > 1 && !held && !reducedMotion
+  const playing = count > 1 && !focused && !reducedMotion
 
   useEffect(() => {
     if (!playing) return
@@ -126,15 +128,13 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
     <section
       aria-roledescription="carousel"
       aria-label="Featured photographs"
-      onPointerEnter={() => setHeld(true)}
-      onPointerLeave={() => setHeld(false)}
-      onFocus={() => setHeld(true)}
+      onFocus={() => setFocused(true)}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHeld(false)
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
       }}
     >
       {/* Full-bleed to the screen's edges on a phone; inside the column from `md` up. */}
-      <div className="bleed relative aspect-video overflow-hidden md:mx-0">
+      <div className="bleed relative aspect-[20/9] overflow-hidden md:mx-0">
         {photos.map(({ _key, photo, gallery }, index) => {
           const isActive = index === active
           const share = widthShare(photoRatio(photo))
@@ -176,7 +176,7 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
       {showMenu && count > 1 && (
         /*
           The markers: thin bars with a small number above each, under the frame. The active bar
-          fills with the accent over the five seconds — a progress line, keyed on the index so it
+          fills with the accent over the four seconds — a progress line, keyed on the index so it
           restarts with each slide. Paused or reduced-motion, it is simply full.
 
           Columns are set from the count so any number of photos shares the width evenly.

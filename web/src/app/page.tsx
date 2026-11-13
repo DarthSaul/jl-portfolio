@@ -1,20 +1,24 @@
 import type { Metadata } from 'next'
 
-import { FeaturedWriting } from '@/components/home/FeaturedWriting'
+import type { ReactNode } from 'react'
+
 import { FeaturedPhotos } from '@/components/home/FeaturedPhotos'
+import { FeaturedWriting } from '@/components/home/FeaturedWriting'
+import { HeroCarousel } from '@/components/home/HeroCarousel'
+import { InstagramFeed } from '@/components/home/InstagramFeed'
 import { MissingDocumentError } from '@/sanity/errors'
 import { orThrow, sanityFetch } from '@/sanity/fetch'
 import { HOME_QUERY } from '@/sanity/queries/home'
-import { getSiteSettings } from '@/sanity/siteSettings'
+import type { HOME_QUERY_RESULT } from '~~/sanity.types'
+
+type Home = NonNullable<HOME_QUERY_RESULT>
 
 /**
- * The front page: the featured photographs — equal square cards, three to a desktop row, six
- * recommended — then her byline, then three featured pieces of writing. See CLAUDE.md.
+ * The front page: the hero — her choice of the featured-photo grid or the carousel — then three
+ * featured pieces of writing, then the Instagram strip. See CLAUDE.md.
  *
- * The site name and the nav are not here; they are chrome on every page, rendered by the header
- * in the layout. The page's content comes from one request. The byline is `siteSettings`, read
- * through `getSiteSettings()` — cached per request and already read by the layout, so it costs
- * nothing extra, and it falls back rather than throwing.
+ * The site name, the byline and the nav are not here; they are chrome on every page, rendered by
+ * the masthead in the layout. The page's content comes from one request.
  *
  * One query for the whole page, following references as it goes. That is the shape CLAUDE.md asks
  * for: a route fetches exactly its own shape, and the GROQ that defines it lives in
@@ -50,6 +54,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return data ? { title: { absolute: data.title } } : {}
 }
 
+/**
+ * The top of the page, one component per `HERO_LAYOUTS` value in `studio/schemaTypes/documents/
+ * homePage.ts` — the same two-halves shape as a gallery preset. `satisfies Record<…>` over the
+ * generated union makes a value without a component (or a component for a value that no longer
+ * exists) a typecheck failure.
+ */
+const HERO = {
+  grid: home => <FeaturedPhotos photos={home.featuredPhotos} />,
+  // The Studio will not publish a carousel with no photos, but a stale document saved before the
+  // field existed could reach here; the grid is a working page rather than an empty band.
+  carousel: home => home.carouselPhotos.some(slide => slide.photo)
+    ? <HeroCarousel slides={home.carouselPhotos} showMenu={home.showCarouselMenu} />
+    : <FeaturedPhotos photos={home.featuredPhotos} />,
+} satisfies Record<Home['heroLayout'], (home: Home) => ReactNode>
+
 export default async function HomePage() {
   /**
    * `orThrow` checks the transport failure before the null, because a failed request also leaves
@@ -66,10 +85,7 @@ export default async function HomePage() {
    * must never look like a query that found nothing — and `orThrow` now makes it structural rather
    * than something each route remembers.
    */
-  const [home, { byline }] = await Promise.all([
-    sanityFetch(HOME_QUERY).then(result => orThrow(result)),
-    getSiteSettings(),
-  ])
+  const home = orThrow(await sanityFetch(HOME_QUERY))
 
   /**
    * `homePage` is a singleton and the Studio will not let her delete it, so a missing document
@@ -85,24 +101,13 @@ export default async function HomePage() {
 
   return (
     /*
-      The four `mx-auto max-w-[1080px] px-5` wrappers this page used to carry are gone: the layout's
-      `<main>` owns the gutter, and `bleed` is how the photo grid reaches past it. See
-      `app/layout.tsx`.
-
-      `space-y-section` is DESIGN.md's 48px section padding, opened up on a phone where the bands
-      need more air to stay distinct.
-
-      The byline sits directly under the photographs, tighter than a section gap — it captions the
-      grid rather than opening a new band. It lived in the sidebar until the top nav, which has no
-      room for it. Uppercase is a class, not part of the token: she types it in sentence case.
+      The layout's `<main>` owns the gutter; `bleed` is how a band reaches past it. Bands are the
+      mockup's 96px apart from `lg` up, opened less on a phone.
     */
-    <div className="space-y-14 lg:space-y-section">
-      <div>
-        <FeaturedPhotos photos={home.featuredPhotos} />
-        <p className="type-body-sm mt-5 uppercase tracking-[0.18em] text-muted">{byline}</p>
-      </div>
-
+    <div className="space-y-16 lg:space-y-section">
+      {HERO[home.heroLayout](home)}
       <FeaturedWriting items={home.featuredWriting} />
+      <InstagramFeed />
     </div>
   )
 }

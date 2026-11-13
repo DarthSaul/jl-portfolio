@@ -47,7 +47,7 @@ export default function ErrorPage({
     <div className="max-w-read space-y-6">
       <h2 className="type-display-lg text-ink">Something went wrong.</h2>
 
-      <p className="type-body-serif-lg text-muted">
+      <p className="type-body-lg text-muted">
         This page could not be loaded. It is most likely temporary — try again, or head back to
         the start.
       </p>

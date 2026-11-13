@@ -128,7 +128,7 @@ export function GalleryView({
                 indistinguishable from here — if that ever bites, the fix is a warning on
                 `gallery.tag` in the Studio rather than anything on this page. See CLAUDE.md.
               */
-              <p className="type-body-serif-lg max-w-read text-muted">No photos here yet.</p>
+              <p className="type-body-lg max-w-read text-muted">No photos here yet.</p>
             )}
     </>
   )

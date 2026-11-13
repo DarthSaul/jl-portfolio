@@ -14,7 +14,7 @@ export default function NotFound() {
     <div className="max-w-read space-y-6">
       <h2 className="type-display-lg text-ink">Nothing at this address.</h2>
 
-      <p className="type-body-serif-lg text-muted">
+      <p className="type-body-lg text-muted">
         The page you are looking for has moved or never existed.
       </p>
 

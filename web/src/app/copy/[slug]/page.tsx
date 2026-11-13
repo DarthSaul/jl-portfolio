@@ -78,10 +78,10 @@ export default async function PostPage({ params }: PageProps<'/copy/[slug]'>) {
       </p>
 
       {post.summary && (
-        <p className="type-body-serif-lg mt-6 text-muted">{post.summary}</p>
+        <p className="type-body-lg mt-6 text-muted">{post.summary}</p>
       )}
 
-      <ProseBody value={post.body} className="type-body-serif-lg mt-12" />
+      <ProseBody value={post.body} className="type-body-lg mt-12" />
     </article>
   )
 }

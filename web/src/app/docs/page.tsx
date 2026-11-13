@@ -41,7 +41,7 @@ export default function DocsPage() {
     <div className="xl:flex xl:gap-10">
       <div className="min-w-0 xl:flex-1">
         <DocsTocInline sections={sections} />
-        <DocsMarkdown markdown={markdown} className="type-body-serif-lg" />
+        <DocsMarkdown markdown={markdown} className="type-body-lg" />
       </div>
       <DocsTocRail sections={sections} />
     </div>

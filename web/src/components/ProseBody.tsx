@@ -86,7 +86,7 @@ export function ProseBody({ value, className }: { value: Body, className?: strin
       /*
         A hairline in the margin, which is the only elevation cue DESIGN.md gives — "surface
         contrast and hairline borders carry all visual hierarchy", and there are no shadows and no
-        fills to reach for. The italic is a real one: Lora ships an italic face and it is loaded,
+        fills to reach for. The italic is a real one: Newsreader's italic face is loaded (400),
         so the browser is not shearing an upright into an oblique.
       */
       blockquote: ({ children }) => (

@@ -9,49 +9,47 @@
  * radius and container width are decided here and nowhere else. Tailwind v4 is CSS-first via
  * `@tailwindcss/postcss` — there is no `tailwind.config.ts` and one should not be added.
  *
- * DESIGN.md names three proprietary faces and, in its own "Note on Font Substitutes", the
- * open-source stand-ins used below:
+ * The spec is the "Homepage" mockup Joan approved (2026-11): an editorial, newspaper-like page
+ * in two faces —
  *
- *   WiredDisplay  ->  Playfair Display   display headlines, the wordmark
- *   BreveText     ->  Lora               long-form body, bylines
- *   Apercu        ->  Inter              nav, metadata, captions, buttons
+ *   Newsreader  ->  the wordmark, headlines, the byline
+ *   Inter       ->  reading text, nav, metadata, captions, buttons
  *
- * ## Weight strategy — measured, not assumed
+ * Reading text was Newsreader too, until 2026-11: paragraphs on /bio, posts and the rest moved
+ * to Inter, the site's base face, leaving the serif to her name, the byline and headlines.
  *
- * Lora and Inter are declared as variable ranges (`font-weight: 400 700`) and Playfair is
- * pinned to 400. That asymmetry is deliberate and comes from the latin-subset byte counts:
+ * It replaced a Wired-derived spec set in Playfair Display, Lora and Inter. Per CLAUDE.md the
+ * spec is swappable and the layout is not: this re-skinned tokens and call sites, and the two
+ * rules are untouched.
  *
- *   Lora      variable 400..700   78 kB   vs   pinned 400 + 700   157 kB
- *   Inter     variable 400..700   48 kB   vs   pinned 400 + 700    97 kB
- *   Playfair  variable 400..700   77 kB   vs   pinned 400          44 kB
+ * ## Weight strategy
  *
- * Lora and Inter genuinely need both ends — nav links, bylines and the `strong` decorator in
- * `post.body` are all 700 — so the variable file is half the bytes of two static ones. Playfair
- * only ever renders at 400, because DESIGN.md is explicit that display weight is never promoted
- * past it ("the brand's elegance is in the typeface design, not bold weight"), so the range
- * would be 33 kB spent on a weight nothing asks for.
+ * Newsreader is one variable file per style. Upright is a 400..600 range (body is 400, the
+ * wordmark and headlines 600); italic is pinned to 400 — the byline is the only italic the
+ * design sets, and nothing asks for a bold italic. The files also carry Newsreader's optical
+ * size axis (`opsz` 6..72), which browsers apply automatically from the font size
+ * (`font-optical-sizing: auto` is the default): the 64px wordmark gets the tight display cut and
+ * 16px body the sturdier text cut, from the same file.
  *
- * The cost of pinning: a `strong` decorator inside a Playfair heading would render as synthetic
- * bold rather than a real one. That is the correct trade at 33 kB, and DESIGN.md would not have
- * us set a display heading bold anyway.
+ * Inter is a 400..700 variable range, upright only.
  *
- * Latin-only cold-cache cost: ~171 kB across five files. latin-ext is a lazy second request,
- * which is what the `unicode-range` lines buy — do not drop them.
+ * latin-ext is a lazy second request, which is what the `unicode-range` lines buy — do not drop
+ * them.
  *
  * ## Where these URLs came from, and what that costs
  *
  * Hotlinked from `fonts.gstatic.com` rather than vendored into `web/public/fonts/`. Google
- * rotates the path hash on every font revision — `/v40/`, `/v37/` and `/v20/` below are part of
- * the path — so a republish can 404 these and the site silently falls back to Georgia and
- * system sans. Nothing errors and nothing logs; the page just changes typeface. The mitigation
- * is the fallback chain in `@theme`, and it has to stay a real chain.
+ * rotates the path hash on every font revision — `/v26/` and `/v20/` below are part of the
+ * path — so a republish can 404 these and the site silently falls back to Georgia and system
+ * sans. Nothing errors and nothing logs; the page just changes typeface. The mitigation is the
+ * fallback chain in `@theme`, and it has to stay a real chain.
  *
  * If they ever do 404, re-derive rather than guess:
  *
  *   curl -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
  *     (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' \
- *     'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400\
- * &family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400..700&display=swap'
+ *     'https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400\
+ * &family=Inter:wght@400..700&display=swap'
  *
  * The `User-Agent` is load-bearing: without a modern one Google serves TTF/EOT, not woff2.
  * Keep the latin and latin-ext blocks and drop cyrillic, greek, vietnamese and the rest.
@@ -60,85 +58,38 @@
  * beats up to three seconds of nothing.
  */
 
-/* ── Playfair Display — display headlines and the wordmark. 400 only, upright + italic. ── */
+/* ── Newsreader — wordmark, headlines, byline, body. Upright 400–600 + italic 400, with opsz. ── */
 @font-face {
-  font-family: 'Playfair Display';
+  font-family: Newsreader;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 600;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtPK-F2qC0s.woff2) format('woff2');
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK4397yjIJFJpc.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
 @font-face {
-  font-family: 'Playfair Display';
+  font-family: Newsreader;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 600;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDZbtPK-F2qC0usEw.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK439DyjIJFJpeBZQ.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-
 @font-face {
-  font-family: 'Playfair Display';
+  font-family: Newsreader;
   font-style: italic;
   font-weight: 400;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTXtHA-X-uE0qEEw.woff2) format('woff2');
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9XfjOCX1hbuyalUrK439vogqCz_goCYw7oRd6JFYYzbARA_n8.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
 @font-face {
-  font-family: 'Playfair Display';
+  font-family: Newsreader;
   font-style: italic;
   font-weight: 400;
   font-display: swap;
-  src: url(https://fonts.gstatic.com/s/playfairdisplay/v40/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_qiTXt_A-X-uE0qEE5Do.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/*
- * ── Lora — long-form body and bylines. Variable 400–700, upright + italic. ──
- *
- * The italics are not decoration. `proseText` allows an `em` decorator, `post.body` and
- * `aboutPage.body` allow the same, and `ProseBody`'s blockquote is set in italic. Without a
- * real italic face the browser shears the upright into an oblique, which is visibly wrong at
- * body size.
- */
-@font-face {
-  font-family: Lora;
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7I_FMl_E.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: Lora;
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwT7I_FMl_GW8g.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-@font-face {
-  font-family: Lora;
-  font-style: italic;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LIftLtfOm8w.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: Lora;
-  font-style: italic;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LL_tLtfOm84TX.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9XfjOCX1hbuyalUrK439vogqCz_goCYw7oRd6JFYgzbARA_n8IsQ.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 /*
@@ -170,91 +121,63 @@
  * Tokens
  * ============================================================================
  *
- * DESIGN.md's palette, with **one deliberate departure: the canvas is cream, not white.**
- *
- * The spec's `{colors.canvas}` is `#ffffff` and its whole identity is "stark black wordmark on
- * white canvas". Warming the floor to `#fffaf0` is an explicit product decision layered on top
- * of it — the black-and-white duet, the square geometry, the hairline dividers and the three
- * type faces are all untouched, so what changes is the paper stock and nothing else. Anyone
- * reconciling this file against DESIGN.md should expect exactly this one hex to disagree, and
- * `--color-canvas-soft` to follow it.
+ * The mockup's palette: warm off-white paper, a near-black ink that does the text, the rules
+ * and the buttons, and one red accent for the things you can act on.
  */
 @theme {
   /*
    * Setting `--font-sans` is what makes Inter global: Tailwind derives `--default-font-family`
    * from it, and preflight applies that to `html`. No `font-sans` class is needed anywhere.
    *
-   * Georgia is the honest fallback for both serifs — ubiquitous, and closer to Lora's
-   * proportions than `ui-serif`, which resolves to New York on Apple platforms and to
-   * something less predictable elsewhere.
+   * `--font-serif` and `--font-display` are the same face now — Newsreader's optical size axis
+   * does the work two faces used to. Both names are kept so the `type-*` tokens below say which
+   * role they play. Georgia is the honest fallback: ubiquitous, and close to Newsreader's
+   * proportions.
    *
    * Note `--font-display` also generates a `font-display` *utility class*, which shares a name
    * with the CSS `font-display` descriptor used in every `@font-face` above. They are unrelated.
    */
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-  --font-serif: Lora, Georgia, 'Times New Roman', serif;
-  --font-display: 'Playfair Display', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-serif: Newsreader, Georgia, 'Times New Roman', serif;
+  --font-display: Newsreader, 'Iowan Old Style', Georgia, 'Times New Roman', serif;
 
-  --color-ink: #000000; /* {colors.ink} / {colors.primary} — headlines, body, the wordmark */
-  --color-ink-soft: #1a1a1a; /* {colors.ink-soft} */
-  --color-muted: #757575; /* {colors.body} — bylines, dates, inactive nav */
-  --color-hairline: #e0e0e0; /* {colors.hairline} — the site's only line */
-  --color-link: #057dbc; /* {colors.link} — inline body links ONLY, never nav or buttons */
+  --color-ink: #161616; /* text, the wordmark, every rule, the dark button */
+  --color-ink-soft: #4a4741; /* summaries and blurbs under a headline */
+  --color-muted: #55524c; /* the byline, the footer, inactive nav */
+  --color-subtle: #6b6760; /* captions, placeholder labels — the quietest text on the page */
+  --color-hairline: #161616; /* the mockup rules everything in ink, at 1px */
+  --color-link: #9b1b30; /* inline body links — the accent, so "you can click this" is one colour */
 
   /*
-   * A deep maroon, and **a deliberate reversal of DESIGN.md**, which is worth stating plainly
-   * because the spec could not be more explicit against it. Line 493: "Don't introduce a
-   * chromatic brand accent. The link blue is reserved for inline body links inside articles
-   * only." Its Brand & Accent section names ink black as "the brand's only 'accent'". The
-   * palette it ships has exactly one chromatic value in it, and that one is spoken for.
+   * The accent: a deep red. It marks what you can act on — link hover, the active menu item's
+   * underline, the source/date line on a writing card, READ MORE on /copy. Reach for `ink`
+   * first; the accent is for the small recurring thing, not a second brand colour.
    *
-   * So this is not an oversight being corrected, it is a spec being overruled — which CLAUDE.md
-   * allows, since DESIGN.md is the replaceable half. Recorded rather than quietly added.
-   *
-   * ## Where it may appear
-   *
-   * The READ MORE affordance on /copy, and nothing else yet. It is an accent in the strict
-   * sense: a colour that marks one small recurring thing, not a second brand colour to
-   * distribute. Reach for `ink` first every time; adding a third call site is a design decision
-   * and should look like one.
-   *
-   * ## Why this shade
-   *
-   * Picked on measured contrast rather than by eye, against `canvas` #fffaf0:
-   *   - 9.4:1 — past AA for small text (4.5) and past AAA (7), which matters because the one
-   *     place it is used renders at 12px.
-   *   - 2.15:1 against `ink`. That is the number that stops it being a pointlessly dark red:
-   *     deeper candidates measured 1.6-1.9 against black, where at 12px they simply read as a
-   *     slightly-off ink rather than as a colour.
-   * Both hold on `canvas-soft` too (8.6:1).
+   * A burgundy-red, one step darker than the mockup's #b3261e (2026-11). About 7.2:1 against
+   * `canvas` — well past AA for small text, which matters because the eyebrow lines that use it
+   * render at 12px.
    */
-  --color-accent: #7b2436; /* NOT from DESIGN.md — see above */
+  --color-accent: #9b1b30;
+
+  --color-canvas: #f6f2e9; /* the paper — bone white (was #fafaf7, 2026-11) */
+  --color-canvas-soft: #e7e2d8; /* LQIP backdrop, placeholders behind a photo that is loading */
+
+  /* Blank tiles standing in for content not wired up yet (the Instagram strip). Two, alternated. */
+  --color-placeholder: #ddd7cc;
+  --color-placeholder-alt: #d2cbbe;
 
   /*
-   * The two departures. `canvas-soft` is derived rather than picked: DESIGN.md steps
-   * #ffffff -> #f5f5f5, which is a ~96% multiplier per channel, and the same multiplier
-   * against #fffaf0 gives #f5f0e7. Keeping the step means the pair stays as related as the
-   * spec had them, instead of a cool grey sitting on a warm page.
-   */
-  --color-canvas: #fffaf0; /* {colors.canvas}, warmed — see the block comment above */
-  --color-canvas-soft: #f5f0e7; /* {colors.canvas-soft}, warmed by the same step */
-
-  /*
-   * `{rounded.none}` is the whole radius scale. DESIGN.md: "Use {rounded.none} 0px on every
-   * button and form input. The brand reads as a printed magazine — square corners are
-   * non-negotiable." So Tailwind's named radius steps are unset outright rather than left
+   * Square corners throughout. Tailwind's named radius steps are unset outright rather than left
    * sitting there for someone to reach for.
    *
    * `--radius` with no suffix is the bare `rounded` utility, and it has to be unset separately
    * — the named steps above it do not cover it. Verified against tailwindcss@4.3.3: with only
    * the suffixed tokens unset, `rounded-md` emits nothing while `rounded` still emits
-   * `border-radius: 0.25rem`, which is the one soft corner that could reach the page through a
-   * scale that is supposed to be square throughout.
+   * `border-radius: 0.25rem`.
    *
-   * `rounded-full` survives on purpose and is the single exception the spec allows —
-   * "{rounded.full} 9999px: circular icon containers only". It does not read from a
-   * `--radius-*` token, so unsetting these does not touch it — confirmed by the same test.
-   * One call site: the social icon links in the header.
+   * `rounded-full` survives on purpose and does not read from a `--radius-*` token. Two call
+   * sites, both from the mockup: the header's social icon links (focus-ring shape) and the
+   * "Follow on Instagram" pill.
    */
   --radius: initial;
   --radius-xs: initial;
@@ -266,22 +189,25 @@
   --radius-3xl: initial;
   --radius-4xl: initial;
 
-  --spacing-section: 3rem; /* {spacing.4xl} 48px — DESIGN.md's section padding */
-  --spacing-bar: 3.5rem; /* 56px — the header's height below md, and the drawer's top offset */
-  --spacing-bar-md: 4.5rem; /* 72px — the header's height from md up */
+  --spacing-section: 6rem; /* 96px — the mockup's gap between bands on the front page */
 
-  --container-shell: 90rem; /* 1440px — the whole app, centred */
+  /*
+   * The masthead's rendered height, approximately — it is not sticky, and its height is set by
+   * its type, not fixed. Read only by `showcase-frame`, which opens scrolled to the top and
+   * needs the photograph to fit below the masthead. Generous rather than exact: overestimating
+   * makes the showcased photo a little smaller, underestimating pushes it below the fold. Change
+   * the masthead's type or padding and re-measure these.
+   */
+  --spacing-masthead: 8rem; /* below md: up to ~53px wordmark (x-large), byline, 24/16px padding */
+  --spacing-masthead-md: 9.5rem; /* md up: up to 64px wordmark (x-large), byline, 36/22px padding */
+
+  --container-shell: 82.5rem; /* 1320px — the mockup's container, centred */
   --container-read: 46.875rem; /* 750px — the prose measure */
 }
 
 /*
- * The canvas goes on the root element, not only on the shell.
- *
- * `app/layout.tsx` puts `bg-canvas` on its `min-h-dvh` wrapper, which covers the page —
- * and stops exactly there. Anything outside it is the browser's default white: the overscroll
- * area an iOS rubber-band exposes above and below the document. That gap did not show while
- * the canvas *was* white; it does now, which is the kind of thing a colour change quietly
- * brings with it.
+ * The canvas goes on the root element, not only on the shell — otherwise the overscroll area
+ * an iOS rubber-band exposes above and below the document is the browser's default white.
  */
 @layer base {
   html {
@@ -294,10 +220,8 @@
  * Type
  * ============================================================================
  *
- * DESIGN.md's fourteen typography tokens, one `@utility` each. **Type is set with a `type-*`
- * class and never with `text-*` + `leading-*` + `tracking-*` + `font-*` at a call site.**
- *
- * Three things to know before editing any of them.
+ * One `@utility` per token. **Type is set with a `type-*` class and never with `text-*` +
+ * `leading-*` + `tracking-*` + `font-*` at a call site.**
  *
  * **Every token sets all five properties** — family, size, line-height, letter-spacing, weight
  * — even when a value is `0em` or `400`. Custom utilities sort *before* core ones in the
@@ -305,149 +229,203 @@
  * ordering means `type-display-sm lg:type-display-md` would leak the smaller token's *omitted*
  * properties past the breakpoint if any were left out.
  *
- * **The responsive step lives inside the token**, via `@variant`. DESIGN.md specifies a hero
- * that drops 64px -> 40px on a phone; putting that in the token means no call site ever writes
- * `text-[2.5rem] md:text-[4rem]`, and the ladder cannot drift between two places.
+ * **The responsive step lives inside the token**, via `@variant`, so no call site writes
+ * `text-[2.5rem] md:text-[4rem]`.
  *
- * **Tracking is in `em`, never `rem` or `px`.** A fixed pixel gap tuned for a 64px headline is
- * visibly blown apart at 40px. In `em` it stays proportional at every step.
+ * **Tracking is in `em`**, so it stays proportional at every step.
  *
- * There is deliberately **no `text-transform` in any token**. `SITE.nav` stores labels in
- * sentence case and uppercases them in CSS so assistive tech reads "Copy" rather than spelling
- * it out — keeping `uppercase` a separate class keeps that visible where it is decided.
+ * There is deliberately **no `text-transform` in any token**. Labels are stored in sentence
+ * case and uppercased in CSS where the design wants caps — keeping `uppercase` a separate class
+ * keeps that visible where it is decided.
  */
 
-/* — Display. Playfair, always weight 400 — DESIGN.md: never promote display past it. — */
+/* — Masthead. — */
 
+/*
+ * Her name, top left of every page. The mockup's `clamp(48px, 7vw, 96px)`; now 48px on a
+ * computer at the default size (2026-11), 40px at most on a phone.
+ *
+ * She picks the size in Site settings (`siteSettings.titleSize`), passed as `data-size`. Each
+ * step scales both ends of the clamp by the same factor, so the five sizes keep their proportions
+ * at every width: on a computer 32 / 40 / 48 / 56 / 64px. An unknown or missing value is medium.
+ * `--spacing-masthead(-md)` below are estimated for the largest step.
+ */
+@utility type-wordmark {
+  --wordmark-scale: 1;
+  font-family: var(--font-display);
+  font-size: clamp(calc(2.5rem * var(--wordmark-scale)), 7vw, calc(3rem * var(--wordmark-scale)));
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  &[data-size='x-small'] { --wordmark-scale: calc(2 / 3); }
+  &[data-size='small'] { --wordmark-scale: calc(5 / 6); }
+  &[data-size='large'] { --wordmark-scale: calc(7 / 6); }
+  &[data-size='x-large'] { --wordmark-scale: calc(4 / 3); }
+}
+
+/* The byline under her name. The one italic the design sets — a sixth property, stated here. */
+@utility type-tagline {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.3;
+  letter-spacing: 0em;
+  font-weight: 400;
+  font-style: italic;
+  @variant md {
+    font-size: 1.25rem; /* 20px */
+  }
+}
+
+/* The menu. Inter 500 at 15px, sentence case. */
+@utility type-nav {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  letter-spacing: 0em;
+  font-weight: 500;
+}
+
+/* — Display. Newsreader 600. — */
+
+/* The /bio introduction's heading. Was 64px on desktop; 32px since 2026-11. */
 @utility type-display-hero {
   font-family: var(--font-display);
-  font-size: 2.5rem; /* 40px — DESIGN.md's mobile step down from 64 */
-  line-height: 1.05;
-  letter-spacing: -0.0078em; /* -0.5px at 64px */
-  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
   @variant md {
-    font-size: 4rem; /* 64px */
-    line-height: 0.95;
+    font-size: 2rem;
   }
 }
 
+/* A band's heading — "Featured writing". The mockup's 44px. */
 @utility type-display-lg {
   font-family: var(--font-display);
-  font-size: 2rem;
-  line-height: 1.1;
-  letter-spacing: -0.0083em;
-  font-weight: 400;
+  font-size: 2.25rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
   @variant md {
-    font-size: 3rem;
-    line-height: 1.05;
+    font-size: 2.75rem;
   }
 }
 
+/* A smaller band heading — the Instagram handle. The mockup's 32px. */
 @utility type-display-md {
   font-family: var(--font-display);
   font-size: 1.625rem;
-  line-height: 1.15;
-  letter-spacing: -0.0094em;
-  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-weight: 600;
   @variant md {
     font-size: 2rem;
-    line-height: 1.1;
   }
 }
 
+/* A card's headline. The mockup's 28px. */
 @utility type-display-sm {
   font-family: var(--font-display);
-  font-size: 1.625rem; /* 26px */
-  line-height: 1.08;
-  letter-spacing: 0em;
-  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+  @variant md {
+    font-size: 1.75rem;
+  }
 }
 
-/* The one display token set in the sans face — DESIGN.md's `display-xs`, for category callouts. */
+/* The one display token set in the sans face, for callouts. */
 @utility type-display-xs {
   font-family: var(--font-sans);
   font-size: 1.25rem;
   line-height: 1.2;
   letter-spacing: -0.014em;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-/* — Body. Lora for narrative, Inter for structure. — */
+/*
+ * — Body. All Inter. —
+ *
+ * `body-lg` and `body-lead` are the reading sizes: prose on /bio, a post, /docs, and the lead
+ * paragraph under a page title. They were Newsreader (`type-body-serif-*`) until 2026-11.
+ */
 
-@utility type-body-serif-lg {
-  font-family: var(--font-serif);
+@utility type-body-lg {
+  font-family: var(--font-sans);
   font-size: 1.1875rem; /* 19px */
-  line-height: 1.47;
-  letter-spacing: 0.0057em;
+  line-height: 1.55;
+  letter-spacing: -0.006em;
   font-weight: 400;
 }
 
-@utility type-body-serif-md {
-  font-family: var(--font-serif);
-  font-size: 1rem;
+@utility type-body-lead {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem; /* 17px */
   line-height: 1.5;
-  letter-spacing: 0.0056em;
+  letter-spacing: -0.004em;
   font-weight: 400;
 }
 
 @utility type-body-md {
   font-family: var(--font-sans);
-  font-size: 1.0625rem;
-  line-height: 1.176;
+  font-size: 0.9375rem; /* 15px — the mockup's card blurb */
+  line-height: 1.5;
   letter-spacing: 0em;
   font-weight: 400;
 }
 
 @utility type-body-md-strong {
   font-family: var(--font-sans);
-  font-size: 1.0625rem;
-  line-height: 1.294;
-  letter-spacing: -0.0085em;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  letter-spacing: 0em;
+  font-weight: 600;
 }
 
 @utility type-body-sm {
   font-family: var(--font-sans);
   font-size: 0.875rem;
-  line-height: 1.286;
-  letter-spacing: 0.0286em;
+  line-height: 1.4;
+  letter-spacing: 0em;
   font-weight: 400;
 }
 
+/* "Read more →", "All copy →", the Follow button. */
 @utility type-body-sm-strong {
   font-family: var(--font-sans);
   font-size: 0.875rem;
-  line-height: 1.286;
-  letter-spacing: 0.0286em;
-  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0em;
+  font-weight: 600;
 }
 
 /*
- * DESIGN.md's `byline`, and the relaxed line-height is part of it: "the vertical breathing is
- * part of the editorial signature". It is the one metadata token set in the serif.
+ * The source · date line on a piece of writing — the mockup's small, tracked eyebrow. Callers
+ * add `uppercase`, and usually `text-accent`.
  */
 @utility type-byline {
-  font-family: var(--font-serif);
-  font-size: 0.8125rem;
-  line-height: 2.15;
-  letter-spacing: 0.0083em;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.333;
+  letter-spacing: 0.12em;
+  font-weight: 600;
 }
 
 @utility type-caption {
   font-family: var(--font-sans);
-  font-size: 0.75rem;
-  line-height: 1.333;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.4;
   letter-spacing: 0em;
   font-weight: 400;
 }
 
 @utility type-button-md {
   font-family: var(--font-sans);
-  font-size: 1rem;
+  font-size: 0.875rem;
   line-height: 1.25;
-  letter-spacing: 0.0188em;
-  font-weight: 700;
+  letter-spacing: 0em;
+  font-weight: 600;
 }
 
 /*
@@ -464,11 +442,8 @@
 @utility main-column {
   --gutter: 1.25rem; /* 20px */
   padding-inline: var(--gutter);
-  @variant lg {
-    --gutter: 2.5rem; /* 40px */
-  }
-  @variant xl {
-    --gutter: 3.5rem; /* 56px */
+  @variant md {
+    --gutter: 2rem; /* 32px — the mockup's container padding */
   }
 }
 
@@ -527,15 +502,31 @@
  * would leave the photograph taller than the space it has.
  */
 @utility showcase-frame {
-  /* bar 3.5rem + main pt-4 1rem + pb-20 5rem + the heading and controls ~5rem */
-  --showcase-h: calc(100dvh - var(--spacing-bar) - 11rem);
+  /*
+   * The showcase opens scrolled to the top (`useShowcase`), so the masthead is on screen above
+   * it and the photograph has what is left: masthead + main pt-4 1rem + the heading and
+   * controls ~5rem, with ~1rem to spare at the bottom.
+   */
+  --showcase-h: calc(100dvh - var(--spacing-masthead) - 7rem);
   @variant md {
-    /* bar 4.5rem + main pt-4 1rem + pb-20 5rem + the heading and controls ~5rem */
-    --showcase-h: calc(100dvh - var(--spacing-bar-md) - 11rem);
+    --showcase-h: calc(100dvh - var(--spacing-masthead-md) - 7rem);
   }
   @variant lg {
-    /* bar 4.5rem + main pt-6 1.5rem + pb-28 7rem + the heading and controls ~5rem */
-    --showcase-h: calc(100dvh - var(--spacing-bar-md) - 13.5rem);
+    /* main pt-6 1.5rem */
+    --showcase-h: calc(100dvh - var(--spacing-masthead-md) - 7.5rem);
+  }
+}
+
+/*
+ * The front-page carousel's progress line: the active marker fills left to right over one slide's
+ * time. `HeroCarousel` sets the duration inline from the same constant as its timer.
+ */
+@keyframes carousel-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
   }
 }
 
@@ -552,7 +543,7 @@
  */
 @media print {
   /*
-   * Paper is white. The cream canvas is a screen decision — printed, it either spends toner
+   * Paper is white. The off-white canvas is a screen decision — printed, it either spends toner
    * tinting every page or dithers into visible noise, depending on the printer. Overriding the
    * custom property catches both places it is read (`@layer base html` above and the layout's
    * `bg-canvas` wrapper) without naming either.

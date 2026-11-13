@@ -78,7 +78,7 @@ export function Row({ item }: { item: WritingItem }) {
             summary set at the same weight competes with it down a column of six.
           */}
           {item.summary && (
-            <p className="type-body-serif-md mt-1 text-muted">{item.summary}</p>
+            <p className="type-body-lead mt-1 text-muted">{item.summary}</p>
           )}
         </div>
 

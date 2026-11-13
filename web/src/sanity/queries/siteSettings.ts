@@ -1,7 +1,7 @@
 import { defineQuery } from 'groq'
 
 /**
- * The site's own words: name, byline, description, menu labels and menu order, and the portrait
+ * The site's own words: name, the size of her name, byline, description, menu labels and menu order, and the portrait
  * switch.
  *
  * Not a route — chrome, read by the root layout on every page, like `nav.ts`. Read through
@@ -16,6 +16,7 @@ import { defineQuery } from 'groq'
 export const SITE_SETTINGS_QUERY = defineQuery(`
   *[_type == "siteSettings" && _id == "siteSettings"][0]{
     title,
+    "titleSize": coalesce(titleSize, "medium"),
     byline,
     description,
     showPortrait,

@@ -50,14 +50,14 @@ export async function generateMetadata(): Promise<Metadata> {
  * them. A client module cannot import a server one; it can render one it was handed.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const { title, byline } = await getSiteSettings()
+  const { title, titleSize, byline } = await getSiteSettings()
 
   return (
     <html lang="en">
       <body>
         <NavDrawerProvider>
           <div className="flex min-h-dvh flex-col bg-canvas text-ink">
-            <SiteHeader nav={<SiteNav />} title={title} byline={byline} />
+            <SiteHeader nav={<SiteNav />} title={title} titleSize={titleSize} byline={byline} />
             <MainColumn footer={<SiteFooter />}>{children}</MainColumn>
           </div>
         </NavDrawerProvider>

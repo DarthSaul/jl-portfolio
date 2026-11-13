@@ -6,6 +6,8 @@ import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 import { SITE } from '@/content/site'
+// Type-only, so erased: the server-only loader never reaches this client module.
+import type { SiteSettings } from '@/sanity/siteSettings'
 
 import { useNavDrawer } from './NavDrawerContext'
 import { SiteSocialIcon } from './SiteSocialIcon'
@@ -51,7 +53,12 @@ import { SiteSocialIcon } from './SiteSocialIcon'
  * created on the server and passed through already rendered. `title` and `byline` arrive the same
  * way, from `getSiteSettings()` in the layout. This file never touches Sanity.
  */
-export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: string, byline: string }) {
+export function SiteHeader({ nav, title, titleSize, byline }: {
+  nav: ReactNode
+  title: string
+  titleSize: SiteSettings['titleSize']
+  byline: string
+}) {
   const { isOpen, close, toggle } = useNavDrawer()
   const toggleBtn = useRef<HTMLButtonElement>(null)
 
@@ -133,7 +140,8 @@ export function SiteHeader({ nav, title, byline }: { nav: ReactNode, title: stri
       <div className="main-column mx-auto max-w-shell">
         <div className="flex items-start justify-between gap-x-8 gap-y-5 border-b border-hairline pt-6 pb-4 md:flex-wrap md:items-baseline-last md:pt-9 md:pb-[22px]">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h1 className="type-wordmark">
+            {/* `data-size` is her `siteSettings.titleSize`; `type-wordmark` maps it to a size. */}
+            <h1 className="type-wordmark" data-size={titleSize}>
               <Link href="/" className="text-ink transition-colors hover:text-accent">
                 {title}
               </Link>

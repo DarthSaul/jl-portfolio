@@ -295,7 +295,7 @@ validates).
 `featuredPhoto.ts`: a *behaviour* toggle that never changes a card's shape is allowed; a size,
 span, offset or crop on a slot never is.
 
-**`siteSettings`** holds the site name, byline, description, six menu labels, top-level menu
+**`siteSettings`** holds the site name, the name's size (`titleSize`, five steps read by `type-wordmark` as `data-size`), byline, description, six menu labels, top-level menu
 order, gallery order and a `showPortrait` switch (**dead since the top nav** — nothing renders the
 portrait; remove the field with the Studio follow-up below). Read via
 `getSiteSettings()` in `web/src/sanity/siteSettings.ts` (React `cache()`), which falls back
@@ -359,7 +359,7 @@ fields and inserts new `menuOrder` items beside their default neighbours).
 | `writingPage` | title, intro, featured → ref | Singleton. Posts/articles are queried, not listed. |
 | `aboutPage` | title, introHeading, intro (`proseText`), body | Singleton, "About" in the Studio. |
 | `contactPage` | title, intro | Singleton. Links live on `siteSettings`. |
-| `siteSettings` | title, byline, description, showPortrait, shareImage → ref, links, navLabels, menuOrder, galleryOrder → refs | Singleton, two tabs. `shareImage` not rendered yet. |
+| `siteSettings` | title, titleSize, byline, description, showPortrait, shareImage → ref, links, navLabels, menuOrder, galleryOrder → refs | Singleton, two tabs. `shareImage` not rendered yet. |
 | `link` | label, url | Object, for `siteSettings.links`. |
 | `postPhoto` | photo → ref, layout | Object in a body. Never add a field. |
 | `featuredPhoto` | photo → ref, gallery → ref, showPeek | Object, one front-page grid slot. |

@@ -20,6 +20,20 @@ const MENU_PAGES = [
 ]
 
 /**
+ * How large her name is at the top of every page. Five steps, `medium` the default. The `value`s
+ * are read by `type-wordmark` in `web/src/app/globals.css` (as `data-size`), which owns what each
+ * step measures — 2, 2.5, 3, 3.5 and 4rem on a computer, proportionally less on a phone. A fixed
+ * list rather than a number, so no value she can pick breaks the masthead (Rule 2).
+ */
+export const TITLE_SIZES = [
+  {title: 'Extra small', value: 'x-small'},
+  {title: 'Small', value: 'small'},
+  {title: 'Medium (standard)', value: 'medium'},
+  {title: 'Large', value: 'large'},
+  {title: 'Extra large', value: 'x-large'},
+]
+
+/**
  * The handful of things that belong to the whole site rather than one page.
  *
  * A singleton. See homePage.ts for how that is enforced.
@@ -53,6 +67,18 @@ export default defineType({
         'to the site is shared.',
       initialValue: 'Joan Lebow',
       validation: (rule) => rule.required(),
+    }),
+
+    defineField({
+      name: 'titleSize',
+      title: 'Size of your name',
+      type: 'string',
+      group: 'site',
+      description: 'How large your name is at the top of every page. Medium is the standard size.',
+      options: {list: TITLE_SIZES, layout: 'radio', direction: 'horizontal'},
+      initialValue: 'medium',
+      // Not `required()`: the document predates the field, and an unset value already means
+      // medium on the site (`SITE_SETTINGS_QUERY` coalesces it), so there is nothing to backfill.
     }),
 
     defineField({

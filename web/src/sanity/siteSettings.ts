@@ -4,10 +4,16 @@ import { SITE_FALLBACK, orderNav } from '@/content/site'
 import type { NavItem, NavLabels } from '@/content/site'
 
 import { sanityFetch } from './fetch'
+import type { SITE_SETTINGS_QUERY_RESULT } from '~~/sanity.types'
+
 import { SITE_SETTINGS_QUERY } from './queries/siteSettings'
+
+type SettingsResult = NonNullable<SITE_SETTINGS_QUERY_RESULT>
 
 export type SiteSettings = {
   title: string
+  /** How large the masthead sets her name; `type-wordmark` in globals.css owns the sizes. */
+  titleSize: SettingsResult['titleSize']
   byline: string
   description: string
   navLabels: NavLabels
@@ -50,6 +56,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   const labels = data?.navLabels
   return {
     title: data?.title || SITE_FALLBACK.title,
+    titleSize: data?.titleSize ?? 'medium',
     byline: data?.byline || SITE_FALLBACK.byline,
     description: data?.description || SITE_FALLBACK.description,
     navLabels: {

@@ -199,6 +199,7 @@ Two tabs across the top: **Site** and **Menu**.
 **Site**
 
 - **Site name** — your name, at the top left of every page.
+- **Size of your name** — how large your name is at the top of every page: Extra small, Small, Medium (the standard), Large or Extra large. It shrinks a little on phones at every size.
 - **Byline** — the line under your name at the top of every page, shown in italics exactly as you type it.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
 - **Show the illustrated portrait in the sidebar** — no longer does anything: the site has a top menu now, with no sidebar. It will be removed.

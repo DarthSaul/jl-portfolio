@@ -86,6 +86,7 @@ export type SiteSettings = {
   _updatedAt: string;
   _rev: string;
   title: string;
+  titleSize?: "x-small" | "small" | "medium" | "large" | "x-large";
   byline: string;
   description: string;
   showPortrait?: boolean;
@@ -842,9 +843,10 @@ export type FEATURED_QUERY_RESULT = {
 
 // Source: ../web/src/sanity/queries/siteSettings.ts
 // Variable: SITE_SETTINGS_QUERY
-// Query: *[_type == "siteSettings" && _id == "siteSettings"][0]{    title,    byline,    description,    showPortrait,    navLabels{ start, galleries, featured, allShots, copy, bio },    "menuOrder": menuOrder[].page  }
+// Query: *[_type == "siteSettings" && _id == "siteSettings"][0]{    title,    "titleSize": coalesce(titleSize, "medium"),    byline,    description,    showPortrait,    navLabels{ start, galleries, featured, allShots, copy, bio },    "menuOrder": menuOrder[].page  }
 export type SITE_SETTINGS_QUERY_RESULT = {
   title: string;
+  titleSize: "large" | "medium" | "small" | "x-large" | "x-small";
   byline: string;
   description: string;
   showPortrait: boolean | null;
@@ -1016,7 +1018,7 @@ declare module "@sanity/client" {
     '\n  *[_type == "photo" && _id == $photoId && excludeFromIndex != true && (count(coalesce(tags, [])) == 0 || count(tags[@->excludeFromIndex != true]) > 0)][0]{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n': PHOTO_BY_ID_QUERY_RESULT;
     '\n  *[_type == "gallery" && slug.current == $slug][0]{ \n    title,\n    description,\n    preset,\n    "photos": select(\n      count(tags[defined(@._ref)]) > 0 => coalesce(leadPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }, [])\n        + (*[_type == "photo" && references(^.tags[]._ref) && !(_id in coalesce(^.leadPhotos[]._ref, []))]\n          | order(_createdAt asc){ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }),\n      photos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n    )\n }\n': GALLERY_QUERY_RESULT;
     '\n  *[_type == "featuredPage" && _id == "featuredPage"][0]{ \n    title,\n    description,\n    preset,\n    "photos": select(\n      count(tags[defined(@._ref)]) > 0 => coalesce(leadPhotos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }, [])\n        + (*[_type == "photo" && references(^.tags[]._ref) && !(_id in coalesce(^.leadPhotos[]._ref, []))]\n          | order(_createdAt asc){ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }),\n      photos[]->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n }\n    )\n }\n': FEATURED_QUERY_RESULT;
-    '\n  *[_type == "siteSettings" && _id == "siteSettings"][0]{\n    title,\n    byline,\n    description,\n    showPortrait,\n    navLabels{ start, galleries, featured, allShots, copy, bio },\n    "menuOrder": menuOrder[].page\n  }\n': SITE_SETTINGS_QUERY_RESULT;
+    '\n  *[_type == "siteSettings" && _id == "siteSettings"][0]{\n    title,\n    "titleSize": coalesce(titleSize, "medium"),\n    byline,\n    description,\n    showPortrait,\n    navLabels{ start, galleries, featured, allShots, copy, bio },\n    "menuOrder": menuOrder[].page\n  }\n': SITE_SETTINGS_QUERY_RESULT;
     '\n  {\n    "page": *[_type == "writingPage"][0]{\n      title,\n      intro,\n      featured->{ \n  _id,\n  _type,\n  title,\n  publishedAt,\n  summary,\n  coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n  _type == "article" => { url, publication },\n  _type == "post" => { "slug": slug.current }\n }\n    },\n    "items": *[_type in ["post", "article"]] | order(publishedAt desc){\n      \n  _id,\n  _type,\n  title,\n  publishedAt,\n  summary,\n  coverPhoto->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n },\n  _type == "article" => { url, publication },\n  _type == "post" => { "slug": slug.current }\n\n    }\n  }\n': WRITING_QUERY_RESULT;
     '\n  *[_type == "post" && slug.current == $slug][0]{\n    _id,\n    title,\n    publishedAt,\n    summary,\n    body[]{\n      ...,\n      _type == "postPhoto" => { photo->{ \n  _id,\n  alt,\n  caption,\n  "asset": image.asset->{\n    url,\n    "lqip": metadata.lqip,\n    "width": metadata.dimensions.width,\n    "height": metadata.dimensions.height\n  }\n } }\n    }\n  }\n': POST_QUERY_RESULT;
     '\n  *[_type == "post" && defined(slug.current)]{ "slug": slug.current }\n': POST_SLUGS_QUERY_RESULT;

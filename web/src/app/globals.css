@@ -198,8 +198,8 @@
    * makes the showcased photo a little smaller, underestimating pushes it below the fold. Change
    * the masthead's type or padding and re-measure these.
    */
-  --spacing-masthead: 8rem; /* below md: 48px wordmark, byline, 24/16px padding */
-  --spacing-masthead-md: 9.5rem; /* md up: up to 64px wordmark, byline, 36/22px padding */
+  --spacing-masthead: 8rem; /* below md: up to ~53px wordmark (x-large), byline, 24/16px padding */
+  --spacing-masthead-md: 9.5rem; /* md up: up to 64px wordmark (x-large), byline, 36/22px padding */
 
   --container-shell: 82.5rem; /* 1320px — the mockup's container, centred */
   --container-read: 46.875rem; /* 750px — the prose measure */
@@ -241,13 +241,26 @@
 
 /* — Masthead. — */
 
-/* Her name, top left of every page. The mockup's `clamp(48px, 7vw, 96px)`, capped at 64px (2026-11). */
+/*
+ * Her name, top left of every page. The mockup's `clamp(48px, 7vw, 96px)`; now 48px on a
+ * computer at the default size (2026-11), 40px at most on a phone.
+ *
+ * She picks the size in Site settings (`siteSettings.titleSize`), passed as `data-size`. Each
+ * step scales both ends of the clamp by the same factor, so the five sizes keep their proportions
+ * at every width: on a computer 32 / 40 / 48 / 56 / 64px. An unknown or missing value is medium.
+ * `--spacing-masthead(-md)` below are estimated for the largest step.
+ */
 @utility type-wordmark {
+  --wordmark-scale: 1;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 7vw, 4rem);
+  font-size: clamp(calc(2.5rem * var(--wordmark-scale)), 7vw, calc(3rem * var(--wordmark-scale)));
   line-height: 0.95;
   letter-spacing: -0.03em;
   font-weight: 600;
+  &[data-size='x-small'] { --wordmark-scale: calc(2 / 3); }
+  &[data-size='small'] { --wordmark-scale: calc(5 / 6); }
+  &[data-size='large'] { --wordmark-scale: calc(7 / 6); }
+  &[data-size='x-large'] { --wordmark-scale: calc(4 / 3); }
 }
 
 /* The byline under her name. The one italic the design sets — a sixth property, stated here. */

@@ -10,7 +10,7 @@ colors:
   subtle: "#6B6760"     # captions, placeholder labels
   hairline: "#161616"   # rules are ink, 1px
   accent: "#9B1B30"     # burgundy-red (was the mockup's #B3261E); link hover, the active menu underline, writing eyebrows, READ MORE
-  canvas: "#FAFAF7"     # the paper
+  canvas: "#F6F2E9"     # the paper, bone white (was #FAFAF7)
   canvas-soft: "#E7E2D8"
   placeholder: "#DDD7CC"
   placeholder-alt: "#D2CBBE"

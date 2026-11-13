@@ -427,7 +427,7 @@ show.
 
 `DESIGN.md` is the spec (the approved "Homepage" mockup: Newsreader for her name, the byline and headlines, Inter for
 reading text and everything else; ink rules, off-white
-`#fafaf7` paper, one burgundy-red accent `#9b1b30`; it replaced a Wired-derived spec);
+`#f6f2e9` bone-white paper, one burgundy-red accent `#9b1b30`; it replaced a Wired-derived spec);
 `web/src/app/globals.css` is the implementation and the only place tokens are decided. **The spec
 is swappable; the layout is not** — a new spec re-skins `globals.css` and `type-*` call sites, and
 does not reopen the shell or the two rules.

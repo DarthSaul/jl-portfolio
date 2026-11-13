@@ -153,13 +153,13 @@
    * underline, the source/date line on a writing card, READ MORE on /copy. Reach for `ink`
    * first; the accent is for the small recurring thing, not a second brand colour.
    *
-   * A burgundy-red, one step darker than the mockup's #b3261e (2026-11). About 7.7:1 against
+   * A burgundy-red, one step darker than the mockup's #b3261e (2026-11). About 7.2:1 against
    * `canvas` — well past AA for small text, which matters because the eyebrow lines that use it
    * render at 12px.
    */
   --color-accent: #9b1b30;
 
-  --color-canvas: #fafaf7; /* the paper */
+  --color-canvas: #f6f2e9; /* the paper — bone white (was #fafaf7, 2026-11) */
   --color-canvas-soft: #e7e2d8; /* LQIP backdrop, placeholders behind a photo that is loading */
 
   /* Blank tiles standing in for content not wired up yet (the Instagram strip). Two, alternated. */

@@ -1,10 +1,11 @@
 import { SITE } from '@/content/site'
 
+import { SiteSocialIcon } from './SiteSocialIcon'
+
 /**
- * The footer: a 1px ink rule, the copyright on the left, and text links to Instagram, Substack
- * and email on the right — the mockup's footer. The header keeps its icon links too; these are
- * the same `SITE.social` list, spelled out, for a visitor who has scrolled past the masthead
- * (which is not sticky). The credit line follows the copyright.
+ * The footer: a 1px ink rule, the copyright and credit on the left, and three icon links —
+ * Instagram, Substack, email, from `SITE.social` — on the right. They are the site's only social
+ * links: they were in the masthead until 2026-11, and moved here so the menu ends the masthead.
  *
  * A Server Component with no data: everything here is site chrome from `content/site.ts`. It
  * renders outside `<main>` as the page's `contentinfo` landmark, inside `MainColumn`'s inert
@@ -13,8 +14,6 @@ import { SITE } from '@/content/site'
  * On /gallery/all infinite scroll pushes it down as photographs load, so it is reached only once
  * the index is exhausted. Accepted: it holds nothing a visitor needs to get to.
  */
-const FOOTER_LABEL = { instagram: 'Instagram', substack: 'Substack', mail: 'Email' } as const
-
 export function SiteFooter() {
   return (
     <footer className="print:hidden">
@@ -24,15 +23,26 @@ export function SiteFooter() {
             <p>{SITE.copyright}</p>
             <p>{SITE.credit}</p>
           </div>
-          <ul className="flex flex-wrap gap-6">
+          {/*
+            Bare glyphs rather than filled circles: a filled container on a page whose only other
+            mark is a 1px hairline reads as three buttons demanding attention. `rounded-full` is
+            kept for the focus ring's shape — one of the two `rounded-full` exceptions (the other
+            is the Instagram strip's Follow pill).
+          */}
+          <ul className="flex items-center gap-5 sm:self-start">
             {SITE.social.map(link => (
               <li key={link.href}>
+                {/*
+                  Icon-only, so `aria-label` is the only name a screen reader gets. `mail` opens a
+                  mail client rather than a tab, which is why it alone skips target/rel.
+                */}
                 <a
                   href={link.href}
+                  aria-label={link.label}
                   {...(link.icon === 'mail' ? {} : { target: '_blank', rel: 'me noopener' })}
-                  className="text-ink transition-colors hover:text-accent"
+                  className="block rounded-full text-ink transition-colors hover:text-accent"
                 >
-                  {FOOTER_LABEL[link.icon]}
+                  <SiteSocialIcon name={link.icon} className="size-5" />
                 </a>
               </li>
             ))}

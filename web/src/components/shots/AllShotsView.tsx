@@ -27,9 +27,9 @@ const EMPTY: PhotoProjection[] = []
  * things it gives up, and two of them are dealt with here:
  *
  * - **Reaching the end of the page.** Infinite scroll strands whatever sits below it, which here
- *   is the slim footer — copyright and credit only. Accepted: the social links and the menu are
- *   in the sticky header, reachable at any scroll depth, and nothing in the footer is something a
- *   visitor needs to reach.
+ *   is the footer — copyright, credit and the social icon links. Accepted: the menu is in the
+ *   masthead, and the social links are on every other page's footer; nothing here is something a
+ *   visitor can reach only from this page.
  * - **Announcing that content appeared.** A `role="status"` region reports the running count, so a
  *   screen reader hears "Showing 48 of 187 photos" instead of nothing. The Load more button below
  *   it is not decoration either: `IntersectionObserver` only fires on scroll, and a keyboard user

@@ -73,7 +73,7 @@ export const SITE = {
 	 *
 	 * FEATURED leads, then IMAGES (`galleries`), which has no `to`: it opens a dropdown, not a page.
 	 * Its items — the galleries, then ALL SHOTS — are assembled in `SiteNav`. There is no START: the wordmark is
-	 * the link home. /contact is deliberately absent — the header's icons carry contact.
+	 * the link home. /contact is deliberately absent — the footer's icons carry contact.
 	 */
 	nav: [
 		{ key: 'featured', to: '/featured' },
@@ -82,7 +82,7 @@ export const SITE = {
 		{ key: 'bio', to: '/bio' },
 	] satisfies NavItem[],
 
-	/** The header's three icon links, in the order they render. */
+	/** The footer's three icon links, in the order they render. */
 	social: [
 		{ label: 'Joan on Instagram', href: 'https://www.instagram.com/joanatstake', icon: 'instagram' },
 		{ label: 'Joan on Substack', href: 'https://substack.com/@joanatstake', icon: 'substack' },

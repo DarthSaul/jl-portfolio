@@ -5,24 +5,23 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 
-import { SITE } from '@/content/site'
 // Type-only, so erased: the server-only loader never reaches this client module.
 import type { SiteSettings } from '@/sanity/siteSettings'
 
 import { useNavDrawer } from './NavDrawerContext'
-import { SiteSocialIcon } from './SiteSocialIcon'
 
 /**
- * The site's masthead: her name and byline on the left; the menu (Featured, Images, Copy, Bio)
- * and three icon links (Instagram, Substack, email) on the right. Below `md` the menu and icons collapse into a
- * full-screen drawer behind a menu button. The copyright and credit live in `SiteFooter`.
+ * The site's masthead: her name and byline on the left; the menu (Featured, Images, Copy, Bio) on
+ * the right, its last item at the right edge. Below `md` the menu collapses into a full-screen
+ * drawer behind a menu button. The copyright, credit and the social icon links (Instagram,
+ * Substack, email — moved out of the masthead 2026-11) live in `SiteFooter`.
  *
  * It replaced `SiteSidebar`, the left-hand column the site launched with. What carried over is
  * the drawer machinery, unchanged in substance.
  *
  * ## One element, two shapes, and exactly one `<h1>`
  *
- * The **panel** — nav plus icons — is a single element in the DOM at every width: an inline row
+ * The **panel** — the nav — is a single element in the DOM at every width: an inline row
  * from `md` up, and a fixed full-screen sheet below it. Nothing is rendered conditionally on
  * width, because the server cannot know the viewport and any attempt to would be a hydration
  * mismatch rather than a layout. It also means the nav (and the `id`s inside it) exist once.
@@ -128,7 +127,7 @@ export function SiteHeader({ nav, title, titleSize, byline }: {
       nothing else subtracts a bar height — except `showcase-frame`, which opens scrolled to the
       top with the masthead above it and reads `--spacing-masthead(-md)` for that.
 
-      Her name and the byline stack on the left; the menu and icons sit bottom-right, over a 1px
+      Her name and the byline stack on the left; the menu sits bottom-right, over a 1px
       ink rule — the mockup's masthead. `items-baseline-last` (`align-items: last baseline`) puts
       the menu's text on the byline's baseline, so the byline and the menu read as one row; a
       bottom edge (`items-end`) would not, as the menu's underline padding lifts its text. Contents sit in the
@@ -200,9 +199,8 @@ export function SiteHeader({ nav, title, titleSize, byline }: {
           {/*
             The panel. Below `md` a full-screen sheet (`inset-0`) under the toggle; its top
             padding clears the masthead. From `md` up `md:static` returns it to the masthead as a
-            row, its text on the byline's baseline. The panel aligns on its last baseline so the
-            menu's text carries it outward; the icons opt out (`self-center`) — glyphs have no
-            baseline, and their box bottom would otherwise stand in for one.
+            row, its text on the byline's baseline, its last item at the right edge through the
+            masthead's `justify-between`.
           */}
           <div
             id="site-nav-panel"
@@ -211,31 +209,6 @@ export function SiteHeader({ nav, title, titleSize, byline }: {
             }`}
           >
             {nav}
-
-            {/*
-              Bare glyphs rather than filled circles: a filled container on a page whose only other
-              mark is a 1px hairline reads as three buttons demanding attention. `rounded-full` is
-              kept for the focus ring's shape — one of the two `rounded-full` exceptions (the other
-              is the Instagram strip's Follow pill).
-            */}
-            <ul className="flex items-center gap-5 md:self-center">
-              {SITE.social.map(link => (
-                <li key={link.href}>
-                  {/*
-                    Icon-only, so `aria-label` is the only name a screen reader gets. `mail` opens a
-                    mail client rather than a tab, which is why it alone skips target/rel.
-                  */}
-                  <a
-                    href={link.href}
-                    aria-label={link.label}
-                    {...(link.icon === 'mail' ? {} : { target: '_blank', rel: 'me noopener' })}
-                    className="block rounded-full text-ink transition-colors hover:text-accent"
-                  >
-                    <SiteSocialIcon name={link.icon} className="size-5" />
-                  </a>
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </div>

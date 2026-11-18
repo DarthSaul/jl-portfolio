@@ -176,7 +176,7 @@
    * `border-radius: 0.25rem`.
    *
    * `rounded-full` survives on purpose and does not read from a `--radius-*` token. Two call
-   * sites, both from the mockup: the header's social icon links (focus-ring shape) and the
+   * sites, both from the mockup: the footer's social icon links (focus-ring shape) and the
    * "Follow on Instagram" pill.
    */
   --radius: initial;

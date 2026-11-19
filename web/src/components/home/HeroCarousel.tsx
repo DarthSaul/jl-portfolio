@@ -20,7 +20,7 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
  *
  * ## Framing — RULE 2
  *
- * One fixed frame per breakpoint — the full width, its height set once for the page — so the page
+ * One fixed frame per breakpoint — the main column's full width, its height set once for the page — so the page
  * never jumps between slides, and **no crop**. Each photograph is shown whole at its own ratio, as
  * large as fits inside the frame and centred in it: one wider than the frame spans the width with
  * paper above and below, one taller spans the height with paper either side. That is a bound, not
@@ -94,12 +94,12 @@ const phoneFrame = (ratios: number[]) => Math.min(FRAME, Math.max(PHONE_CAP, Mat
 const widthShare = (ratio: number, frame: number) => Math.min(1, ratio / frame)
 
 /**
- * The frame is at most 1256px wide (1320 shell less its 32px gutters), the column from `md` and
- * the screen's width on a phone; the photograph is its share of that, which differs between the
- * two frames. Per photograph, so a portrait is not handed a file sized for the whole frame.
+ * The frame is the main column: at most 1256px wide (1320 shell less its 32px gutters), and the
+ * screen less its gutters below that (20px a side on a phone, 32px from `md`); the photograph is
+ * its share of that, which differs between the two frames. Per photograph, so a portrait is not handed a file sized for the whole frame.
  */
 const sizesFor = (share: number, phoneShare: number) =>
-  `(min-width: 1320px) ${Math.ceil(1256 * share)}px, (min-width: 48rem) ${Math.ceil(100 * share)}vw, ${Math.ceil(100 * phoneShare)}vw`
+  `(min-width: 1320px) ${Math.ceil(1256 * share)}px, (min-width: 48rem) calc((100vw - 64px) * ${share.toFixed(3)}), calc((100vw - 40px) * ${phoneShare.toFixed(3)})`
 
 export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: boolean }) {
   /*
@@ -151,10 +151,14 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
       }}
     >
-      {/* Full-bleed to the screen's edges on a phone; inside the column from `md` up. */}
+      {/*
+        Inside the main column at every width — its edges are the masthead rule's. It was
+        full-bleed on a phone until 2026-11, which ran a full-width portrait past the page's
+        margins to the screen's edges.
+      */}
       {/* `--phone-frame` is the phone's ratio (see Framing); `md` swaps in the fixed 20:9. */}
       <div
-        className="bleed relative aspect-(--phone-frame) overflow-hidden md:mx-0 md:aspect-[20/9]"
+        className="relative aspect-(--phone-frame) overflow-hidden md:aspect-[20/9]"
         style={{ '--phone-frame': phone } as CSSProperties}
       >
         {photos.map(({ _key, photo, gallery }, index) => {

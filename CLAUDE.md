@@ -339,7 +339,8 @@ fields and inserts new `menuOrder` items beside their default neighbours).
   rendered twice. It owns every drawer effect (Escape, scroll lock, close on `md` crossing and on
   navigation). `MainColumn` makes `<main>` and the footer `inert` while the drawer is open.
   `SiteFooter.tsx` (server): a rule, copyright and credit, and three icon links (Instagram,
-  Substack, email — `SITE.social`, `SiteSocialIcon`), the site's only social links. Header, `<main>` and footer share one `max-w-shell` + `main-column` box, so their edges
+  Substack, email — `SITE.social`, `SiteSocialIcon`; above the copyright below `sm`, via
+  `flex-col-reverse`), the site's only social links. Header, `<main>` and footer share one `max-w-shell` + `main-column` box, so their edges
   line up.
 - **Nothing sticks.** `--spacing-masthead` / `-md` are an *estimate* of the masthead's height,
   read only by `showcase-frame` (the showcase opens scrolled to the top, under the masthead).

@@ -82,7 +82,8 @@ No social icons — they are in the footer.
 ## Footer
 
 A rule, then the lowercase copyright on the left (14px, muted) and the three social icons —
-Instagram, Substack, email — on the right, ink, accent on hover.
+Instagram, Substack, email — on the right, ink, accent on hover. On a narrow screen, one column with the icons above the
+copyright.
 
 ## Don'ts
 

@@ -18,7 +18,12 @@ export function SiteFooter() {
   return (
     <footer className="print:hidden">
       <div className="main-column mx-auto max-w-shell">
-        <div className="type-body-sm flex flex-col gap-5 border-t border-hairline pt-7 pb-11 text-muted sm:flex-row sm:flex-wrap sm:justify-between">
+        {/*
+          One column below `sm`, icons on top: `flex-col-reverse` rather than reordering the DOM,
+          so the copyright still comes first to a screen reader and the tab order matches the
+          two-column layout. From `sm` the icons sit on the right.
+        */}
+        <div className="type-body-sm flex flex-col-reverse gap-5 border-t border-hairline pt-7 pb-11 text-muted sm:flex-row sm:flex-wrap sm:justify-between">
           <div className="flex flex-col gap-1">
             <p>{SITE.copyright}</p>
             <p>{SITE.credit}</p>

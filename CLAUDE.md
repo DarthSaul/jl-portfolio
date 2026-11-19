@@ -273,8 +273,10 @@ validates).
 - **Carousel** (`home/HeroCarousel.tsx`, client): `homePage.carouselPhotos` (`carouselPhoto[]`:
   a photo ref plus an optional gallery ref — `featuredPhoto` without `showPeek`; her order; shown
   and required in the Studio only for the carousel), each **uncropped**: fitted
-  whole and centred inside a fixed 20:9 frame at every width (a bound — paper shows beside a
-  portrait; `sizes` is per photo, by its share of the frame's width); a 700ms opacity crossfade every 4s, no pause on hover (paused only while keyboard focus is inside), no
+  whole and centred inside a fixed frame — 20:9 from `md`; below it, the tallest slide's ratio
+  capped at 4:5, so a portrait fills a phone's width (a bound — paper beside a photo narrower than
+  the frame, above and below one wider; a carousel-wide value from her photos, never per slide;
+  `sizes` is per photo, by its share of each frame's width); a 700ms opacity crossfade every 4s, no pause on hover (paused only while keyboard focus is inside), no
   autoplay under reduced motion. Slides mount when active or next, so two hero files load up
   front. `homePage.showCarouselMenu` toggles the numbered markers beneath (always shown under reduced motion, where they are the only way past slide one). `HOME_QUERY`
   dereferences `carouselPhotos` only when `heroLayout == "carousel"`; a list with no photos falls back
@@ -327,16 +329,18 @@ fields and inserts new `menuOrder` items beside their default neighbours).
   default; closes on navigation, outside click, focus leaving, Escape). The list uses
   **`hidden={!open}`, never conditional rendering**, so `aria-controls` always resolves.
 - **Chrome is a masthead (not sticky) + footer.** `SiteHeader.tsx` (client): wordmark `<h1>` with
-  `siteSettings.byline` beneath it (passed from the layout) on the left; menu then three icon links
-  (Instagram, Substack, email — `SITE.social`) bottom-right, the menu's text on the byline's
-  baseline (`items-baseline-last`; the icons opt out with `self-center`), over a 1px ink rule. Menu labels are
+  `siteSettings.byline` beneath it (passed from the layout) on the left; the menu bottom-right,
+  its last item (Bio by default) at the right edge, its text on the byline's baseline
+  (`items-baseline-last`), over a 1px ink rule. No social icons in the masthead (moved to the
+  footer 2026-11). Menu labels are
   sentence case, not uppercased; the active item has a 2px accent underline.
-  Below `md` the menu and icons are a full-screen drawer (`fixed inset-0`, the toggle raised
+  Below `md` the menu is a full-screen drawer (`fixed inset-0`, the toggle raised
   above it with `z-50` so it also closes it) — one panel element at every width, never
   rendered twice. It owns every drawer effect (Escape, scroll lock, close on `md` crossing and on
   navigation). `MainColumn` makes `<main>` and the footer `inert` while the drawer is open.
-  `SiteFooter.tsx` (server): a rule, copyright and credit, and the same `SITE.social` as text
-  links. Header, `<main>` and footer share one `max-w-shell` + `main-column` box, so their edges
+  `SiteFooter.tsx` (server): a rule, copyright and credit, and three icon links (Instagram,
+  Substack, email — `SITE.social`, `SiteSocialIcon`; above the copyright below `sm`, via
+  `flex-col-reverse`), the site's only social links. Header, `<main>` and footer share one `max-w-shell` + `main-column` box, so their edges
   line up.
 - **Nothing sticks.** `--spacing-masthead` / `-md` are an *estimate* of the masthead's height,
   read only by `showcase-frame` (the showcase opens scrolled to the top, under the masthead).
@@ -441,7 +445,7 @@ does not reopen the shell or the two rules.
   at the call site.
 - **Removing a colour token is silent** (the class emits nothing). After a palette change, grep
   old token names across `web/src`.
-- **Radius scale is none.** `rounded-full` has two exceptions: the header's social icon links and
+- **Radius scale is none.** `rounded-full` has two exceptions: the footer's social icon links and
   the Instagram strip's Follow pill. `grep -rn "rounded-" web/src` should show only those outside
   comments.
 - **Fonts are hotlinked from `fonts.gstatic.com`** (Newsreader variable with `opsz`, 400–600

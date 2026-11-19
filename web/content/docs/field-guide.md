@@ -190,7 +190,7 @@ A heading, an introduction set in larger type, and then the bio itself — writt
 
 ### Contact
 
-A short introduction in your own words. (This page isn't on the site yet.) The links at the top right of every page — Instagram, Substack and email — are set by Saul rather than in the Studio; ask him to change one.
+A short introduction in your own words. (This page isn't on the site yet.) The links at the foot of every page — Instagram, Substack and email — are set by Saul rather than in the Studio; ask him to change one.
 
 ### Site settings
 
@@ -204,7 +204,7 @@ Two tabs across the top: **Site** and **Menu**.
 - **Site description** — one sentence shown in Google results and link previews; not shown on the site itself.
 - **Show the illustrated portrait in the sidebar** — no longer does anything: the site has a top menu now, with no sidebar. It will be removed.
 - **Sharing image** — the photo that appears when someone shares a link to your site. Pick a wide one. Recommended, not required.
-- **Links** — not used by the site at the moment: the Instagram, Substack and email icons at the top right are set by Saul. Editing this list changes nothing.
+- **Links** — not used by the site at the moment: the Instagram, Substack and email icons at the foot of every page are set by Saul. Editing this list changes nothing.
 
 **Menu**
 

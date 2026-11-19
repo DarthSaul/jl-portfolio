@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 
 import { SanityPhoto } from '@/components/SanityPhoto'
 import { photoRatio } from '@/lib/photo'
@@ -19,12 +20,20 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
  *
  * ## Framing — RULE 2
  *
- * One fixed 20:9 frame at every width — the full column wide, 80% of the height a 16:9 frame had
- * (shortened 2026-11) — so the page never jumps between slides, and **no crop**. Each photograph
- * is shown whole at its own ratio, as large as fits inside the frame and centred in it: a
- * landscape wider than 20:9 spans the width with paper above and below, a 4:3 or a
- * portrait spans the height with paper either side. That is a bound, not a crop (CLAUDE.md,
- * Rule 2), so there is no `crop=` here and nothing she can lose off the edges.
+ * One fixed frame per breakpoint — the main column's full width, its height set once for the page — so the page
+ * never jumps between slides, and **no crop**. Each photograph is shown whole at its own ratio, as
+ * large as fits inside the frame and centred in it: one wider than the frame spans the width with
+ * paper above and below, one taller spans the height with paper either side. That is a bound, not
+ * a crop (CLAUDE.md, Rule 2), so there is no `crop=` here and nothing she can lose off the edges.
+ *
+ * - **From `md` up, 20:9** — 80% of the height a 16:9 frame had (shortened 2026-11).
+ * - **Below `md`, the tallest slide's own ratio, capped at 4:5** (and never wider than 20:9). A
+ *   20:9 frame on a phone is ~175px tall, which left an iPhone portrait a third of the screen
+ *   wide. Taking the frame from the tallest photograph means that photograph fills the width;
+ *   the cap keeps a 9:16 from making the frame taller than most phone screens (it gets thin paper
+ *   either side instead). The cost lands on a mixed set: its landscapes span the width with
+ *   paper above and below. It is a property of the whole carousel, computed from her photos —
+ *   never a per-slide setting, never a Studio field.
  *
  * It replaced a centred 16:9 `hero` crop (2026-11), which zoomed iPhone portraits until only the
  * middle 40% of their height survived. Nothing here — no prop, no Studio field — sets a position,
@@ -69,22 +78,28 @@ type Slide = NonNullable<HOME_QUERY_RESULT>['carouselPhotos'][number]
 
 const INTERVAL_MS = 4000
 
-/** The frame's ratio. Only the frame's — a photograph inside it keeps its own. */
+/** The frame's ratio from `md` up. Only the frame's — a photograph inside it keeps its own. */
 const FRAME = 20 / 9
 
-/**
- * How much of the frame's width a photograph fills when fitted inside it: all of it for anything
- * at least as wide as 20:9, proportionally less for anything taller.
- */
-const widthShare = (ratio: number) => Math.min(1, ratio / FRAME)
+/** The tallest the phone frame may be: 4:5. Below `md` the frame is the tallest slide, up to this. */
+const PHONE_CAP = 4 / 5
+
+/** The phone frame: the tallest (narrowest-ratio) slide's ratio, no taller than 4:5, no wider than 20:9. */
+const phoneFrame = (ratios: number[]) => Math.min(FRAME, Math.max(PHONE_CAP, Math.min(...ratios)))
 
 /**
- * The frame is at most 1256px wide (1320 shell less its 32px gutters) and the screen's width on a
- * phone; the photograph is its share of that. Per photograph, so a portrait is not handed a file
- * sized for the whole frame.
+ * How much of a frame's width a photograph fills when fitted inside it: all of it for anything
+ * at least as wide as the frame, proportionally less for anything taller.
  */
-const sizesFor = (share: number) =>
-  `(min-width: 1320px) ${Math.ceil(1256 * share)}px, ${Math.ceil(100 * share)}vw`
+const widthShare = (ratio: number, frame: number) => Math.min(1, ratio / frame)
+
+/**
+ * The frame is the main column: at most 1256px wide (1320 shell less its 32px gutters), and the
+ * screen less its gutters below that (20px a side on a phone, 32px from `md`); the photograph is
+ * its share of that, which differs between the two frames. Per photograph, so a portrait is not handed a file sized for the whole frame.
+ */
+const sizesFor = (share: number, phoneShare: number) =>
+  `(min-width: 1320px) ${Math.ceil(1256 * share)}px, (min-width: 48rem) calc((100vw - 64px) * ${share.toFixed(3)}), calc((100vw - 40px) * ${phoneShare.toFixed(3)})`
 
 export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: boolean }) {
   /*
@@ -125,6 +140,8 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
 
   if (count === 0) return null
 
+  const phone = phoneFrame(photos.map(({ photo }) => photoRatio(photo)))
+
   return (
     <section
       aria-roledescription="carousel"
@@ -134,12 +151,28 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
       }}
     >
-      {/* Full-bleed to the screen's edges on a phone; inside the column from `md` up. */}
-      <div className="bleed relative aspect-[20/9] overflow-hidden md:mx-0">
+      {/*
+        Inside the main column at every width — its edges are the masthead rule's. It was
+        full-bleed on a phone until 2026-11, which ran a full-width portrait past the page's
+        margins to the screen's edges.
+      */}
+      {/* `--phone-frame` is the phone's ratio (see Framing); `md` swaps in the fixed 20:9. */}
+      <div
+        className="relative aspect-(--phone-frame) overflow-hidden md:aspect-[20/9]"
+        style={{ '--phone-frame': phone } as CSSProperties}
+      >
         {photos.map(({ _key, photo, gallery }, index) => {
           const isActive = index === active
-          const share = widthShare(photoRatio(photo))
-          const picture = <SanityPhoto photo={photo} sizes={sizesFor(share)} priority={index === 0} />
+          const ratio = photoRatio(photo)
+          const share = widthShare(ratio, FRAME)
+          const phoneShare = widthShare(ratio, phone)
+          const picture = <SanityPhoto photo={photo} sizes={sizesFor(share, phoneShare)} priority={index === 0} />
+          // Its width in each frame, as custom properties the wrapper's two width classes read.
+          const fit = {
+            '--share': `${share * 100}%`,
+            '--phone-share': `${phoneShare * 100}%`,
+          } as CSSProperties
+          const fitClass = 'w-(--phone-share) md:w-(--share)'
           return (
             <figure
               key={_key}
@@ -152,7 +185,8 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
               }`}
             >
               {/*
-                The fit: the wrapper takes the photograph's share of the frame's width, and the
+                The fit: the wrapper takes the photograph's share of the frame's width (one share
+                per breakpoint, because the frame changes shape at `md`), and the
                 photograph's own aspect-ratio (reserved by SanityPhoto) sets the height — which by
                 construction never exceeds the frame's. The flex parent centres it both ways.
               */}
@@ -161,14 +195,14 @@ export function HeroCarousel({ slides, showMenu }: { slides: Slide[], showMenu: 
                     <Link
                       href={`/gallery/${gallery.slug}`}
                       aria-label={`${gallery.title} — see the photos`}
-                      className="group relative block"
-                      style={{ width: `${share * 100}%` }}
+                      className={`group relative block ${fitClass}`}
+                      style={fit}
                     >
                       {picture}
                       <GalleryTitleBand title={gallery.title} />
                     </Link>
                   )
-                : <div style={{ width: `${share * 100}%` }}>{picture}</div>)}
+                : <div className={fitClass} style={fit}>{picture}</div>)}
             </figure>
           )
         })}

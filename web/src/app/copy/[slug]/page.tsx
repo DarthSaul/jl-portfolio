@@ -68,7 +68,7 @@ export default async function PostPage({ params }: PageProps<'/copy/[slug]'>) {
     /*
       Left-aligned and the full main column, like every page under the top nav (it was `max-w-read`
       under the sidebar). The page shares its left edge with the wordmark and its right edge with
-      the last header icon.
+      the last menu item.
     */
     <article>
       <h2 className="type-display-lg text-ink">{post.title}</h2>

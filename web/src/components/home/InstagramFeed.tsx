@@ -24,8 +24,8 @@ import { formatDate } from '@/lib/date'
  * hidden pixels of a 4:5 post — six lazy images at the foot of the page. `no-referrer` keeps the
  * site's address out of Instagram's logs.
  *
- * The handle and address are read from `SITE.social`'s Instagram entry, so the header icon, the
- * footer link and this strip can never point at three different accounts. An async Server
+ * The handle and address are read from `SITE.social`'s Instagram entry, so the footer icon and
+ * this strip can never point at two different accounts. An async Server
  * Component.
  *
  * The Follow pill is the second `rounded-full` exception (the mockup's one rounded shape); its

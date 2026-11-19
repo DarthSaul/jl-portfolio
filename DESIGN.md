@@ -37,7 +37,7 @@ layout:
 
 rounded:
   none: 0px      # everything
-  full: 9999px   # only the header's social icon links and the "Follow on Instagram" pill
+  full: 9999px   # only the footer's social icon links and the "Follow on Instagram" pill
 ---
 
 # Joan Lebow — design
@@ -63,14 +63,16 @@ current menu item, the source/date line over a piece of writing.
 
 ## Masthead
 
-Not sticky. Wordmark over byline on the left (6px apart); the menu and three social icons on the
-right, bottom-aligned with the byline; 36px above, 22px below, then the rule. The active menu item
-has a 2px accent underline. Below `md` the menu and icons fold into a full-screen drawer.
+Not sticky. Wordmark over byline on the left (6px apart); the menu on the right, its last item
+(Bio) at the right edge, bottom-aligned with the byline; 36px above, 22px below, then the rule. The
+active menu item has a 2px accent underline. Below `md` the menu folds into a full-screen drawer.
+No social icons — they are in the footer.
 
 ## Front page, top to bottom
 
 1. **Hero** — her choice in the Studio: the square photo grid, or the carousel (one large picture
-   at a time, shown whole inside a 20:9 frame — never cropped — a 700ms crossfade every four seconds, optional thin numbered markers beneath
+   at a time, shown whole inside a 20:9 frame — on a phone, the tallest photo's own shape up to
+   4:5 — never cropped — a 700ms crossfade every four seconds, optional thin numbered markers beneath
    whose active bar fills with the accent).
 2. **Featured writing** — band heading with "All copy →" on the right over a rule; three cards,
    each cover, eyebrow (source · date, accent), headline, summary, "Read more →".
@@ -79,8 +81,9 @@ has a 2px accent underline. Below `md` the menu and icons fold into a full-scree
 
 ## Footer
 
-A rule, then the lowercase copyright on the left and Instagram / Substack / Email as text links on
-the right, 14px, muted.
+A rule, then the lowercase copyright on the left (14px, muted) and the three social icons —
+Instagram, Substack, email — on the right, ink, accent on hover. On a narrow screen, one column with the icons above the
+copyright.
 
 ## Don'ts
 
